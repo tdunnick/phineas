@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tp:CollaborationProtocolAgreement
+	tp:cpaid="uri:phmsg-cdc-ssl" tp:version="1.2"
+	xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:tp="http://www.ebxml.org/namespaces/tradePartner/"
+	xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2000/10/XMLSchema-instance"
+	xsi:schemaLocation="http://www.ebxml.org/namespaces/tradePartner http://ebxml.org/project_teams/trade_partner/cpp-cpa-v1_0.xsd">
+
+<!-- LabCorp -->
+
+<tp:Status tp:value="proposed"/> 
+<tp:Start>2001-05-20T07:21:00Z</tp:Start> 
+<tp:End>2002-05-20T07:21:00Z</tp:End> 
+<tp:ConversationConstraints tp:concurrentConversations="100" tp:invocationLimit="100"/> 
+
+<tp:PartyInfo>
+
+  <tp:PartyId tp:type="zz">2.16.840.1.114222.4.3.2.2.1.232.1</tp:PartyId> 
+  <tp:PartyRef xlink:href="http://www.cdc.gov/about.html" xlink:type="simple"/> 
+
+  <tp:Transport tp:transportId="N35">
+  	<tp:SendingProtocol tp:version="1.1"> </tp:SendingProtocol> 
+	<tp:ReceivingProtocol tp:version="1.1"> </tp:ReceivingProtocol> 
+	<tp:Endpoint tp:type="allPurpose" tp:uri="phmsg.cdc.gov/evalebxml/receivefile"/>
+  	<tp:TransportSecurity>
+	    <tp:Protocol> </tp:Protocol> 
+	    <tp:CertificateRef> </tp:CertificateRef>
+	    <tp:authenticationType> </tp:authenticationType>
+	    <!-- basic, custom, sdn, clientcert -->
+	    <tp:basicAuth>
+		<tp:indexPage> </tp:indexPage>
+		<tp:basicAuthUser> </tp:basicAuthUser>
+		<tp:basicAuthPasswd> </tp:basicAuthPasswd>
+	    </tp:basicAuth>
+       </tp:TransportSecurity>
+</tp:Transport>
+
+</tp:PartyInfo>
+
+<tp:PartyInfo>
+
+  <tp:PartyId tp:type="zz">2.16.840.1.114222.4.3.2.2.3.567.1</tp:PartyId> 
+  <tp:PartyRef xlink:href="http://www.cdc.gov/about.html" xlink:type="simple"/> 
+
+  <tp:Transport tp:transportId="N35">
+  	<tp:SendingProtocol tp:version="1.1"> </tp:SendingProtocol> 
+	<tp:ReceivingProtocol tp:version="1.1"> </tp:ReceivingProtocol> 
+	<tp:Endpoint tp:type="allPurpose" tp:uri="phineas.slh.wisc.edu:443/receiver/receivefile"/>
+  	<tp:TransportSecurity>
+	    <tp:Protocol>HTTPS</tp:Protocol> 
+	    <tp:CertificateRef> </tp:CertificateRef>
+	    <tp:authenticationType>clientcert</tp:authenticationType>
+	    <!-- basic, custom, sdn, clientcert -->
+	    <tp:basicAuth>
+		<tp:indexPage> </tp:indexPage>
+		<tp:basicAuthUser> </tp:basicAuthUser>
+		<tp:basicAuthPasswd> </tp:basicAuthPasswd>
+	    </tp:basicAuth>
+	    <tp:customAuth>
+		<tp:customLoginPage> </tp:customLoginPage>
+		<tp:publicParams> </tp:publicParams>
+		<tp:secretParams> </tp:secretParams>
+	    </tp:customAuth>
+	    <tp:netegrityAuth>
+		<tp:sdnPassword> </tp:sdnPassword>
+		<tp:sdnLoginPage> </tp:sdnLoginPage>
+		<tp:keyStore> </tp:keyStore>
+		<tp:keyStorePasswd> </tp:keyStorePasswd>
+	    </tp:netegrityAuth>
+	    <tp:clientCertAuth>
+		<tp:keyStore></tp:keyStore>
+		<tp:keyStorePasswd>CPA_keyStorePasswd118</tp:keyStorePasswd>
+	    </tp:clientCertAuth>
+      </tp:TransportSecurity>
+</tp:Transport>
+
+</tp:PartyInfo>
+
+<tp:Comment xml:lang="en-us">send/receive agreement between cdc and messaging partner</tp:Comment> 
+
+</tp:CollaborationProtocolAgreement>

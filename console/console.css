@@ -1,0 +1,66 @@
+body { background:#008; }
+table#nav { width: 100%; background:#008; color:white; }
+table#nav img { border:transparent; width:48; }
+div#console { 
+  background:#ddd; 
+	color: black; 
+	border: double; 
+	padding:15; 
+	overflow: hidden;
+	}
+tr.selected { font-weight: bold; }
+/*
+iframe { width:100%; height:100%; overflow:visible; }
+*/
+
+div.configlayout {
+	width: 99%;
+	margin:0 0 20px 0;
+	/* border: 1px solid #888; */
+}
+
+ul.configlayout {
+  width: 100%;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	float: left;
+	background-image: url(images/border.gif);
+	background-position: bottom;
+	background-repeat: repeat-x;
+}
+
+ul.configlayout li {
+	margin: 0 0 0 0;
+	float: left;
+	background: #ccc;
+}
+
+ul.configlayout li a {
+  border: 1px solid #888;
+	float: left;
+	display: block;
+	padding: 4px 8px;
+	color: #000;
+	text-decoration: none;
+	font-weight: bold;
+}
+
+ul.configlayout li a:hover {
+	background: #ddd;
+	outline: 0;
+}
+
+ul.configlayout li a.active {
+	cursor: default;
+	border-bottom: 1px solid #ddd;
+	background: #ddd;
+	color: #00f;
+}
+
+.tabs-container {
+  clear: left;
+	border: #888 1px solid;
+	border-top: 0;
+	padding: 25px 10px 0 10px;
+}

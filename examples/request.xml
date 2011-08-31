@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<soap-env:Envelope xmlns:SOAP="http://schemas.xmlsoap.org/soap/envelope/" xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd" xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/soap/envelope/ http://www.oasis-open.org/committees/ebxml-msg/schema/envelope.xsd">
+  <soap-env:Header>
+    <eb:MessageHeader eb:version="2.0" soap-env:mustUnderstand="1">
+      <eb:From>
+        <eb:PartyId eb:type="zz">slhw0008</eb:PartyId>
+      </eb:From>
+      <eb:To>
+        <eb:PartyId eb:type="zz">SLHW0224</eb:PartyId>
+      </eb:To>
+      <eb:CPAId>self</eb:CPAId>
+      <eb:ConversationId>1290456661217</eb:ConversationId>
+      <eb:Service eb:type="string">defaultservice</eb:Service>
+      <eb:Action>defaultaction</eb:Action>
+      <eb:MessageData>
+        <eb:MessageId>1290456661217@phineas.us</eb:MessageId>
+        <eb:Timestamp>2010-11-22T14:11:01</eb:Timestamp>
+      </eb:MessageData>
+    </eb:MessageHeader>
+    <eb:AckRequested eb:signed="false" eb:version="2.0" soap-env:actor="urn:oasis:names:tc:ebxml-msg:actor:toPartyMSH" soap-env:mustUnderstand="1">
+    </eb:AckRequested>
+  </soap-env:Header>
+  <soap-env:Body>
+    <eb:Manifest eb:version="2.0">
+      <eb:Reference xlink:href="cid:tests/test/AllTests.java@phineas.us" xlink:type="simple">
+      </eb:Reference>
+      <MetaData xmlns="http://www.cdc.gov/manifest/databaseinfo" soap-env:mustUnderstand="0">
+        <DatabaseInfo soap-env:mustUnderstand="0">
+          <RecordId soap-env:mustUnderstand="0">fake.database.91</RecordId>
+          <MessageId>FAKEPOLLER_9998</MessageId>
+          <Arguments/>
+          <MessageRecipient/>
+        </DatabaseInfo>
+      </MetaData>
+      <ResponseChunking xmlns="http://www.cdc.gov/manifest/responsechunking" soap-env:mustUnderstand="0">
+      </ResponseChunking>
+      <PeerVersion xmlns="http://www.cdc.gov/manifest/databaseinfo">PHINEAS 0.1</PeerVersion>
+    </eb:Manifest>
+  </soap-env:Body>
+</soap-env:Envelope>

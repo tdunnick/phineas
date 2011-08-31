@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2011 Thomas L Dunnick
+ 
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+ 
+  Boiler plate with some trivial setups for a Phineas installation.
+  Put a copy of this in the same folder as the Phineas binary and
+  modify it for your own configuration.
+-->
+<Phineas>
+  <!--
+    Common data shared by all parts of PHINEAS...
+  -->
+  <!-- where we live -->
+  <InstallDirectory></InstallDirectory>
+  <!-- our party ID -->
+  <PartyId></PartyId>
+  <!-- our organization -->
+  <Organization></Organization>
+  <!-- EbXML template for the SOAP component of a message -->
+  <SoapTemplate>templates/soap.xml</SoapTemplate>
+  <!-- ebXML template for SOAP acknowledgment -->
+  <AckTemplate>templates/ack.xml</AckTemplate>
+  <!-- ebXML template for responses -->
+  <ResponseTemplate>templates/response.xml</ResponseTemplate>
+  <!-- EbXML template for the encrypted payload component of a message -->
+  <EncryptionTemplate>templates/encryption.xml</EncryptionTemplate>
+  <!-- CPA template -->
+  <CPATemplate>templates/cpa.xml</CPATemplate>
+  <!-- CPA folder -->
+  <CpaDirectory>cpa/</CpaDirectory>
+  <!--a directory to temporarily stash files -->
+  <TempDirectory>tmp/</TempDirectory>
+  <!-- logging -->
+  <LogFile>logs/phineas.log</LogFile>
+  <LogLevel>info</LogLevel>
+  <!-- stand-alone service related -->
+  <Server>
+    <!-- the non-SSL port we listen on -->
+    <Port>4080</Port>
+    <!-- the SSL port and certificates -->
+    <SSL>
+      <Port>4443</Port>
+      <CertFile>security/sslcert.pfx</CertFile>
+      <KeyFile>security/sslcert.pfx</KeyFile>
+      <Password>123456</Password>
+      <AuthFile></AuthFile>
+    </SSL>
+    <!-- number of threads/concurrent connections our server will have -->
+    <NumThreads>5</NumThreads>
+  </Server>
+  <!-- console features -->
+  <Console>
+    <!-- the URL we expect -->
+    <Url>/phineas/console</Url>
+    <!-- the path to the console files -->
+    <Root>console</Root>
+  </Console>
+  <!--
+    Phineas Queues are shared by all apps.  Each one minimally has
+    an int record ID as it's first field, followed by one or more VARCHAR
+    fields which are identified in the queue Type.
+    
+    The Type identifies the fields expected in the record, and those names
+    should correspond to those in the queue (database)
+  -->
+  <QueueInfo>
+    <!--
+      for queue types, the field id is used internally, and the field value
+      should match the field label in the data row
+    -->
+    <Type>
+      <Name>EbXmlSndQ</Name>
+      <Field id="RECORDID">RECORDID</Field>
+      <Field id="MESSAGEID">MESSAGEID</Field>
+      <Field id="PAYLOADFILE">PAYLOADFILE</Field>
+      <Field id="DESTINATIONFILENAME">DESTINATIONFILENAME</Field>
+      <Field id="ROUTEINFO">ROUTEINFO</Field>
+      <Field id="SERVICE">SERVICE</Field>
+      <Field id="ACTION">ACTION</Field>
+      <Field id="ARGUMENTS">ARGUMENTS</Field>
+      <Field id="MESSAGERECEIPIENT">MESSAGERECEIPIENT</Field>
+      <Field id="MESSAGECREATIONTIME">MESSAGECREATIONTIME</Field>
+      <Field id="ENCRYPTION">ENCRYPTION</Field>
+      <Field id="SIGNATURE">SIGNATURE</Field>
+      <Field id="PUBLICKEYLDAPADDRESS">PUBLICKEYLDAPADDRESS</Field>
+      <Field id="PUBLICKEYLDAPBASEDN">PUBLICKEYLDAPBASEDN</Field>
+      <Field id="PUBLICKEYLDAPDN">PUBLICKEYLDAPDN</Field>
+      <Field id="CERTIFICATEURL">CERTIFICATEURL</Field>
+      <Field id="PROCESSINGSTATUS">PROCESSINGSTATUS</Field>
+      <Field id="TRANSPORTSTATUS">TRANSPORTSTATUS</Field>
+      <Field id="TRANSPORTERRORCODE">TRANSPORTERRORCODE</Field>
+      <Field id="APPLICATIONSTATUS">APPLICATIONSTATUS</Field>
+      <Field id="APPLICATIONERRORCODE">APPLICATIONERRORCODE</Field>
+      <Field id="APPLICATIONRESPONSE">APPLICATIONRESPONSE</Field>
+      <Field id="MESSAGESENTTIME">MESSAGESENTTIME</Field>
+      <Field id="MESSAGERECEIVEDTIME">MESSAGERECEIVEDTIME</Field>
+      <Field id="RESPONSEMESSAGEID">RESPONSEMESSAGEID</Field>
+      <Field id="RESPONSEARGUMENTS">RESPONSEARGUMENTS</Field>
+      <Field id="RESPONSELOCALFILE">RESPONSELOCALFILE</Field>
+      <Field id="RESPONSEFILENAME">RESPONSEFILENAME</Field>
+      <Field id="RESPONSEMESSAGEORIGIN">RESPONSEMESSAGEORIGIN</Field>
+      <Field id="RESPONSEMESSAGESIGNATURE">RESPONSEMESSAGESIGNATURE</Field>
+      <Field id="PRIORITY">PRIORITY</Field>
+    </Type>
+    <Type>
+      <Name>EbXmlRcvQ</Name>
+      <Field id="RECORDID">RECORDID</Field>
+      <Field id="MESSAGEID">MESSAGEID</Field>
+      <Field id="PAYLOADNAME">PAYLOADNAME</Field>
+      <Field id="LOCALFILENAME">LOCALFILENAME</Field>
+      <Field id="SERVICE">SERVICE</Field>
+      <Field id="ACTION">ACTION</Field>
+      <Field id="ARGUMENTS">ARGUMENTS</Field>
+      <Field id="FROMPARTYID">FROMPARTYID</Field>
+      <Field id="MESSAGERECIPIENT">MESSAGERECIPIENT</Field>
+      <Field id="ERRORCODE">ERRORCODE</Field>
+      <Field id="ERRORMESSAGE">ERRORMESSAGE</Field>
+      <Field id="PROCESSINGSTATUS">PROCESSINGSTATUS</Field>
+      <Field id="APPLICATIONSTATUS">APPLICATIONSTATUS</Field>
+      <Field id="ENCRYPTION">ENCRYPTION</Field>
+      <Field id="RECEIVEDTIME">RECEIVEDTIME</Field>
+      <Field id="LASTUPDATETIME">LASTUPDATETIME</Field>
+      <Field id="PROCESSID">PROCESSID</Field>
+    </Type>
+    <!-- queue (dB) connection information -->
+    <Connection>
+      <Name>FileQueue</Name>
+      <Id/>
+      <Password/>
+      <Unc>queues/</Unc>
+      <Driver/>
+    </Connection>
+    <!-- and the queues themselves -->
+    <Queue>
+      <Name>MemSendQ</Name>
+      <CacheSize>50</CacheSize>
+      <Type>EbXmlSndQ</Type>
+      <Connection>FileQueue</Connection>
+      <Table>TransportQ</Table>
+    </Queue>
+    <Queue>
+      <Name>MemReceiveQ</Name>
+      <CacheSize>30</CacheSize>
+      <Type>EbXmlRcvQ</Type>
+      <Connection>FileQueue</Connection>
+      <Table>ReceiveQ</Table>
+    </Queue>
+  </QueueInfo>
+  <!--The sender's configuration-->
+  <Sender>
+    <!--second between map, queue, or other polling-->
+    <PollInterval>5</PollInterval>
+    <!--maximum number of sender threads-->
+    <MaxThreads>3</MaxThreads>
+    <!--certificate authority-->
+    <CertificateAuthority>security/sslcert.ca</CertificateAuthority>
+    <!--maximum number of send retries-->
+    <MaxRetry>2</MaxRetry>
+    <!--starting delay for retry in seconds-->
+    <DelayRetry>1</DelayRetry>
+    <!--Routes indicated EbXML end points for the sender-->
+    <RouteInfo>
+      <Route>
+        <Name>loopback</Name>
+        <PartyId></PartyId>
+        <Cpa>loopback</Cpa>
+        <Host>localhost</Host>
+        <Path>/phineas/receiver/receivefile</Path>
+        <Port>4080</Port>
+        <Protocol>http</Protocol>
+        <Timeout>30</Timeout>
+	<Retry>5</Retry>
+	<!-- set when client authentication is used -->
+        <Authentication>
+          <Type/>
+          <Id/>
+          <Password/>
+          <Unc/>
+        </Authentication>
+      </Route>
+    </RouteInfo>
+    <!--
+      Maps direct processing of sender files.  Each map can have it's own
+      processor.  The archtype is for EbXML payload queueing, but virtually
+      anything can be done as long as candidate files from Folder are 
+      consumed.
+    -->
+    <MapInfo>
+      <Map>
+        <Name>loopback</Name>
+        <Processor>ebxml</Processor>
+        <Filter></Filter>
+	<Folder>data/ebxml/outgoing</Folder>
+        <!-- the rest is processor specific, for EbXmlMapProcessor... -->
+	<Processed>data/ebxml/processed</Processed>
+	<Acknowledged>data/ebxml/ack</Acknowledged>
+        <Route>loopback</Route>
+        <Service>defaultservice</Service>
+        <Action>defaultaction</Action>
+        <Arguments></Arguments>
+        <Recipient></Recipient>
+	<!-- application specific encryption... -->
+        <Encryption>
+          <Type></Type>
+          <Id/>
+          <Password/>
+          <Unc></Unc>
+        </Encryption>
+        <Queue>MemSendQ</Queue>
+      </Map>
+    </MapInfo>
+  </Sender>
+  <!-- 
+    the receiver's configuration...
+  -->
+  <Receiver>
+    <!-- the url the receiver responds to -->
+    <Url>/phineas/receiver/receivefile</Url>
+    <!--
+      ebXML Service maps determine how incoming requests get handled
+    -->
+    <MapInfo>
+      <Map>
+	<Name>Default</Name>
+	<Directory>data/ebxml/incoming/</Directory>
+        <Filter/>
+	<Service>defaultservice</Service>
+	<Action>defaultaction</Action>
+	<Arguments></Arguments>
+        <Encryption>
+	  <Type>clientcert</Type>
+          <Id/>
+	  <Password>changeit</Password>
+	  <Unc>security/phineas.pfx</Unc>
+        </Encryption>
+	<Queue>MemReceiveQ</Queue>
+      </Map>
+    </MapInfo>
+  </Receiver>
+</Phineas>

@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title>
+      Phineas Help
+    </title>
+  </head>
+  <body>
+    <center>
+      <h1>
+        Phineas Help
+      </h1>
+    </center>
+    <h3>
+      Introduction
+    </h3><b>Phineas</b> is a CDC <b>PHINMS</b> ebXML compatible
+    transport system with hooks for syncronous message
+    processing. If that seems like an archane bunch of
+    gibberish... well it probably is. So think about it this way.
+    You have data files. You want to automate file delivery from
+    one place to another. You want to simply put a file into a
+    folder and have it magically appear in a specific folder
+    somewhere else in the big bad internet. That's what
+    <b>Phineas</b> does, but with guaruteed delivery, auditing,
+    logging, security, and full HIPAA compliance.<br>
+    <br>
+    <hr>
+    <h3>
+      Navigation
+    </h3>If you made it this far, you must be running the
+    <b>Phineas</b> console. You'll notice a bunch of icons at the
+    top. Click on these to get various functions of the console.
+    The following lists possible activities.<br>
+    <br>
+    <table summary="Phineas navigation">
+      <tr>
+        <td>
+          <img src="images/queue.ico" alt="show queues">
+        </td>
+        <td>
+          Show the Queues. <b>Phineas</b> tracks all transport
+          activity in what are called queues. Basically these are
+          tables with information about each file sent or
+          received. The entries are color coded so that you can
+          easily see issues. By selecting a record you get a
+          detailed report below the queue list.
+        </td>
+      </tr>
+     <tr>
+        <td>
+          <img src="images/ping.ico" alt="ping route">
+        </td>
+        <td>
+          Send an ebXML "Ping" to selected route. Use this to
+          test route connectivity and connectivity.
+        </td>
+      </tr>
+      <tr>
+        <td width='80'>
+          <img src="images/log.ico" alt="show logging">
+        </td>
+        <td>
+          Show the log. The amount and type of information found
+          in the log will vary depending on the Log Level. Beware
+          that if <b>Phineas</b> has been running a long time,
+          this log could be quite large!
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <img src="images/loop.ico" alt="show configuration">
+        </td>
+        <td>
+          Show the configuration. <b>Phineas</b> is configured
+          using a single XML configuration file. The current
+          running configuration is shown. This may be different
+          than the configuration being edited.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <img src="images/build.ico" alt="edit configuration">
+        </td>
+        <td>
+          Edit Configuration. This is a set of forms that you can
+          use to modify a <b>Phineas</b> configuration, or export
+          a CPA. Configuration parameter are documented below.
+        </td>
+      </tr>
+       <tr>
+        <td>
+          <img src="images/print.ico" alt="print screen">
+        </td>
+        <td>
+          Print the console contents (not yet implemented).
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <img src="images/refresh.ico" alt="refresh screen">
+        </td>
+        <td>
+          Refresh the console and return it to the default
+          function.
+        </td>
+      </tr><!--
+<tr>
+<td><img src="images/delete.ico" alt="delete record"></td>
+<td>Delete selected item (not yet implemented).</td>
+</tr>
+-->
+      <tr>
+        <td>
+          <img src="images/help.ico" alt="provide help">
+        </td>
+        <td>
+          This help
+        </td>
+      </tr>
+    </table><br>
+    <br>
+    <hr>
+    <br>
+    <br>
+    <h3>
+      Configuration
+    </h3>While Phineas doesn't (yet) have as many configuration
+    parameters as PHINMS, there is still plenty of stuff to
+    tweak. The good news is that generally speaking you won't
+    have to touch much (or any) of it. In fact it's very possible
+    to generate a Phineas distribution that doesn't allow (easy)
+    modification of the configuration.
+  </body>
+</html>

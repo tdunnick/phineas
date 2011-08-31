@@ -1,0 +1,88 @@
+Content-Length: 5643
+Host: localhost:80
+Connection: Keep-Alive
+Content-Type: multipart/related; type="text/xml"; boundary="1312030256812"; start="ebxml-envelope@shrek.eau.wi.charter.com"
+SOAPAction: "ebXML"
+
+--1312030256812
+Content-ID: <ebxml-envelope@shrek.eau.wi.charter.com>
+Content-Type: text/xml
+
+<soap-env:Envelope xmlns:SOAP="http://schemas.xmlsoap.org/soap/envelope/" xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd" xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/soap/envelope/ http://www.oasis-open.org/committees/ebxml-msg/schema/envelope.xsd">
+  <soap-env:Header>
+    <eb:MessageHeader soap-env:mustUnderstand="1" eb:version="2.0">
+      <eb:From>
+        <eb:PartyId eb:type="zz">phinms270sp1</eb:PartyId>
+      </eb:From>
+      <eb:To>
+        <eb:PartyId eb:type="zz">phineas</eb:PartyId>
+      </eb:To>
+      <eb:CPAId>phineas.phinms270sp1</eb:CPAId>
+      <eb:ConversationId>1312030256625</eb:ConversationId>
+      <eb:Service eb:type="string">defaultservice</eb:Service>
+      <eb:Action>defaultaction</eb:Action>
+      <eb:MessageData>
+        <eb:MessageId>1312030256656@shrek.eau.wi.charter.com</eb:MessageId>
+        <eb:Timestamp>2011-07-30T07:50:56</eb:Timestamp>
+      </eb:MessageData>
+    </eb:MessageHeader>
+    <eb:SyncReply soap-env:actor="http://schemas.xmlsoap.org/soap/actor/next" soap-env:mustUnderstand="1" eb:version="2.0"/>
+  </soap-env:Header>
+  <soap-env:Body>
+    <eb:Manifest eb:version="2.0">
+      <eb:Reference xlink:href="cid:test1.dat.1312030251609@shrek.eau.wi.charter.com" xlink:type="simple"/>
+      <MetaData xmlns="http://www.cdc.gov/manifest/databaseinfo" soap-env:mustUnderstand="0">
+        <DatabaseInfo soap-env:mustUnderstand="0">
+          <RecordId soap-env:mustUnderstand="0">1058</RecordId>
+          <MessageId>FOLDERPOLLING-b5d39d3f4eddccb4772ff4083d8cf960fe3645c51312030251687</MessageId>
+          <Arguments>test arguments</Arguments>
+          <MessageRecipient>test recipient</MessageRecipient>
+        </DatabaseInfo>
+      </MetaData>
+      <ResponseChunking xmlns="http://www.cdc.gov/manifest/responsechunking" soap-env:mustUnderstand="0"/>
+      <PeerVersion xmlns="http://www.cdc.gov/manifest/databaseinfo">2.7.00</PeerVersion>
+    </eb:Manifest>
+  </soap-env:Body>
+</soap-env:Envelope>
+
+--1312030256812
+Content-ID: <test1.dat.1312030251609@shrek.eau.wi.charter.com>
+Content-Type: text/xml
+Content-Disposition: attachment; name="test1.dat.1312030251609"
+
+<EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Id="ed1" Type="http://www.w3.org/2001/04/xmlenc#Element">
+  <EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/>
+  <KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
+    <EncryptedKey xmlns="http://www.w3.org/2001/04/xmlenc#">
+      <EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-1_5"/>
+      <KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
+        <KeyName>EMAILADDRESS=tdunnick@wisc.edu, OU=Phineas Project, ST=Wisconsin, L=Madison, C=US, O=Phineas Health, CN=Phineas App
+lication</KeyName>
+      </KeyInfo>
+      <CipherData>
+        <CipherValue>11njHvLPhmqZF3ccwaqum6HLHmmkOelU9kuomJIxedBog20i49nXr9yts+Supd0gED26QE0Phy9L8n3FIDFWbl9u33NoQs6uhdZQ8GZFt11HNHs
+ZgpgLq6nyjUkF2mhCcFcYwIX4eRLQyZ/gKcdavMARlThD5jmlsS6njADD0/ll1fu51pPunfmwY+U12Swpsqj3SJL8d/mQiI+eFqa2C/3g11tBhFzCwdbLKcljvZaHdpg4cAg
+mZN9upOasd+u4XJMfdZcqkLRL9jwtYcdtN9Bi8jfczstogCbxPFMoW9O+LTaR92JUZtES7CPUaYV1ygYlmj9zFtIEmyRVPrsmOg==</CipherValue>
+      </CipherData>
+    </EncryptedKey>
+  </KeyInfo>
+  <CipherData>
+    <CipherValue>PkK6GIZIjK/cnYIyTmrkeR7EWYZH6/r8Ii5CNNpMldf5mFUnC9BSKFi9UEsN+a82taM3BRC7Ds/EsbJgxY4PIlD+j0maQGRQqI4TGvDhXNqY7qTkKjN
+5HCDjrKLjfJ+USP2a6EzqStY+v3M37EKYY9YyvSvtTRfCZ+JITitbMo/44pAtHEIxDwgd2QNio+vl8NDBfMYtyqF7JWiCE5wOncCjWWNYSqAZQI/c9p7+1MAy3M4NJfbq1rx
+m/7o6a2dufYJZFMPcOUi2MEIvYit9Dl7ARvJEDOhxBSHCotDdIZY3iPEelRbrvsE392aC/m3vNZFj6gjEpkz9cZVCDUiULE76Akj3hak9T79Uxa0DamQyEGs3dRIi8fgJYuO
+LBM8CpuSKXl/ZN3Ots4utED/rWcvbyCXOJ27bYE/qaqIgilOEmP+rkKb4A62xr+9C5EH6K66lNwou6Rdod2ucU5eXh7PzYHL+9COZa5UBUzfT85VynsULgGOd60Mped97pkv
+olhrt/zYV1qjmmfP2Q2bHFgMAiAJ36LCNy1cnwxTp1dFpzU7iGV4P3kle91oPtZHbJhTpzdjMggDr6CcomXUy0acxdT8fZeSeB2UcI9RRNjO82b+zvGN6sBsNlwfbeGnGxZQ
+CbiXUsU+rHpU+z7wW/KS008wgz40eABqY5kok4ZbRCGJByH6UEFwdigh9c5XmGcUtrV83/4XYaRojrTvb0OyGUz4+SEcbUQu8+MtGVFZDeUb4K19Auk7K5YVhVq8bR28uZq1
+r1gA54V/gfMy/sBnOy4CRn3tgRcp723U1sEPBWbRo+P6PDN5obxlwqWtc4IBS1g014b7oRgOMiusV+PO+OIQeHba26FyXlTCzuAAsOirRCsQglZXQudTDlosQcTqTe5+UphR
+KCAqFhsvLfwSTIp6Xoj5li75nVosyHKgq9V2IfAZsg+7xHtyhQmJZz4CcmL5KDOtMLnLHh56TzfqmQLyABRGvpHHHefyeGRCh1OjlSUzWqri9WFMOm8gzUOIY8qltb8Qc5uJ
+IRr+Nq0SuItlfSKShL9ValrqOAcsMZKIiH/Hu9ZT7Wtox0Uwsu6qbT7kuuZt5R5MFovhLRD0s9QUM5hvMlEV0lzK2kSbmfyVu7IDSbqGsoppUEM/Aoqv1SK6c2a9z129Ptlk
+OVdvvb6ERX5z/ua1xtWFslemfjGJ62+58N/PI70jueWQDKp9+Pe8c7IH916QvxZmA1ExAI2q71aArbis2U5R8GicO+/3xU660oR0SCXhH5DoEvnvnMM998TU0bi9n3Jca6Iw
+7cYg3SzCa107cv3LbH1r9my2NhWzwtSISS7ZUbH0t6tElW6FnSIdNPmmqDCQ9y4TG9VD8Wx9JZV6CcfARUQMUK1PiMZJV9fxSCYiyX75+QhHhAJ2LbKHOwiIaYjoN4XgaB4n
+idl3nF7fx+l1zfryZR7Qk1f2YwWK8JYcD4m952AzCwZC/EbG+LTx5pBrhRuREKGq6lmjF/CXGJF1ZDATOH8/9N7dqTCrVa6V4J4+asxYXsHCyv9d3Z/T/1VXMFvfp0yITU0A
+XYYBIEzSmlipKFSTqmQBvbLDRHc4oxcDxhbfYvyfJtK1j++QSf44m++0YOH73idQAfwrm3nFlMEzzU005JUEP7f50GVV87MThbTQMWF+HF2M1V0nPm4cu2ZSZnjsaNAnKsI4
+9NFtuUqxkAzARi6PurGMiUZ+UcPSG4NTy0d4UG6V9W0suFk4dDNuC54pwMW/lCc5Ap4JhrGLxxIkRiNDqmwbqhip6Oe9m1rk1yCQRyTyW7FyW6hGjd7Ju4Fz2KQmAAjGGvzJ
+D8FTDsJdZdv18To5NjJlSSrHLEps9qSsspuhVH0R3QOVe1v/K2Y7OMd3wmJWEspHbdgKfg4djsfHVlea7PpLbQDub</CipherValue>
+  </CipherData>
+</EncryptedData>
+
+--1312030256812--
