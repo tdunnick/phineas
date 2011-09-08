@@ -317,7 +317,7 @@ QUEUEROW *fileq_transport (QUEUE *q, FILEQ *c)
       ch++;
     }
     // debug ("i=%d/%d ch=%.8s\n", i, f, ch == NULL ? "NULL" : ch);
-    if ((ch != NULL) && !strncmp (ch, "queued", 6))
+    if ((ch != NULL) && strstarts (ch, "queued"))
     {
       r = atoi (buf);			/* check if current	*/
       if ((r < c->offset) || 		/* off front end	*/

@@ -807,7 +807,7 @@ DBUF *console_doPost (XML *xml, char *req)
 DBUF *console_response (XML *xml, char *req)
 {
   debug ("console response\n");
-  if (strncmp (req, "POST ", 5) == 0)
+  if (strstarts (req, "POST "))
     return (console_doPost (xml, req));
   else
     return (console_doGet (xml, req));

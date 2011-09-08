@@ -38,16 +38,26 @@ char *stralloc (char *old, char *new)
  */
 char *strnstr (char *haystack, char *needle, int len)
 {
-  char *ch;
-  int l = strlen (needle);
-
   while (len--)
   {
-    if (strncmp (haystack, needle, l) == 0)
+    if (strstarts (haystack, needle))
       return (haystack);
     haystack++;
   }
   return (NULL);
+}
+
+/*
+ * return true if string starts with prefix
+ */
+int strstarts (char *s, char *prefix)
+{
+  while (*prefix)
+  {
+    if (*s++ != *prefix++)
+      return (0);
+  }
+  return (1);
 }
 
 /*

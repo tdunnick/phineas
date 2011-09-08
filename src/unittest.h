@@ -79,6 +79,7 @@ char PhineasConfig[] =
 "  <Console>\n"
 "    <Url>/phineas/console</Url>\n"
 "    <Root>console</Root>\n"
+"    <Config>config.xml</Config>\n"
 "  </Console>\n"
 "<!-- The sender's configuration -->\n"
 "<Sender>\n"

@@ -37,14 +37,30 @@
 #define debug(fmt...)
 #endif
 
+/*
+ * utility function for getting route data
+ */
 char *cpa_route_get (XML *xml, int route, char *tag)
 {
-  char path[MAX_PATH];
-
-  sprintf (path, "Phineas.Sender.RouteInfo.Route[%d].%s", route, tag);
-  return (xml_get_text (xml, path));
+  return (xml_getf (xml, "Phineas.Sender.RouteInfo.Route[%d].%s", 
+    route, tag));
 }
 
+/*
+ * convert route name to number
+ */
+int cpa_route (XML *xml, char *name)
+{
+  int i, n;
+
+  n = xml_count (xml, "Phineas.Sender.RouteInfo.Route");
+  for (i = 0; i < n; i++)
+  {
+    if (strcmp (cpa_route_get (xml, i, "Name"), name) == 0)
+      return (i);
+  }
+  return (-1);
+}
 
 /*
  * Create a CPA for a new route and install it.
@@ -54,7 +70,9 @@ int cpa_create (XML *xml, int route)
   XML *cpa;
   char buf[MAX_PATH];
 
-  pathf (buf, "%s", xml_get_text (xml, "Phineas.CPATemplate"));
+  if (route < 0)
+    return (-1);
+  pathf (buf, "%s", xml_get_text (xml, "Phineas.CpaTemplate"));
   debug ("loading template %s\n", buf);
   if ((cpa = xml_load (buf)) == NULL)
   {

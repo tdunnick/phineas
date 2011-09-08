@@ -134,6 +134,8 @@ char *xml_trim (char *value)
  */
 XML *xml_free (XML *xml)
 {
+  if (xml == NULL)
+    return (NULL);
   xml_node_free (xml->doc);
   free (xml);
   return (NULL);

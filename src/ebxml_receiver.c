@@ -510,7 +510,7 @@ char *ebxml_process_req (XML *xml, char *buf)
   else if (strstr (ch, MIME_OCTET) != NULL)
   {
     if (((ch = mime_getHeader (part, MIME_ENCODING)) != NULL)
-      && (strncmp (ch, "base64\r\n", 8) == 0))
+      && (strstarts (ch, "base64\r\n")))
     {
       /*
        * base64 decode payload

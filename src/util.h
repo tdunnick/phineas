@@ -25,6 +25,7 @@
 
 char *stralloc (char *old, char *new);
 char *strnstr (char *haystack, char *needle, int len);
+int strstarts (char *s, char *prefix);
 char *ptime (time_t *t, char *buf);
 char *ppid (char *buf);
 char *basename (char *path);

@@ -14,11 +14,11 @@ SET BIN=%~dp0bin\
 REM shared sources
 SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
   crypt.c log.c queue.c fileq.c filter.c ebxml.c ^
-  cpa.c console.c config.c
+  cpa.c console.c config.c server.c
 
 REM sender and receiver specific sources
 SET SSRC=find.c fpoller.c qpoller.c ebxml_sender.c
-SET RSRC=ebxml_receiver.c server.c
+SET RSRC=ebxml_receiver.c 
 
 REM build targets
 IF "%1" == "sender" CALL :sender
@@ -36,19 +36,20 @@ GOTO :eof
 REM build a sender
 :sender
 SET TARGET=phineass
-SET BLD=-DSENDER -DSERVER %SRC% %SSRC% main.c icon.o 
+SET BLD=-DSENDER -DSERVER -DCONSOLE %SRC% %SSRC% main.c icon.o 
 GOTO :build
 
 REM build a receiver
 :receiver
 SET TARGET=phineasr
-SET BLD=-DRECEIVER -DSERVER %SRC% %RSRC% main.c icon.o
+SET BLD=-DRECEIVER -DSERVER -DCONSOLE %SRC% %RSRC% main.c icon.o
 GOTO :build
 
 REM build a tranceiver
 :phineas
 SET TARGET=phineas
-SET BLD=-DRECEIVER -DSENDER -DSERVER %SRC% %SSRC% %RSRC% main.c icon.o
+SET BLD=-DRECEIVER -DSENDER -DSERVER -DCONSOLE %SRC% %SSRC% %RSRC% ^
+  main.c icon.o
 GOTO :build
 
 REM build cpa generator

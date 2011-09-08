@@ -53,7 +53,7 @@ function Yetii()
 
       if ((i + 1) == number)
       {
-			  this.links[i].blur();
+			  this.links[i].blur(); // tld - added to remove browser "active" outlines
         this.addClass(this.links[i], this.defaults.activeclass);
         this.addClass(this.listitems[i], this.defaults.activeclass + 'li');
       }

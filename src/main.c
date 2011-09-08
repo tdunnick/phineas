@@ -26,16 +26,18 @@
 #include "qpoller.h"
 #include "ebxml.h"
 
+#define VERSION " 0.1b 09/07/2011"
+
 #ifdef SENDER
 #ifdef RECEIVER
-char Software[] = "PHINEAS 0.1 08/15/2001";
+char Software[] = "PHINEAS" VERSION;
 #else /* just SENDER */
-char Software[] = "PHINEAS Sender 0.1 08/15/2001";
+char Software[] = "PHINEAS Sender" VERSION;
 #endif /* RECEIVER and SENDER */
 #elif RECEIVER
-char Software[] = "PHINEAS Receiver 0.1 08/15/2001";
+char Software[] = "PHINEAS Receiver" VERSION;
 #else /* WTF? */
-char Software[] = "PHINEAS 0.1 08/15/2001";
+char Software[] = "PHINEAS" VERSION;
 #endif /* SENDER */
 
 #define PHINEAS_RUNNING 0
@@ -121,8 +123,8 @@ int phineas_start (int argc, char **argv)
   };
   queue_register ("FileQueue", fileq_connect);
   Taskq = task_allocq (3, 1000);
-#ifdef RECEIVER
-  debug ("initializing receiver\n");
+#ifdef SERVER
+  debug ("initializing server\n");
   task_add (Taskq, server_task, Config);
 #endif
 #ifdef SENDER

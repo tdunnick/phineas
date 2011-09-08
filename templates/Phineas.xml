@@ -25,9 +25,9 @@
   <!-- where we live -->
   <InstallDirectory></InstallDirectory>
   <!-- our party ID -->
-  <PartyId></PartyId>
+  <PartyId>my.party.id</PartyId>
   <!-- our organization -->
-  <Organization></Organization>
+  <Organization>my organization name</Organization>
   <!-- EbXML template for the SOAP component of a message -->
   <SoapTemplate>templates/soap.xml</SoapTemplate>
   <!-- ebXML template for SOAP acknowledgment -->
@@ -58,7 +58,7 @@
       <AuthFile></AuthFile>
     </SSL>
     <!-- number of threads/concurrent connections our server will have -->
-    <NumThreads>5</NumThreads>
+    <NumThreads>15</NumThreads>
   </Server>
   <!-- console features -->
   <Console>
@@ -66,6 +66,8 @@
     <Url>/phineas/console</Url>
     <!-- the path to the console files -->
     <Root>console</Root>
+    <!-- configuration edit parameters -->
+    <Config>console/config.xml</Config>
   </Console>
   <!--
     Phineas Queues are shared by all apps.  Each one minimally has
@@ -182,6 +184,7 @@
         <Protocol>http</Protocol>
         <Timeout>30</Timeout>
 	<Retry>5</Retry>
+	<Queue>MemSendQ</Queue>
 	<!-- set when client authentication is used -->
         <Authentication>
           <Type/>

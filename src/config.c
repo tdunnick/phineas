@@ -19,6 +19,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define DEBUG
+
 #ifdef UNITTEST
 #undef UNITTEST
 #define SERVER
@@ -46,20 +48,21 @@ extern char ConfigName[];
 #endif
 
 /*
+ * these tag names are magic
+ */
+char REQUEST[] = "ConfigurationRequest",
+     CONFIG[] = "Configuration.File.Name",
+     EXPORT[] = "Export.CPA",
+     SAVE[] = "Save.Configuration",
+     LOAD[] = "Load.Configuration",
+     UPDATE[] = "Update.Configuration";
+
+/*
  * current configuration in edit
  */
 char EditConfig[MAX_PATH] = "";
-
-/*
- * tag types
- */
-#define TAG_TEXT 1
-#define TAG_PASSWD 2
-#define TAG_FILE 3
-#define TAG_DIR 4
-#define TAG_REF 5
-#define TAG_OPT 6
-#define TAG_FIELD 7
+XML *EditXml = NULL;
+XML *ConfigXml = NULL;
 
 /*
  * default tag widths
@@ -70,194 +73,51 @@ char EditConfig[MAX_PATH] = "";
 #define PASS_WIDTH 14
 
 /*
- * tags select option lists
+ * tag types
  */
-char *OptProto[] = { "", "http", "https", NULL };
-char *OptLogLevel[] = { "debug", "info", "warn", "error", "none", NULL };
-char *OptAuth[] = { "", "basic", "custom", "sdn", "certificate", NULL };
-char *OptProcessor[] = { "", "ebxml", NULL };
-char *OptEncryption[] = { "", "certificate", "LDAP", NULL };
-/*
- * lists of xml configuration tags used
- */
+#define TAG_TEXT 0
+#define TAG_DIR 1
+#define TAG_FILE 2
+#define TAG_SELECT 3
+#define TAG_RADIO 4
+#define TAG_PASSWD 5
+#define TAG_SUBMIT 6
 
-typedef struct
-{
-  char *tag;
-  char type, width;
-  void *ref;
-} CTAG;
+// most options for a list
+#define MAXOPT 50
 
-CTAG GeneralTags[] =
-{
-  { "InstallDirectory", TAG_DIR, DIR_WIDTH, NULL },
-  { "PartyId", TAG_TEXT, 24, NULL },
-  { "Organization", TAG_TEXT, 44, NULL },
-  { "SoapTemplate", TAG_FILE, FILE_WIDTH, NULL },
-  { "EncryptionTemplate", TAG_FILE, FILE_WIDTH, NULL },
-  { "CPATemplate", TAG_FILE, FILE_WIDTH, NULL },
-  { "CpaDirectory", TAG_DIR, DIR_WIDTH, NULL },
-  { "TempDirectory", TAG_DIR, DIR_WIDTH, NULL },
-  { "LogFile", TAG_FILE, FILE_WIDTH, NULL },
-  { "LogLevel", TAG_OPT, 10, OptLogLevel },
-#ifdef SERVER
-  { "Server.Port", TAG_TEXT, 4, NULL },
-  { "Server.NumThreads", TAG_TEXT, 4, NULL },
-#endif
-  { "Console.Url", TAG_TEXT, 44, NULL },
-  { "Console.Root", TAG_TEXT, 44, NULL },
-#ifdef RECEIVER
-  { "Receiver.Url", TAG_TEXT, 44, NULL },
-#endif
-  { NULL, 0, 0, NULL }
-};
-
-#ifdef SERVER
-CTAG SSLTags[] =
-{
-  { "Port", TAG_TEXT, 4, NULL },
-  { "CertFile", TAG_FILE, FILE_WIDTH, NULL },
-  { "KeyFile", TAG_FILE, FILE_WIDTH, NULL },
-  { "Password", TAG_PASSWD, PASS_WIDTH, NULL },
-  { "AuthFile", TAG_FILE, FILE_WIDTH, NULL },
-  { NULL, 0, 0, NULL }
-};
-#endif
-
-CTAG QTypeTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "Field", TAG_FIELD, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-CTAG ConnectionTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "Id", TAG_TEXT, 24, NULL },
-  { "Password", TAG_PASSWD, PASS_WIDTH, NULL },
-  { "Unc", TAG_TEXT, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-CTAG QueueTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "Type", TAG_REF, 24, "Phineas.QueueInfo.Type" },
-  { "Connection", TAG_REF, 24, "Phineas.QueueInfo.Connection" },
-  { "Table", TAG_TEXT, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-#ifdef SENDER
-CTAG SenderTags[] =
-{
-  { "PollInterval", TAG_TEXT, 24, NULL },
-  { "MaxThreads", TAG_TEXT, 24, NULL },
-  { "CertificateAuthority", TAG_FILE, FILE_WIDTH, NULL },
-  { "MaxRetry", TAG_TEXT, 24, NULL },
-  { "DelayRetry", TAG_TEXT, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-CTAG RouteTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "PartyId", TAG_TEXT, 24, NULL },
-  { "Cpa", TAG_TEXT, 24, NULL },
-  { "Host", TAG_TEXT, 24, NULL },
-  { "Path", TAG_TEXT, 24, NULL },
-  { "Port", TAG_TEXT, 24, NULL },
-  { "Protocol", TAG_OPT, 24, OptProto },
-  { "Timeout", TAG_TEXT, 24, NULL },
-  { "Retry", TAG_TEXT, 24, NULL },
-  { "Authentication.Type", TAG_OPT, 24, OptAuth },
-  { "Authentication.Id", TAG_TEXT, 24, NULL },
-  { "Authentication.Password", TAG_PASSWD, PASS_WIDTH, NULL },
-  { "Authentication.Unc", TAG_TEXT, 24, NULL },
-  { "Queue", TAG_REF, 24, "Phineas.QueueInfo.Queue" },
- { NULL, 0, 0, NULL }
-};
-
-CTAG MapTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "Queue", TAG_REF, 24, "Phineas.QueueInfo.Queue" },
-  { "Processor", TAG_OPT, 24, OptProcessor },
-  { "Filter", TAG_TEXT, 24, NULL },
-  { "Folder", TAG_DIR, DIR_WIDTH, NULL },
-  { "Processed", TAG_DIR, DIR_WIDTH, NULL },
-  { "Acknowledged", TAG_DIR, DIR_WIDTH, NULL },
-  { "Route", TAG_REF, 24, "Phineas.Sender.RouteInfo.Route" },
-  { "Service", TAG_TEXT, 24, NULL },
-  { "Action", TAG_TEXT, 24, NULL },
-  { "Arguments", TAG_TEXT, 24, NULL },
-  { "Recipient", TAG_TEXT, 24, NULL },
-  { "Encryption.Type", TAG_OPT, 24, OptEncryption },
-  { "Encryption.Id", TAG_TEXT, 24, NULL },
-  { "Encryption.Password", TAG_TEXT, 24, NULL },
-  { "Encryption.Unc", TAG_TEXT, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-#endif
-
-#ifdef RECEIVER
-CTAG ServiceTags[] =
-{
-  { "Name", TAG_TEXT, 24, NULL },
-  { "Directory", TAG_DIR, DIR_WIDTH, NULL },
-  { "Queue", TAG_REF, 24, "Phineas.QueueInfo.Queue" },
-  { "Filter", TAG_TEXT, 24, NULL },
-  { "Cpa", TAG_TEXT, 24, NULL },
-  { "Service", TAG_TEXT, 24, NULL },
-  { "Action", TAG_TEXT, 24, NULL },
-  { "Arguments", TAG_TEXT, 80, NULL },
-  { "Encryption.Type", TAG_OPT, 24, OptEncryption },
-  { "Encryption.Id", TAG_TEXT, 24, NULL },
-  { "Encryption.Password", TAG_TEXT, 24, NULL },
-  { "Encryption.Unc", TAG_TEXT, 24, NULL },
-  { NULL, 0, 0, NULL }
-};
-
-#endif
-
-struct
-{
-  char *name;
-  char *prefix;
-  CTAG *tags;
-  int repeats;
-} Tabs[] =
-{
-  { "General", "Phineas", GeneralTags, 0 },
-#ifdef SERVER
-  { "SSL", "Phineas.Server.SSL", SSLTags, 0 },
-#endif
-#ifdef RECEIVER
-  { "Services", "Phineas.Receiver.MapInfo.Map", ServiceTags, 1 },
-#endif
-#ifdef SENDER
-  { "Sender", "Phineas.Sender", SenderTags, 0 },
-  { "Routes", "Phineas.Sender.RouteInfo.Route", RouteTags, 1 },
-  { "Maps", "Phineas.Sender.MapInfo.Map", MapTags, 1 },
-#endif
-  { "Q Types", "Phineas.QueueInfo.Type", QTypeTags, 1 },
-  { "Connections", "Phineas.QueueInfo.Connection", ConnectionTags, 1 },
-  { "Queues", "Phineas.QueueInfo.Queue", QueueTags, 1 },
-  { NULL, NULL }
-};
-
-/*
- * construct a select list from a tab separated list of values
- */
-
-int config_select (char *name, char *path, char *val, char **list, DBUF *b)
+int config_inputtype (char *pre, int input)
 {
   char *ch;
 
-  dbuf_printf (b, "<tr><td>%s</td><td><select size='1' name='%s'>\n",
-    name, path);
+  ch = xml_getf (ConfigXml, "%s.Input[%d].Type", pre, input);
+  // debug ("%s.Input[%d].Type=%s\n", pre, input, ch);
+  if (strcmp (ch, "text") == 0)
+    return (TAG_TEXT);
+  if (strcmp (ch, "dir") == 0)
+    return (TAG_DIR);
+  if (strcmp (ch, "file") == 0)
+    return (TAG_FILE);
+  if (strcmp (ch, "select") == 0)
+    return (TAG_SELECT);
+  if (strcmp (ch, "password") == 0)
+    return (TAG_PASSWD);
+  if (strcmp (ch, "radio") == 0)
+    return (TAG_RADIO);
+  if (strcmp (ch, "submit") == 0)
+    return (TAG_SUBMIT);
+  return (TAG_TEXT);
+}
+
+/*
+ * construct a select input from a list of values
+ */
+
+int config_select (char *name, char *val, char **list, DBUF *b)
+{
+  char *ch;
+
+  dbuf_printf (b, "<select size='1' name='%s'>\n", name);
   while (*list != NULL)
   {
     dbuf_printf (b, "<option %svalue='%s'>%s</option>\n",
@@ -265,193 +125,437 @@ int config_select (char *name, char *path, char *val, char **list, DBUF *b)
       **list ? *list : "(none selected)");
     list++;
   }
-  dbuf_printf (b, "</select></td></tr>\n");
+  dbuf_printf (b, "</select>\n");
   return (0);
 }
 
 /*
- * return select list of references
+ * construct a radio input from a list of values
  */
-int config_reference (XML *xml, char *name, char *path,
-  char *value, char *tag, DBUF *b)
+int config_radio (char *name, char *val, char **list, DBUF *b)
 {
-  int i, n;
-  char p[MAX_PATH];
-  char *list[100];
+  int i;
 
-  debug ("referencing %s\n", tag);
-  n = xml_count (xml, tag);
-  debug ("%d options referenced\n", n);
-  if (n > 100)
-    error ("too many %s tags for configuration\n", tag);
-  list[0] = "";
-  for (i = 0; i < n; i++)
+  for (i = 0; list[i] != NULL; i++)
   {
-    sprintf (p, "%s[%d].Name", tag, i);
-    list[i + 1] = xml_get_text (xml, p);
-    debug ("got %s for %s\n", list[i + 1], p);
+    dbuf_printf (b, 
+      "<input type='radio' name='%s' value='%s' %s/> %s<br>\n",
+      name, list[i], strcmp (val, list[i]) ? "" : "checked", list[i]);
   }
-  list[i + 1] = NULL;
-  debug ("selecting for %s\n", value);
-  return (config_select (name, path, value, list, b));
+  return (0);
 }
 
 /*
- * add all the rows for each (repeated) tag to the form
+ * create a list of option or references for a tag
  */
-int config_getRows (XML *xml, char *prefix, CTAG *tag, int new, DBUF *b)
+int config_list (XML *xml, char *configpre, int tag, char **list)
 {
-  int l, i, n;
   char *ch,
+       *ref,
+       path[MAX_PATH];
+  int i, n, nopt;
+
+  n = 0;
+  ref = xml_getf (ConfigXml, "%s.Input[%d].Ref", configpre, tag);
+  if (*ref)
+  {
+    nopt = xml_count (xml, ref);
+    for (i = 0; i < nopt; i++)
+    {
+      ch = xml_getf (xml, "%s[%d].Name", ref, i);
+      if (*ch && (n < MAXOPT))
+	list[n++] = ch;
+    }
+  }
+  else
+  {
+    sprintf (path, "%s.Input[%d].Option", configpre, tag);
+    nopt = xml_count (ConfigXml, path);
+    for (i = 0; i < nopt; i++)
+    {
+      ch = xml_getf (ConfigXml, "%s.Input[%d].Option[%d]", 
+	configpre, tag, i);
+      if (n < MAXOPT)
+	list[n++] = ch;
+    }
+  }
+  list[n] = NULL;
+  return (n);
+}
+
+char *config_prompt (char *dst, char *src)
+{
+  char *p;
+
+  p = dst;
+  while (*src)
+  {
+    if ((*p = *src++) == '.')
+      *p = ' ';
+    p++;
+  }
+  *p = 0;
+  return (dst);
+}
+
+/*
+ * build a form input for this tag
+ */
+int config_getInput (XML *xml, char *configpre, int input, 
+  char *path, char *name, DBUF *b)
+{
+  int sz, width;
+  char *value, 
+       prompt[MAX_PATH],
+       *list[MAXOPT];
+
+  // get the default value
+  if (strstarts (path, "Phineas."))
+    value = xml_get_text (xml, path);
+  else if (strcmp (name, CONFIG) == 0)
+    value = EditConfig;
+  else
+    value = "";
+  config_prompt (prompt, name);
+  if (*path == 0)
+    path = name;
+  // debug ("input path=%s prompt=%s value=%s\n", path, prompt, value);
+
+  sz = dbuf_size (b);
+  dbuf_printf (b, "<tr><td valign='top'>%s</td><td>", prompt);
+  width = 24;
+  switch (config_inputtype (configpre, input))
+  {
+    case TAG_SUBMIT:
+      dbuf_setsize (b, sz);
+      dbuf_printf (b, "<tr><td colspan='2'>"
+	"<button type='button' name='%s' value='%s'"
+	"onClick='setRequest (this, \"%s\")'>"
+	"%s</button>", name, prompt, path, prompt);
+      break;
+    case TAG_SELECT :
+      if (config_list (xml, configpre, input, list))
+        config_select (path, value, list, b);
+      break;
+    case TAG_RADIO :
+      if (config_list (xml, configpre, input, list))
+        config_radio (path, value, list, b);
+      break;
+    case TAG_PASSWD :
+      dbuf_printf (b, "<input type='password' name='%s' value='%s' "
+        "size='%d'/>", path, value, PASS_WIDTH);
+      break;
+    case TAG_FILE :
+      width = FILE_WIDTH;
+      goto istext;
+    case TAG_DIR :
+      width = DIR_WIDTH;
+      goto istext;
+    case TAG_TEXT :
+      width = atoi (xml_getf (ConfigXml, "%s.Input[%d].Width", 
+	configpre, input));
+      goto istext;
+    default :
+istext:
+      dbuf_printf (b, "<input type='text' name='%s' value='%s' "
+        "size='%d'/>", path, value, width);
+      break;
+  }
+  dbuf_printf (b, "</td></tr>\n");
+  return (0);
+}
+
+/*
+ * get inputs for a repeated field
+ */
+int config_getRepeats (XML *xml, char *configpre, int input,
+  char *path, char *name, DBUF *b)
+{
+  int i,
+      repeats,
+      path_len,
+      name_len;
+
+  if ((repeats = xml_count (xml, path)) == 0)
+    repeats = 1;
+  path_len = strlen (path);
+  name_len = strlen (name);
+  for (i = 0; i < repeats; i++)
+  {
+    if (path_len)
+      sprintf (path + path_len, "[%d]", i);
+    sprintf (name + name_len, " %d", i + 1);
+    config_getInput (xml, configpre, input, path, name, b);
+  }
+  name[name_len] = 0;
+  path[path_len] = 0;
+  dbuf_printf (b, "<tr><td><button type='button' "
+    "name='%s' onClick='addfield(this)'>"
+    "Add %s</button></td><td></td></tr>", name, name);
+  return (0);
+}
+
+/*
+ * add a table of inputs for a (possibly repeated) tab
+ */
+int config_getTable (XML *xml, char *configpre, int index, DBUF *b)
+{
+  int t, num_inputs;
+  char *suffix,
+       *prefix,
        name[MAX_PATH],
        path[MAX_PATH];
 
-  if (xml == NULL)
-  {
-    error ("NULL configuration\n");
-    return (-1);
-  }
-  debug ("prefix %s\n", prefix);
+  prefix = xml_getf (ConfigXml, "%s.Prefix", configpre);
+  sprintf (path, "%s.Input", configpre);
+  num_inputs = xml_count (ConfigXml, path);
+  debug ("adding %d inputs for %s prefix=%s\n", num_inputs, path, prefix);
   dbuf_printf (b, "<table border=0 summary='%s'>\n", prefix);
-  while (tag->tag != NULL)
+  for (t = 0; t < num_inputs; t++)
   {
-    l = sprintf (path, "%s.%s", prefix, tag->tag);
-    debug ("path %s\n", path);
-    if ((n = xml_count (xml, path)) == 0)
-      n = 1;
-    debug ("getting %d values for %s\n", n, path);
-    for (i = 0; i < n; i++)
+    suffix = xml_getf (ConfigXml, "%s.Input[%d].Suffix", configpre, t);
+    if (*prefix && *suffix)
     {
-      if ((n > 1) || (tag->type == TAG_FIELD))
-      {
-        sprintf (path + l, "[%d]", i);
-	sprintf (name, "%s %d ", tag->tag, i + 1);
-      }
+      if (index)
+        sprintf (path, "%s[%d].%s", prefix, index, suffix);
       else
-      {
-	strcpy (name, tag->tag);
-      }
-      for (ch = strchr (name, '.'); ch != NULL; ch = strchr (ch, '.'))
-	*ch++ = ' ';
-      if (new || ((ch = xml_get_text (xml, path)) == NULL))
-	ch = "";
-      switch (tag->type)
-      {
-        case TAG_REF :
-	  config_reference (xml, name, path, ch, tag->ref, b);
-	  break;
-        case TAG_OPT :
-	  config_select (name, path, ch, tag->ref, b);
-	  break;
-	case TAG_PASSWD :
-          dbuf_printf (b, "<tr><td>%s</td><td><input type='password'"
-            "name='%s' value='%s' size='%d'/></td></tr>\n",
-	    name, path, ch, tag->width);
-	  break;
-	case TAG_FIELD :
-        case TAG_FILE :
-	case TAG_TEXT :
-	default :
-          dbuf_printf (b, "<tr><td>%s</td><td><input type='text'"
-            "name='%s' value='%s' size='%d'/></td></tr>\n",
-	    name, path, ch, tag->width);
-	  break;
-      }
-    }				/* end for each repeated field	*/
-    if (tag->type == TAG_FIELD)	/* button to add field		*/
-    {
-      dbuf_printf (b, "<tr><td><button type='button' "
-	"onClick='addfield(this)'>"
-        "Add Field</button></td><td></td></tr>");
+	sprintf (path, "%s.%s", prefix, suffix);
     }
-    tag++;
-  }				/* end for each tag		*/
+    else
+    {
+      *path = 0;
+    }
+    strcpy (name, xml_getf (ConfigXml, "%s.Input[%d].Name", configpre, t));
+    if (*name == 0)
+      strcpy (name, suffix);
+    // debug ("path=%s name=%s\n", path, name);
+    if (!strcmp (xml_getf (ConfigXml, "%s.Input[%d].Repeats", 
+      configpre, t), "true"))
+    {
+      config_getRepeats (xml, configpre, t, path, name, b);
+    }
+    else
+    {
+      config_getInput (xml, configpre, t, path, name, b);
+    }
+  }				/* end for each input tag	*/
   dbuf_printf (b, "</table>\n");
   return (0);
 }
 
 /*
- * add tabs for all repeated prefixes
+ * build a unique id suffix for a configuration prefix
  */
-int config_getTabs (XML *xml, int t, DBUF *b)
+char *config_id (char *id, char *configpre)
+{
+  char *ch, *p;
+
+  p = id;
+  ch = configpre;
+  while ((ch = strchr (ch, '[')) != NULL)
+  {
+    *p++ = '_';
+    while (*++ch != ']')
+      *p++ = *ch;
+  }
+  *p = 0;
+  return (id);
+}
+
+/*
+ * add tab contents.  Creates subtabs when repeats 
+ */
+int config_getContents (XML *xml, char *configpre, DBUF *b)
 {
   int l, i, n;
-  char *prefix,
-       *ch,
+  char *ch, *prefix,
+       id[20],
        path[MAX_PATH];
-  CTAG *tags;
 
   debug ("getting prefix and tags...\n");
-  prefix = Tabs[t].prefix;
-  tags = Tabs[t].tags;
-  if (!Tabs[t].repeats)
+  if (strcmp (xml_getf (ConfigXml, "%s.Repeats", configpre), "true"))
   {
     debug ("non-repeated tags...\n");
-    return (config_getRows (xml, prefix, tags, 0, b));
+    return (config_getTable (xml, configpre, 0, b));
   }
+  config_id (id, configpre);
+  // get the configuration data prefix
+  prefix = xml_getf (ConfigXml, "%s.Prefix", configpre);
+  // and count number of repeated entries
   n = xml_count (xml, prefix);
-  // start a new tab
-  dbuf_printf (b, "<div id='cfg%d' class='configlayout' >\n"
-    "<ul id='cfg%d-nav' class='configlayout' >\n", t, t);
-  // add the tabs
+  // start a new tab list
+  dbuf_printf (b, "<div id='configform%s' class='configlayout' >\n"
+    "<ul id='configform%s-nav' class='configlayout' >\n", id, id);
+  // add the tabs using the first tag for this prefix
   for (i = 0; i < n; i++)
   {
-    sprintf (path, "%s[%d].%s", prefix, i, tags->tag);
-    ch = xml_get_text (xml, path);
+    ch = xml_getf (xml, "%s[%d].%s", prefix, i, 
+      xml_getf (ConfigXml, "%s.Input[0].Suffix", configpre));
     if (*ch == 0)
       ch = "(not named)";
-    dbuf_printf (b, "<li><a href='#tag%d%d'>%s</a></li>\n", t, i + 1, ch);
+    dbuf_printf (b, "<li><a href='#tag%s_%d'>%s</a></li>\n", id, i + 1, ch);
   }
-  dbuf_printf (b, "<li><a href='#tag%d%d'>NEW</a></li>\n"
+  dbuf_printf (b, "<li><a href='#tag%s_%d'>NEW</a></li>\n"
     "</ul><div class='tabs-container'>",
-    t, i + 1);
+    id, i + 1);
   // add the form items
-  for (i = 0; i < n; i++)
+  for (i = 0; i <= n; i++)
   {
-    sprintf (path, "%s[%d].%s", prefix, i, tags->tag);
-    ch = xml_get_text (xml, path);
-    if (*ch == 0)
-      ch = "(not named)";
-    dbuf_printf (b, "<div class='tab%d' id='tag%d%d'>\n", t, t, i + 1);
-    sprintf (path, "%s[%d]", prefix, i);
-    config_getRows (xml, path, tags, 0, b);
+    dbuf_printf (b, "<div class='tab%s' id='tag%s_%d'>\n", id, id, i + 1);
+    config_getTable (xml, configpre, i, b);
     dbuf_printf (b, "</div>\n");
   }
-  sprintf (path, "%s[%d]", prefix, i);
-  dbuf_printf (b, "<div class='tab%d' id='tag%d%d'>\n", t, t, i + 1);
-  config_getRows (xml, path, tags, 1, b);
-  dbuf_printf (b, "</div>\n");
   dbuf_printf (b, "</div></div>\n"
     "<script type='text/javascript'>\n"
-    "var tabber%d = new Yetii({ id: 'cfg%d', tabclass: 'tab%d', "
-    "persist: true });\n</script>\n", t, t, t);
+    "var tabber%s = new Yetii({ id: 'configform%s', tabclass: 'tab%s', "
+    "persist: true });\n</script>\n", id, id, id);
   return (0);
 }
 
 /*
- * add select and submit buttons for CPA generation
+ * get all the tabs for current config prefix
  */
-int config_selectCpa (XML *xml, DBUF *b)
+config_getTabs (XML *xml, char *configpre, DBUF *b)
 {
-  int i, n, l;
-  char *ch, path[MAX_PATH];
+  int i, n;
+  char id[20], prefix[MAX_PATH];
 
-  l = sprintf (path,  "Phineas.Sender.RouteInfo.Route");
-  n = xml_count (xml, path);
-  if (n < 1)
-    return (0);
-  dbuf_printf (b, "<h3>CPA Routes</h3>");
+  config_id (id, configpre);
+
+  debug ("creating navigation...\n");
+
+  dbuf_printf (b, "<div id='configform%s' class='configlayout' >\n"
+    "<ul id='configform%s-nav' class='configlayout' >\n", id, id);
+  sprintf (prefix, "%s.Tab", configpre);
+  n = xml_count (ConfigXml, prefix);
   for (i = 0; i < n; i++)
   {
-    sprintf (path + l, "[%d].Name", i);
-    ch = xml_get_text (xml, path);
-    if (*ch == 0)
-      continue;
-    dbuf_printf (b,
-      "<input type='radio' name='cpa' value='%d' /> %s<br>\n", i, ch);
+    dbuf_printf (b, "<li><a href='#tab%s_%d'>%s</a></li>\n",
+      id, i + 1, xml_getf (ConfigXml, "%s[%d].Name", prefix, i));
   }
-  dbuf_printf (b, "<br><br>"
-      "<input type='submit' name='submit' value='Export CPA Route' />\n");
+  dbuf_printf (b, "</ul><div class='tabs-container'>\n");
+
+  debug ("adding tabs...\n");
+  for (i = 0; i < n; i++)
+  {
+    dbuf_printf (b, "<div class='tab' id='tab%s_%d'>\n", id, i);
+    sprintf (prefix, "%s.Tab[%d]", configpre, i);
+    config_getContents (xml, prefix, b);
+    dbuf_printf (b, "</div>\n");
+  }
+  dbuf_printf (b,
+    "</div></div>\n<script type='text/javascript'>\n"
+    "var tabber = new Yetii({ id: 'configform%s', "
+    "persist: true });\n</script>\n", id);
+}
+
+/*
+ * remove unwanted tags from the configuration
+ */
+int config_detag (char *path, char *pathp, char *prefix)
+{
+  int i, n, pl;
+  char *ch;
+  char p[MAX_PATH];
+
+
+  pl = strlen (path);
+  strcpy (path + pl, ".Input");
+  n = xml_count (ConfigXml, path);
+  debug ("checking %d %s for %s\n", n, path, prefix);
+  i = 0;
+  while (i < n)
+  {
+    sprintf (path + pl, ".Input[%d]", i);
+    sprintf (p, "%s.%s", pathp, xml_getf (ConfigXml, "%s.Suffix", path));
+    ch = xml_getf (ConfigXml, "%s.Ref", path);
+    if (strstarts (p, prefix) || strstarts (ch, prefix))
+    {
+      debug ("deleting config %s\n", path);
+      xml_delete (ConfigXml, path);
+      n--;
+    }
+    else
+    {
+      i++;
+    }
+  }
+  path[pl] = 0;
+  return (0);
+}
+
+/*
+ * remove unwanted tabs from the configuration
+ */
+int config_detab (char *path, char *prefix)
+{
+  int i, n, pl;
+  char *ch;
+
+  pl = strlen (path);
+  strcpy (path + pl, ".Tab");
+  n = xml_count (ConfigXml, path);
+  debug ("checking %d %s for %s\n", n, path, prefix);
+  i = 0;
+  while (i < n)
+  {
+    sprintf (path + pl, ".Tab[%d]", i);
+    ch = xml_getf (ConfigXml, "%s.Prefix", path);
+    if (strstarts (ch, prefix))
+    {
+      debug ("deleting config %s\n", path);
+      xml_delete (ConfigXml, path);
+      n--;
+    }
+    else
+    {
+      if (strstarts (prefix, ch))
+	config_detag (path, ch, prefix);
+      i++;
+    }
+  }
+  path[pl] = 0;
+  return (0);
+}
+
+/*
+ * set up for configuration entry
+ */
+int config_setup ()
+{
+  int i, n;
+  char path[MAX_PATH];
+
+  if (*EditConfig == 0)
+    strcpy (EditConfig, ConfigName);
+  debug ("current configuraton is %s\n", EditConfig);
+  if ((EditXml != NULL) && (ConfigXml != NULL))
+    return (0);
+  ConfigXml = xml_free (ConfigXml);
+  if ((EditXml = xml_load (EditConfig)) == NULL)
+  {
+    error ("Can't load %s\n", EditConfig);
+    return (-1);
+  }
+  pathf (path, "%s", xml_get_text (EditXml, "Phineas.Console.Config"));
+  debug ("getting console configuration %s\n", path);
+  if ((ConfigXml = xml_load (path)) == NULL)
+  {
+    error ("Can't load %s\n", path);
+    return (-1);
+  }
+  /* conditionally remove chunks we don't use			*/
+  strcpy (path, "Config");
+#ifndef SENDER
+  config_detab (path, "Phineas.Sender");
+#endif
+#ifndef RECEIVER
+  config_detab (path, "Phineas.Receiver");
+#endif
+#ifndef SERVER
+  config_detab (path, "Phineas.Server");
+#endif
+  debug ("loaded configuraton %s\n", EditConfig);
   return (0);
 }
 
@@ -460,20 +564,12 @@ int config_selectCpa (XML *xml, DBUF *b)
  */
 DBUF *config_getConfig ()
 {
-  XML *xml;
   DBUF *b;
-  int i;
+  int i, n;
+  char prefix[MAX_PATH];
 
-  debug ("current configuraton is %s\n", EditConfig);
-  xml = NULL;
-  if ((*EditConfig == 0) || ((xml = xml_load (EditConfig)) == NULL))
-    strcpy (EditConfig, ConfigName);
-  if ((xml == NULL) && ((xml = xml_load (EditConfig)) == NULL))
-  {
-    error ("Can't load configuration!\n");
+  if (config_setup ())
     return (NULL);
-  }
-  debug ("loaded configuraton %s\n", EditConfig);
 
   b = dbuf_alloc ();
 #ifdef UNITTEST
@@ -485,93 +581,107 @@ DBUF *config_getConfig ()
     "</head><body><h2>Configuration Edit Test</h2>\n"
     "<div id='console'>\n");
 #endif
-  debug ("creating navigation...\n");
-  dbuf_printf (b, "<div id='configform' class='configlayout' >\n"
-    "<ul id='configform-nav' class='configlayout' >\n");
-  for (i = 0; Tabs[i].name != NULL; i++)
-  {
-    dbuf_printf (b, "<li><a href='#tab%d'>%s</a></li>\n",
-      i + 1, Tabs[i].name);
-  }
-  dbuf_printf (b, "<li><a href='#tab%d'>Load/Save/Export</a></li>\n"
-    "</ul><div class='tabs-container'>\n"
-    "<form method='POST' action='#' >\n",
-      i + 1);
-  debug ("adding tabs...\n");
-  for (i = 0; Tabs[i].name != NULL; i++)
-  {
-    dbuf_printf (b, "<div class='tab' id='tab%d'>\n");
-    config_getTabs (xml, i, b);
-    dbuf_printf (b, "</div>\n");
-  }
-  debug ("adding save/load tab...\n");
-  dbuf_printf (b, "<div class='tab' id='tab%d'>\n"
-      "<h3>Load/Save/Export</h3>\nConfiguration File Name "
-      "<input type='text' name='EditConfig' value='%s' size='%d'/>\n",
-      i + 1, EditConfig, FILE_WIDTH);
-  config_selectCpa (xml, b);
-  dbuf_printf (b,
-    "<input type='submit' name='submit' value='Save Configuration' />\n"
-    "<input type='submit' name='submit' value='Load Configuration' />\n"
-    "</div>\n</form></div></div>\n<script type='text/javascript'>\n"
-    "var tabber = new Yetii({ id: 'configform', "
-    "persist: true });\n</script>\n");
+  dbuf_printf (b, "<form method='POST' action='#' >\n"
+    "<input type='hidden' name='%s' id='%s' />", REQUEST, REQUEST);
+  config_getTabs (EditXml, "Config", b);
+  dbuf_printf (b, "</form>\n");
 #ifdef UNITTEST
   dbuf_printf (b, "</div></body></html>");
 #endif
-  debug ("freeing temp xml...\n");
-  xml_free (xml);
   return (b);
 }
 
+/***************** POST processing *********************************/
+
 /*
- * get the edit configuration load/store filename and return
- * 0 = load, 1 = save, 2 = export, -1 = error
+ * get the filename value and return submit type...
+ * 0 = load, 1 = save, 2 = export, 3 = update -1 = error
  */
-int config_getEditConfig (char *data)
+int config_getPosted (char *data)
 {
   int action;
-  char *ch, *amp, path[MAX_PATH];
+  char *ch, 
+       *amp, 
+       path[MAX_PATH];
+  char *submit[] =
+  {
+    LOAD, SAVE, EXPORT, UPDATE
+  };
 
+  if ((ch = strstr (data, REQUEST)) == NULL)
+  {
+    error ("Missing %s parameter from POST\n", REQUEST);
+    return (-1);
+  }
+  ch += strlen (REQUEST) + 1;
+  debug ("request value=%.20s\n", ch);
   /* first determine what action we are taking */
-  if ((ch = strstr (data, "&submit=")) == NULL)
+  for (action = 3; action >= 0; action--)
   {
-    error ("POST missing submit parameter\n");
+    if (strstarts (ch, submit[action]))
+      break;
+  }
+  if (action < 0)
+  {
+    error ("POST missing request value\n");
     return (-1);
   }
-  ch += 8;
-  debug ("%.4s EditConfig %s\n", ch, EditConfig);
-  if (strncmp (ch, "Save+", 5) == 0)
-    action = 1;
-  else if (strncmp (ch, "Load+", 5) == 0)
-    action = 0;
-  else if (strncmp (ch, "Export+", 7) == 0)
-    return (2);
-  else
+  sprintf (path, "%s=", CONFIG);
+  if ((ch = strstr (data, path)) == NULL)
   {
-    error ("Invalid submit action %.5s", ch);
+    error ("POST missing configuration file name\n");
     return (-1);
   }
-  if ((ch = strstr (data, "&EditConfig=")) == NULL)
-  {
-    error ("POST missing EditConfig paramter\n");
-    return (-1);
-  }
-  ch += 12;
+  ch += strlen (CONFIG) + 1;
   if ((amp = strchr (ch, '&')) == NULL)
   {
-    error ("EditConfig paramter not terminated\n");
-    return (-1);
+    strcpy (path, ch);
   }
-  strncpy (path, ch, amp - ch);
-  path [amp - ch] = 0;
+  else
+  {
+    strncpy (path, ch, amp - ch);
+    path [amp - ch] = 0;
+  }
   if (*path == 0)
   {
-    error ("Empty EditConfig parameter\n");
+    error ("Empty %s parameter\n", CONFIG);
     return (-1);
   }
   pathf (EditConfig, "%s", urldecode (path));
+  debug ("action=%d EditConfig=%s\n", action, EditConfig);
   return (action);
+}
+
+/*
+ * a simply struct to keep track of tags
+ */
+typedef struct configtag
+{
+  struct configtag *next;
+  char tag[1];
+} CONFIGTAG;
+
+CONFIGTAG *config_addtag (CONFIGTAG *list, char *tag)
+{
+  CONFIGTAG *t;
+
+  t = (CONFIGTAG *) malloc (sizeof (CONFIGTAG) + strlen (tag));
+  strcpy (t->tag, tag);
+  t->next = list;
+  return (t);
+}
+
+void config_deltags (CONFIGTAG *list)
+{
+  CONFIGTAG *t;
+  while (list != NULL)
+  {
+    t = list;
+    list = t->next;
+    debug ("deleting tag %s\n", t->tag);
+    xml_delete (EditXml, t->tag);
+    free (t);
+  }
 }
 
 /*
@@ -579,10 +689,10 @@ int config_getEditConfig (char *data)
  */
 DBUF *config_setConfig (XML *xml, char *req)
 {
-  XML *cfg;
-  int l, action, route = -1;
+  int l, action;
   char *r, *eq, *amp;
-  char skip[MAX_PATH],
+  CONFIGTAG *dtags = NULL;
+  char route[80],
        path[MAX_PATH],
        value[128];
   DBUF *console_doGet ();
@@ -610,21 +720,29 @@ DBUF *config_setConfig (XML *xml, char *req)
     error ("Malformed request %s\n", req);
     return (NULL);
   }
+  /*
+   * determine what action to take
+   */
   debug ("getting config name and submit action...\n");
-  if ((action = config_getEditConfig (r)) < 1)
+  if ((action = config_getPosted (r)) < 1)
+  {
+    if (action == 0)			/* Load...		*/
+      EditXml = xml_free (EditXml);
     return (console_doGet (xml, req));
+  }
 
-  debug ("building new configuration...\n");
-  cfg = xml_alloc ();
-  strcpy (skip, "NONE");
+  debug ("updating configuration...\n");
+  if (EditXml == NULL)
+    EditXml = xml_alloc ();
+  *route = 0;				/* no route seen yet	*/
   while (1)
   {
-    if ((eq = strchr (r, '=')) == NULL)
+    if ((eq = strchr (r, '=')) == NULL)	/* no more post args	*/
       break;
-    strncpy (path, r, l = eq++ -r);
+    strncpy (path, r, l = eq++ -r);	/* note the (path) name	*/
     path[l] = 0;
     if ((amp = strchr (r, '&')) == NULL)
-    {
+    {					/* get the value	*/
       strcpy (value, eq);
     }
     else
@@ -633,41 +751,63 @@ DBUF *config_setConfig (XML *xml, char *req)
       value[amp - eq] = 0;
     }
     urldecode (path);
-    if ((l = strlen (path) - 6) < 0)
-      l = 0;
-    if ((*value == 0) && (strcmp (path + l, "].Name") == 0))
-    {
-      strcpy (skip, path);
-      skip[l+2] = 0;
-      debug ("skip set to '%s'\n", skip);
+    /*
+     * If the value is empty and this is a name, or a repeated field
+     * then note it for later deletion.
+     */
+    if (*value == 0)
+    { 
+      l = strlen (path);
+      if (strcmp (path + l - 6, "].Name") == 0)
+      {
+	path[l - 5] = 0;
+	dtags = config_addtag (dtags, path);
+	path[l - 5] = 'N';
+      }
+      else if (path[l -1] == ']')
+	dtags = config_addtag (dtags, path);
     }
-    if (strncmp (path, "Phineas.", 8) == 0)
+    /*
+     * if the path is into our configuration
+     * then set the new value
+     */
+    if (strstarts (path, "Phineas."))
     {
-      if (strncmp (skip, path, strlen (skip)))
-        xml_set_text (cfg, urldecode (path), urldecode (value));
+      xml_set_text (EditXml, path, urldecode (value));
     }
-    else if ((strcmp (path, "cpa") == 0) && isdigit (*value))
-      route = atoi (value);
-    if (amp == NULL)
+    else 
+    {
+      if ((strcmp (path, REQUEST) == 0) && *value)
+      {
+	urldecode (value);
+	if (strstarts (value, EXPORT))	/* note export route	*/
+	{
+          strcpy (route, strchr (value, ':') + 1);
+	  debug ("route reference=%s\n", route);
+	}
+      }
+    }
+    if (amp == NULL)			/* next post arg	*/
       break;
     r = amp + 1;
   }
-  if (action == 2)			/* export Cpa		*/
-  {
-    debug ("export route %d\n", route);
-    if (route >= 0)
-      cpa_create (cfg, route);
-  }
-  else
+  config_deltags (dtags);		/* delete empty tags	*/
+  if (action == 1)			/* save configuration	*/
   {
     debug ("format and save to %s\n", EditConfig);
-    xml_beautify (cfg, 2);
+    xml_beautify (EditXml, 2);
     if (backup (EditConfig))
       error ("Can't backup %s - %s\n", EditConfig, strerror (errno));
     else
-    xml_save (cfg, EditConfig);
+      xml_save (EditXml, EditConfig);
   }
-  xml_free (cfg);
+  else if (action == 2) 		/* export Cpa		*/
+  {
+    r = xml_get_text (EditXml, route);
+    debug ("export route for %s at %s\n", r, route);
+    cpa_create (EditXml, cpa_route (EditXml, r));
+  }
+  					/* just update		*/
   return (console_doGet (xml, req));
 }
 

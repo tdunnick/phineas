@@ -18,6 +18,14 @@
  * Integrated HTTP server for use with stand-alone PHINEAS
  */
 
+#ifdef UNITTEST
+#ifndef SERVER
+#define SERVER
+#endif
+#endif
+
+#ifdef SERVER
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
@@ -175,14 +183,15 @@ DBUF *server_response (XML *xml, char *req)
   DBUF *console_response (XML *, char *);
   extern char Software[];
 
-  if (strncmp (req, "GET ", 4) == 0)
+  if (strstarts (req, "GET "))
     url = req + 4;
-  else if (strncmp (req, "POST ", 5) == 0)
+  else if (strstarts (req, "POST "))
     url = req + 5;
   else
     return (NULL);
+#ifdef RECEIVER
   ch = xml_get_text (xml, "Phineas.Receiver.Url");
-  if (strncmp (url, ch, strlen (ch)) == 0)
+  if (strstarts (url, ch))
   {
     if (url == req + 5)		/* this a POST?			*/
     {
@@ -192,9 +201,19 @@ DBUF *server_response (XML *xml, char *req)
     }
     return (server_respond (200, "<h3>%s</h3>Receiver", Software));
   }
+#endif
+#ifdef CONSOLE
   ch = xml_get_text (xml, "Phineas.Console.Url");
-  if (strncmp (url, ch, strlen (ch)) == 0)
+  if (strstarts (url, ch))
     return (console_response (xml, req));
+  if (strstarts (url, "/favicon.ico"))
+  {
+    char r[MAX_PATH];
+
+    sprintf (r, "GET %s/images/favicon.ico HTTP/1.1\r\n\r\n", ch);
+    return (console_response (xml, r));
+  }
+#endif
   return (server_respond (400, "404 - <bold>%s</bold> not found", url));
 }
 
@@ -225,7 +244,7 @@ int server_header (DBUF *b)
       l++;
     if (ch[l] == '\n')
       break;
-    if (strncmp (ch + l, "Status:", 7) == 0)
+    if (strstarts (ch + l, "Status:"))
       code = atoi (ch + 8);
   }
   if (code < 300)
@@ -380,3 +399,5 @@ server_task (XML *xml)
   }
   return (e);
 }
+
+#endif
