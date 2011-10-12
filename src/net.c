@@ -397,6 +397,9 @@ int net_write (NETCON *conn, char *buf, int sz)
 /*
  * close a socket
  */
+#ifndef SD_SEND
+#define SD_SEND 1
+#endif
 NETCON *net_close (NETCON *conn)
 {
   if (conn->sock == INVALID_SOCKET)
@@ -407,6 +410,11 @@ NETCON *net_close (NETCON *conn)
     if (SSL_shutdown (conn->ssl) == 0)
       SSL_shutdown (conn->ssl);
     SSL_free (conn->ssl);
+  }
+  if (shutdown (conn->sock, SD_SEND) == 0)
+  {
+    char c;
+    while (recv (conn->sock, &c, 1, 0) == 1);
   }
   closesocket (conn->sock);
   free (conn);

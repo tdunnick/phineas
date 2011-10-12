@@ -26,7 +26,7 @@
 #include "qpoller.h"
 #include "ebxml.h"
 
-#define VERSION " 0.1b 09/07/2011"
+#define VERSION " 0.1c 11/12/2011"
 
 #ifdef SENDER
 #ifdef RECEIVER
@@ -70,6 +70,27 @@ int phineas_status ()
   return (PHINEAS_RUNNING);
 }
 
+/*
+ * when startup fails, clean up and issue a failure message
+ */
+int phineas_fatal (char *fmt, ...)
+{
+  va_list ap;
+  char buf[2048];
+
+  strcpy (buf, "FATAL ERROR: ");
+  va_start (ap, fmt);
+  vsprintf (buf + 13, fmt, ap); 
+  va_end (ap);
+#ifdef CMDLINE
+    fputs (buf, stderr);
+#else
+    MessageBox (NULL, buf, Software, MB_OK);
+#endif
+  if (Config != NULL)
+    Config = xml_free (Config);
+  return (-1);
+}
 
 /*
  * start the services
@@ -97,8 +118,19 @@ int phineas_start (int argc, char **argv)
   }
   if ((Config = xml_load (ConfigName)) == NULL)
   {
-    return (-1);
+    return (phineas_fatal ("Can't load configuration file %s", 
+	ConfigName));
   }
+  /*
+   * make sure our OPENSSL dll's are available...
+   */
+  if (GetModuleHandle ("ssleay32") == 0)
+    return (phineas_fatal ("ssleay32.dll not found"));
+  if (GetModuleHandle ("libeay32") == 0)
+    return (phineas_fatal ("libeay.dll not found"));
+  /*
+   * set up the load path and logging
+   */
   loadpath (xml_get_text (Config, "Phineas.InstallDirectory"));
   if (pathf (LogName, xml_get_text (Config, "Phineas.LogFile")) == NULL) 
     pathf (LogName,  "Phineas.log");
@@ -107,7 +139,8 @@ int phineas_start (int argc, char **argv)
 #else
   backup (LogName);
 #endif
-  LOGFILE = log_open (LogName);
+  if ((LOGFILE = log_open (LogName)) == NULL)
+    return (phineas_fatal ("Unable to open log file %s\n", LogName));
   log_level (LOGFILE, xml_get_text (Config, "Phineas.LogLevel"));
 
   info ("%s is starting\n", Software);
@@ -116,11 +149,7 @@ int phineas_start (int argc, char **argv)
   debug ("loading queue configuration\n");
   debug ("initializing queues\n");
   if (queue_init (Config))
-  {
-    error ("Can't initialize queues\n");
-    Config = xml_free (Config);
-    return (-1);
-  };
+    return (phineas_fatal ("Can't initialize queues\n"));
   queue_register ("FileQueue", fileq_connect);
   Taskq = task_allocq (3, 1000);
 #ifdef SERVER
@@ -176,7 +205,8 @@ void catch_sig (int sig)
 main (int argc, char **argv)
 {
   signal (SIGINT, catch_sig);
-  phineas_start (argc, argv);
+  if (phineas_start (argc, argv))
+    exit (1);
   while (phineas_status () != PHINEAS_STOPPED)
     sleep (5000);
   exit (0);
@@ -193,18 +223,11 @@ main (int argc, char **argv)
 
 #ifdef SENDER
 #define PHINEAS_ICON_ID ICON_SENDER_ID
-#ifdef RECEIVER
-#define THIS_CLASSNAME      "PHINEAS"
-#define THIS_TITLE          "PHINEAS Server"
-#else /* SENDER only */
-#define THIS_CLASSNAME      "PHINEAS"
-#define THIS_TITLE          "PHINEAS Sender"
-#endif /* SENDER only */
-#else /* assume RECEIVER */
+#else
 #define PHINEAS_ICON_ID ICON_RECEIVER_ID
+#endif
 #define THIS_CLASSNAME      "PHINEAS"
-#define THIS_TITLE          "PHINEAS Receiver"
-#endif /* RECEIVER only */
+#define THIS_TITLE          Software
 
 /* notes whether we have a popup running */
 static BOOL InPopup       = FALSE;
@@ -279,23 +302,23 @@ WinMain (HINSTANCE hInst, HINSTANCE prev, LPSTR cmdline, int show)
   hWnd = CreateWindow (THIS_CLASSNAME, THIS_TITLE,
     0, 0, 0, 100, 100, NULL, NULL, hInst, NULL);
 
-  if (! hWnd)
+  if (!hWnd)
   {
-    MessageBox (NULL, "Ack! I can't create the window!", THIS_TITLE,
+    MessageBox (NULL, "Unable to create main window!", THIS_TITLE,
       MB_ICONERROR | MB_OK | MB_TOPMOST);
     return 1;
   }
 
   /* initialize the server and start it up */
-  w_start ();
-
-  /* loop getting and dispatching messages */
-  while (GetMessage (&msg, NULL, 0, 0)) 
+  if (w_start () == 0)
   {
-    TranslateMessage (&msg);
-    DispatchMessage (&msg);
+    /* loop getting and dispatching messages */
+    while (GetMessage (&msg, NULL, 0, 0)) 
+    {
+      TranslateMessage (&msg);
+      DispatchMessage (&msg);
+    }
   }
-
   /* clean up and die */
   if (phineas_status () != PHINEAS_STOPPED)
   {
@@ -476,7 +499,7 @@ BOOL w_popup (HWND hWnd, POINT *curpos, int wDefaultItem)
   InsertMenu (hPop, i++, MPOS, ID_LOG, "Log");
   InsertMenu (hPop, i++, MPOS, ID_CONFIG, "Configuration");
   InsertMenu (hPop, i++, MPOS, ID_STOP, "Stop");
-  InsertMenu (hPop, i++, MPOS, ID_START, "Start");
+  InsertMenu (hPop, i++, MPOS, ID_START, "(re) Start");
   InsertMenu (hPop, i++, MPOS, ID_EXIT, "Shut Down");
 
   SetMenuDefaultItem (hPop, ID_EXIT, FALSE);
@@ -589,16 +612,20 @@ BOOL w_command (HWND hWnd, WORD wID, HWND hCtl)
       break;
 
     case ID_START:
+    {
+      int e = 0;
       switch (phineas_status ())
       {
 	case  PHINEAS_RUNNING :
-	  w_restart ();
+	  e = w_restart ();
 	  break;
 	case PHINEAS_STOPPED :
-	  w_start ();
+	  e = w_start ();
 	  break;
       }
-      break;
+      if (e == 0)
+        break;
+    }
 
     case ID_EXIT:
       phineas_stop ();
