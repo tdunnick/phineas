@@ -373,7 +373,7 @@ int net_read (NETCON *conn, char *buf, int sz)
       n = recv (conn->sock, buf + rsz, n, 0);
     if (n <= 0) 
     {
-      if (h_errno != WSAETIMEDOUT)
+      if (h_errno && (h_errno != WSAETIMEDOUT))
         error ("read error %d - %s\n", h_errno, strerror (h_errno));
       break;
     }

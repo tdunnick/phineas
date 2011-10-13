@@ -572,12 +572,18 @@ w_openMessage (char *name)
 /* run the console */
 w_console ()
 {
-  char *ch;
+  char *ch, *proto, *port;
   char path[MAX_PATH];
 
-  sprintf (path, "http://localhost:%s%s/console.html",
-    xml_get_text (Config, "Phineas.Server.Port"),
-    xml_get_text (Config, "Phineas.Console.Url"));
+  port = xml_get_text (Config, "Phineas.Server.SSL.Port");
+  proto = "http";
+  if (*port)
+    proto = "https";
+  else
+    port = xml_get_text (Config, "Phineas.Server.Port");
+
+  sprintf (path, "%s://localhost:%s%s/console.html",
+    proto, port, xml_get_text (Config, "Phineas.Console.Url"));
   w_openMessage (path);
 }
 

@@ -107,16 +107,12 @@ DBUF *server_receive (NETCON *conn)
   }
   if (n != 2)
   {
-
+    debug ("no header - %d read\n", dbuf_size (b));
     if (dbuf_size (b))
     {
       dbuf_printf (b, "%s", n == 1 ? "\r\n" : "\r\n\r\n");
       warn ("can't find end of request header: %.*s", 
 	dbuf_size (b), dbuf_getbuf (b));
-    }
-    else
-    {
-      warn ("socket timed out - nothing read\n");
     }
     n = 0;
   }
@@ -168,7 +164,7 @@ DBUF *server_respond (int code, char *fmt, ...)
   }
   dbuf_printf (b, "Status: %d\r\n"
     "Content-Length: %d\r\n"
-    "Connection: Close\r\n\r\n<html><body>%s</body></html>",
+    "Connection: Keep-alive\r\n\r\n<html><body>%s</body></html>",
     code, len, buf);
   debug ("response:\n%s\n", dbuf_getbuf (b));
   return (b);
@@ -214,6 +210,9 @@ DBUF *server_response (XML *xml, char *req)
     return (console_response (xml, r));
   }
 #endif
+  if ((ch = strchr (url, '\n')) == NULL)
+    ch = url + strlen (url);
+  warn ("request not found for %.*s\n", ch - url, url);
   return (server_respond (400, "404 - <bold>%s</bold> not found", url));
 }
 
@@ -281,7 +280,7 @@ int server_request (void *parm)
 
   s = (SERVERPARM *) parm;
   res = NULL;
-  if ((req = server_receive (s->conn)) != NULL)
+  while ((req = server_receive (s->conn)) != NULL)
   {
     debug ("received %d bytes\n", dbuf_size (req));
     if (dbuf_size (req) == 0)
@@ -318,7 +317,7 @@ int server_accept (XML *xml, NETCON *conn, SSL_CTX *ctx, TASKQ *q)
   debug ("accepting connection\n");
   if ((c = net_accept (conn, ctx)) == NULL)
   {
-    error ("failed to successfully accept this socket\n");
+    warn ("failed to successfully accept socket\n");
     return (-1);
   }
   s = (SERVERPARM *) malloc (sizeof (SERVERPARM));

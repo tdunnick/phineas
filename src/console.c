@@ -393,7 +393,7 @@ int console_header (DBUF *b, char *path)
       break;
     }
   }
-  l += sprintf (buf + l, "Connection: Close\r\n"
+  l += sprintf (buf + l, "Connection: Keep-alive\r\n"
     "Content-Length: %d\r\n\r\n", dbuf_size (b));
   debug ("inserting header:\n%s", buf);
   dbuf_insert (b, 0, buf, l);
