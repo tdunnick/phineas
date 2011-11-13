@@ -4,16 +4,77 @@
     <title>
       Phineas Help
     </title>
+		<style type="text/css">
+<!-- 
+
+-->
+</style>
   </head>
   <body>
+		<style type="text/css">
+<!-- 
+
+div.indent {
+  padding-left: 20px;
+	font-weight: bold;
+	color: brown;
+}
+
+.section {
+font-weight: bold;
+font-size: 18px;
+}
+.heading {
+text-align: center;
+padding-bottom: 20px;
+}
+/* needed for standalone tip */
+.helptip {
+  width: 200px; 
+  color: RED;
+  font:11px arial,sans-serif;
+  text-decoration:none;
+  text-align:left;
+	float: right;
+}
+
+.helptip span.top {
+  padding: 30px 8px 0;
+  background: url(images/tip.gif) no-repeat top;
+	display: block;
+}
+
+.helptip span.bottom {
+  padding:3px 8px 15px;
+  background: url(images/tip.gif) no-repeat bottom;
+	display: block;
+}  
+-->
+</style>
     <center>
       <h1>
-        Phineas Help
+        <a name="contents">Phineas Help</a>
       </h1>
     </center>
-    <h3>
-      Introduction
-    </h3><b>Phineas</b> is a CDC <b>PHINMS</b> ebXML compatible
+		<h3>
+		  Contents
+		</h3>
+		<ul class="section">
+		  <li><a href="#intro">Introduction</a></li>
+			<li><a href="#nav">Navigation</a></li>
+			<li><a href="#config">Configuration</a></li>
+			<li><a href="#function">Functional Description</a></li>
+			<li><a href="#security">Security</a></li>
+			<li><a href="#certificates">Certificate Encryption</a></li>
+			<li><a href="#whatisxml">XML - What is That?</a></li>
+			<li><a href="#chart">PHINMS Comparison Chart</a></li>
+		</ul>
+		<hr>
+    <div class="heading">
+      <a name="intro" class="section" >Introduction</a><br>
+			<a href="#contents">(return to contents)</a>
+    </div>
+		<b>Phineas</b> is a CDC <b>PHINMS</b> ebXML compatible
     transport system with hooks for synchronous message
     processing. If that seems like an arcane bunch of
     gibberish... well it probably is. So think about it this way.
@@ -23,11 +84,12 @@
     somewhere else in the big bad internet. That's what
     <b>Phineas</b> does, but with guaranteed delivery, auditing,
     logging, security, and full HIPAA compliance.<br>
-    <br>
+		<br>
     <hr>
-    <h3>
-      Navigation
-    </h3>If you made it this far, you must be running the
+    <div class="heading">
+      <a name="nav" class="section" >Phineas Navigation</a><br>
+			<a href="#contents">(return to contents)</a>
+    </div>If you made it this far, you must be running the
     <b>Phineas</b> console. You'll notice a bunch of icons at the
     top. Click on these to get various functions of the console.
     The following lists possible activities.<br>
@@ -84,7 +146,8 @@
         <td>
           Edit Configuration. This is a set of forms that you can
           use to modify a <b>Phineas</b> configuration, or export
-          a CPA. Configuration parameter are documented below.
+          a CPA. Addition information on the configuration may be 
+					found below.
         </td>
       </tr>
        <tr>
@@ -117,17 +180,420 @@
         </td>
       </tr>
     </table><br>
-    <br>
-    <hr>
-    <br>
-    <br>
-    <h3>
-      Configuration
-    </h3>While Phineas doesn't (yet) have as many configuration
+		<br>
+		<hr>
+    <div class="heading">
+      <a name="config" class="section" >Configuration</a><br>
+			<a href="#contents">(return to contents)</a>
+    </div>
+		<p>While <b>Phineas</b> doesn't (yet) have as many configuration
     parameters as PHINMS, there is still plenty of stuff to
-    tweak. The good news is that generally speaking you won't
-    have to touch much (or any) of it. In fact it's very possible
-    to generate a Phineas distribution that doesn't allow (easy)
+    tweak. The good news is that generally speaking you shouldn't
+    have to touch much (or any) of it. In fact one can
+		generate a <b>Phineas</b> distribution that doesn't allow (easy)
     modification of the configuration.
+		Unless you are already well versed in things like XML, HTML,
+		network protocols, and so on, you might want to first study the
+		sections below starting with 
+		<a href="#function">Phineas - A Functional Description</a>.  
+		They will provide a background for understanding
+		what the various parts of the <b>Phineas</b> configurate are used for
+		and how they affect it's function.
+		</p>
+		<p>The configuration is determined by a single XML file,
+		typically located in the same folder as the executable.
+		However, an alternate location may be specified on the command line.
+		<b>Phineas</b> will refuse to start without a valid configuration
+		file.  Additionally, it may not function fully or correctly if miss-configured
+		(for example, if logging is specified to a folder that does not
+		exist).</p>
+		<p>		
+    A configuration GUI (Graphic User Interface) is available from
+		the Web console.  The configuration items, order, location,
+		and so on are determined from a separate XML file.  This is the only
+		other <b>Phineas</b> configuration file.  It is necessarily separate because
+		of the "chicken and egg" problem, and because the GUI itself is optional.  
+		It includes brief specific help tips for each configuration entry.
+		Since these tips are within a GUI XML file they are (like most of the
+		<b>Phineas</b> functionality) user configurable!
+		<div class="helptip">
+		  <span class="top">
+			  You can author your own help tip text like this by modifying the
+				 GUI XML file (normally "console/config.xml").  
+				 Look for &lt;Help&gt; tags!
+			</span>
+		  <span class="bottom"></span>
+		</div>
+	  </p>
+		<p>
+		<b>Phineas</b> configuration consists of a set of shared common items
+		followed by various feature sections.  In the Web GUI each of these
+		item sets are selected using tabs, which correspond to sections within
+		the actual XML file.  The following is a list of those tabs, XML
+		tags, and item descriptions found in the GUI.  This is the same information
+	  provided within the GUI as help tips.</p>
+			<center>
+		<br>
+		<iframe src="chelp.html" width="95%" height="70%">
+		Itemized list of configuration items
+		</iframe>
+		</center>
+		<br>
+    <hr>
+		<div class="heading">
+		  <a name="function" class="section" >Phineas - A Functional Description</a><br>
+			<a href="#contents">(return to contents)</a>
+		</div>
+		<p>
+		  At it's core, <b>Phineas</b> is designed to be a PHINMS compatible 
+			transport	application, so we'll begin by looking at some of the
+			features and functions provided by PHINMS.  Once you understand
+			what a function does, the implementation and configuration will hopefully
+			make more sense.  Additionally, issues or problems should 
+			be easier to resolve, since you will be able to relate them to specific
+			features.
+		</p>
+		<p>
+		  Lets start at the "bottom" with transport. The primary function 
+			of PHINMS is of course to get some data (a "payload") from one location on the
+			internet to another.  There are a lot "protocols" that do this including
+			familiar ones like SMTP (for email) and (S)FTP (for files). 
+			Think of a protocol as a kind of foreign language.  Each has its
+			own syntax and grammar used for communication. PHINMS uses
+			the HTTP(S) protocol, which is generally associated with Web site
+			access. It is a request/response protocol, where the client
+			(typically your web browser like IE or Mozilla)	sends a request to a 
+			web server, which in turn responds with a Web page that you can look and
+			marvel at.  When using HTTPS the protocol is encrypted 
+			(more on that later).
+		</p>
+		<p>
+		  The folks who came up with HTTP were smart enough to not limit it
+			to Web, or HTML content.  That makes it possible for you to get
+			pictures, spreadsheets, and the like from a Web site.  That brings
+			us to the second aspect of transport, the "content type".  PHINMS
+			uses something called ebXML to embed additional functionality into
+			the HTTP protocol.  Each request and response uses this content
+			encoding scheme or "type" to communicate and implement a set of "meta data"
+			and security features.  "Meta data" is a fancy way of saying, "Here
+			is something you might want to know about the payload I'm sending", 
+			for example it's size, where it came from, or it's file name.
+		</p>
+		<p>
+		  The second basic function of PHINMS is to formally track and record all of
+			its transport activity.  This provides an audit trail as legally required for
+			PHI (Personal Health Information) data. This is a distinct and unique
+			function not found in other transport like FTP.  It also serves as mechanism to
+			control and monitor the transport. In PHINMS these records exist
+			as "Queues", where both the sender and receiver keeps information about
+			each transfer (attempt).  Most of the meta data mentioned above can be
+			found in the Queues.  They normally exist as tables within
+			a database, but note that <b>Phineas</b> includes a light weight 
+			file implementation.
+		</p>
+		<p>
+		  If PHINMS is going to use Queues to control and monitor transport, it
+			needs some way to get things rolling.  After all, data isn't just going
+			to magically appear in a Queue.  One way is to provide an interactive
+			dialog with the user that allows them to "queue" or identify a file for
+			transport.  However, most of us would rather automate this process.
+			PHINMS provides a "Folder Polling" function that "Maps" files in a folder
+			to a specific Queue.  When a file appears in that folder, it is 
+			automatically entered in a queue for transport.  That's almost magic!
+		</p>
+		<p>
+		  There is other stuff we need to know in order to transport a file 
+			though.  We need to know where to send it.  PHINMS calls this end point a
+			"Route" which is identified in the "Map".  
+			We also need to communicate exactly how the Route
+			should deal with or process the file.  A "Service" and "Action"
+			are indicated in the Map for this purpose, as well as optional
+			"Arguments".  This allows a receiver (Route) to manage multiple
+			payload types (for example to separate Influenza payloads from TB).
+		</p>
+		<p>
+		  That brings us the the third major function of PHINMS which is to provide
+			security. Both the Route and the Map include information on how to
+			manage various security aspects of the transport.
+			There are folks out there that devote their entire career
+			to just one single aspect of security.  It's pretty heady stuff, which
+			is why it causes so many people problems. Security functionality
+			and features are big complex enough to warrant their own section below!
+		</p>
+		<p>
+		  That's not a comprehensive list of PHINMS functions, but covers the
+			big stuff.  <b>Phineas</b> doesn't implement all of the PHINMS functions,
+			but does provide a few that PHINMS doesn't.  Most notable are data
+			filtering and user configuration.  Data filtering is way for either
+			senders or receivers to automatically process payloads through external
+			programs.  For example, you might have a program that converts an
+			HL7 message to a spreadsheet.  You can insert this program as a
+			Phineas filter and have HL7 (payload) files automatically stored or sent
+			as spreadsheets.  User configuration, both at build and run time,
+		  allows you to control the look, feel, and functionality of <b>Phineas</b>.
+		</p>
+		<hr>
+		<div class="heading">
+		  <a name="security" class="section" >Security</a><br>
+			<a href="#contents">(return to contents)</a>
+		</div>
+		<p>
+		  PHINMS security is implemented on two levels: in the protocol (HTTPS)
+			and within the application (ebXML).  While distinct, there are
+			many similarities between the two, and both are based on x509 certificate
+			encryption techniques.  As a result it is useful to understand the 
+			nature and function of a x509 certificate, so you might want to read
+			the section on <a href="#certificates">Certificate Encryption</a> below.
+		</p>
+		<p>
+		  Protocol level security is implemented with information from a 
+			PHINMS "Route" for the sender, and in the HTTP server of a receiver.
+			For the latter this is generally a "proxy" of some sort, and each
+			has it's own implementation for the same basic protocols.  A sender
+			specifies HTTPS in the Route for an encrypted connection, in which
+			case the receiver usually needs to present a valid certificate signed
+			by an entry in the sender's "Certificate Authority" (in <b>Phineas</b>
+			this is optional).
+		</p>
+		<p>
+		  The receiver may also require the sender authenticate using one of
+			several protocols.  For <b>Phineas</b> the only currently supported protocol
+			is x509 client certificate based.  In this protocol the receiver
+			challenges the sender who replies with a certificate of its own.  All
+			this is part of standard "SSL Negotiations" and is more or less 
+			transparent to the PHINMS application.
+		</p>
+		<p>
+		  The second ebXML level of security operates in a similar way, but
+			is implemented within the PHINMS application. The sender
+			keeps security information in each "Map".  This includes whether the payload
+			is to be encrypted, and if so the location of the certificate used.  
+			The sender may also "sign" the payload as an authentication
+			measure.  This also adds something called "non-repudiation", the
+			concept that a sender can't deny sending a given message.  The receiver
+			must have the decryption (certificate) key and may optionally check
+			signed messages for authenticity.
+		</p>
+		<p>
+		  As you can see, PHINMS has the ability to "double encrypt and
+			authenticate" each payload, making it very secure.  Additionally
+			the lower ebXML security layer makes it possible to securely use
+			intermediates in the transport (e.g. agents who are responsible for
+			receiving or sending data, but who can read the contents).  This important
+			attribute makes PHINMS RNR (Route Not Read) hubs possible.
+		</p>
+		<p>
+		  There are obviously additional security measure that may exist outside
+			PHINMS including firewalls, private and/or secured subnets, etc.
+			The thing to remember is that generally speaking, each side must agree
+			upon the type and nature of security in use, and include or exchange
+			enough information enable the cryptography and insure mutual 
+			trust (generally in the form of certificates).
+		</p>
+		<hr>
+		<div class="heading">
+		  <a name="certificates" class="section" >Certificates and Encryption</a><br>
+		  <a href="#contents">(return to contents)</a>
+		</div>
+		<p>
+		  The internet is the biggest "party line" every created.  Just as in
+			the early days of telephony, when you could hear your neighbors 
+			conversions, so also can one now listen in on internet messages.
+			As a result when you need internet privacy, the only way to get it is to
+			converse in a secret code (encrypt your message).  Similarly, when
+			you "call someone up" you may need to determine they are who
+			you think they are and vice versa (authenticate).  The x509 certificate
+			and associated functions were designed to do just that.
+		</p>
+		<p>
+		  Lets first discuss encryption. For certificate purposes there are
+			basically two types: symmetric and asymmetric.  With symmetric encryption
+			a single shared but secret "key" is known by both sides of the 
+			conversation, and is used
+			to both encrypt and decrypt the message.  That poses a problem. How do you
+			exchange this secret key?  You could use some other media (telephone, or
+			US mail) but that would be cumbersome.  
+		</p>
+    <p>			
+		  However, some pretty smart 
+			people came up with asymmetric encryption, where you encrypt a message 
+			with one key, but need a second different key to decrypt the message.
+			The encryption key can be "public".  Anyone can use it to send you a 
+			secret message.  You keep the decryption key "private" so that only you
+			can decrypt a secret message.  Unfortunately, such encryption is 
+			inherently slow, and only works well when the data to encrypt is the 
+			same size as the key.  
+		</p>
+		<p>
+			So we combine the two type.  We generate a
+			random symmetric key, use that to encrypt our data, then encrypt
+			that key with the public asymmetric key and send the whole mess off.  
+			Decryption is the opposite.  Use the "private" asymmetric key to decrypt
+			the secret symmetric key, which is then used to decrypt our message.
+			Since the symmetric key is generated as needed, we only have to store
+			the asymmetric keys.  We give the public one to the sender
+			and keep the private one to ourself.  The certificate is a convenient
+			place to store and exchange public keys.
+    </p>
+		<p>
+		  OK, so we can now hand out a "public" key as a certificate that allows
+			us to have private conversation with anyone.  How do we know who we
+			are talking to?  We most likely want to "authenticate" each other. One 
+			thing we can do is put our name in the certificate.  In x509 speak
+			thats called a "DN" or "distinguished name", a unique identifier.  And
+			we can make sure that no one can easily change the name on a
+			certificate by including
+			a "digest", a calculated value that only matches our name and keys.
+		</p>
+		<p>
+		  But that still may not be enough.  If we are total strangers, we may
+			want someone we know in common to vouch for us.  Otherwise you could
+			forge a name on a (new) certificate, pretending to be someone you are not.
+			To address this we have a mutual acquaintance "sign" our certificate.  
+			Such a signer is called a "Certificate Authority" or "CA",
+			and we keep our own private list of them.
+		</p>
+		<p>
+		  There is other useful stuff we record with our certificate like
+			the date it was issued, how long it is good for, and esoteric
+			information about how to confirm the digest and use the public
+			key.  When we authenticate someone we use as much (or little) of this
+			information as we like.  In fact we can simply not authenticate at
+			all which is exactly what most public Web servers do for HTTPS
+			(as opposed to browsers, where unauthenticated Web sites usually 
+			pop up a warning message to the user).
+		</p>
+		<p>
+		  A lot of confusion concerning certificates arise from the various
+			formats used to store essentially the same information for certificates
+			and private keys.  For the
+			most part it is reasonably easy to convert between them, once you
+			understand that it is "form" and not "function" that is the issue.
+			Here is	a brief list of some formats you might run into.
+			<ul>
+			  <li><b>PEM</b>-base64 encoded.  You can embed these right in 
+				your email, since they are made up of "printable" characters.
+				Often these certificates will have ".crt" extensions.  While
+				the private key may be stored in the same file, it is separately
+				encoded from the certificate.  Multiple certificates may
+				be included in the same file to create a certificate authority.</li>
+				<li><b>DER</b>-binary encoded.  These are essentially
+				the same a PEM certificates/keys, but in a binary format.  That makes
+				them smaller and load slightly faster, but are harder 
+				to exchange.  Private keys are kept in separate files, and you
+				can't combine multiple certificates or keys into a single file.</li>
+				<li><b>PKCS12</b>-encrypted certificate store. This is a binary encrypted
+				file holding both private keys and certificates. The typical MS
+				extension for these files is ".pfx". </li>
+				<li><b>Keystore</b>-Java encoded.  These are similar to the PKCS12
+				format in function, but accessed from the JVM 
+				(Java Virtual Machine) and include
+				the ability to "alias" certificate names.  The standard JVM certificate
+				authority is typically named "cacerts".</li>
+			</ul>
+		</p>
+		<hr>
+		<div class="heading">
+		  <a name="whatisxml" class="section">XML - What is that?</a><br>
+			<a href="#contents">(return to contents)</a>
+		</div>
+    <p>There are a lot of references to XML (EXtensible Markup Language)
+		above and you might be wondering, "What the heck is that?".  There
+		are a many good Web resources that can explain it better
+		that here, but for completeness the following is a very brief introduction.
+		</p>
+		<p>If you have authored any HTML, you have already used a specialized 
+		form of XML. Like HTML, XML consists of "tags" and text.  A tag has a
+		name and optional attributes surround by angle brackets, for example...
+		</p>
+		<div class="indent">
+		&lt;SomeTagName AnAttribute=&quot;value&quot;&gt;
+		</div>
+		<p>
+		A tag may be self contained (self closing) as in...
+		</p>
+		<div class="indent">
+		&lt;SelfClosingTagName/&gt;
+		</div>
+		<p>
+		or it may be paired as open and closing tags with (data) text in between...
+		</p>
+		<div class="indent">
+		&lt;TagName&gt;Some text&lt;/TagName&gt;
+		</div>
+		<p>
+		Tags are normally hiearchial in nature, and there should only be
+		one tag at the outer most level, referred to as the XML "root". Tags
+		may repeat and nest to whatever level is desired, and should always
+		"close" (e.g. be matched pairs or self closing)...
+		</p>
+		<div class="indent">
+		&lt;RootTag&gt;
+		<div class="indent">
+		&lt;InnerTag&gt;some data&lt;/InnerTag&gt;
+		</div>
+		<div class="indent">
+		&lt;InnerTag&gt;other data&lt;/InnerTag&gt;
+		</div>
+		<div class="indent">
+		&lt;InnerTag&gt;
+		<div class="indent">
+		&lt;NestedTag&gt;nested data&lt;/NestedTag&gt;
+		</div>
+		&lt;/InnerTag&gt;
+		</div>
+		&lt;/RootTag&gt;
+		</div>
+		<p>
+		Basic XML is simply a way to organize and identify data.  Since 
+		Phineas had to support ebXML (Enterprise Business XML) for the transport,
+		it made sense to use XML for configuration as well (rather that create
+		yet another data format).  Plus, since XML is a simple ASCII file, 
+		you can use text based processing programs (like your
+		favorite editor!) to view, maintain, and modify it.  That should be
+		about all that you HAVE to know to directly modify Phineas
+		configurations.
+		</p>					
+		<hr>
+		<div class="heading">
+		  <a name="chart" class="section" >Phineas/PHINMS Comparison Chart</a><br>
+			<a href="#contents">(return to contents)</a>
+		</div>
+			<table summary="Phineas/PHINMS Comparison Chart" border=1>
+			  <col width="20%"/><col width="20%"/><col width="20%"/>
+			  <thead style="background: #99bbff">
+				  <th>Feature</th><th>Phineas</th><th>PHINMS 2.8.01</th>
+				</thead>
+				<tbody style="background: #cceeff">
+          <tr><td>Platform</td><td>MS</td><td>MS and *NIX</td></tr>
+					<tr><td>Language</td> <td>ANSI C</td> <td>Java</td></tr>
+					<tr><td>License</td> <td>open source Apache</td> <td>proprietary</td></tr>
+					<tr><td>Server</td> <td>embedded (stand alone), ISAPI*, CGI*</td> <td>Tomcat</td></tr>
+					<tr><td>Disk Foot Print</td> <td>2MB</td> <td>500MB (recommended)</td></tr>
+					<tr><td>Memory Foot Print</td> <td>10MB</td> <td>250MB (1GB recommended)</td></tr>
+					<tr><td>Queue support</td><td>file based, ODBC</td><td>JDBC (various)</td></tr>
+					<tr><td>Console</td><td>web based</td><td>Java application (stand alone)</td></tr>
+					<tr><td>Configuration GUI</td><td>user configurable, optional</td><td>fixed</td></tr>
+					<tr><td>Number of Config Files</td><td>1 required, 1 optional</td><td>12+</td></tr>
+					<tr><td>Folder Polling</td><td>yes, with file pattern matching</td><td>yes</td></tr>
+					<tr><td>Queue Polling</td><td>yes</td><td>yes</td></tr>
+					<tr><td>Ping</td><td>yes</td><td>yes</td></tr>
+					<tr><td>Route Authentication</td><td>clientcert</td><td>basic, custom, netegrity, clientcert</td></tr>
+					<tr><td>Payload Encryption</td><td>yes</td><td>yes</td></tr>
+					<tr><td>Certificate formats</td><td>DER, PEM, or PKCS12</td><td>DER, PEM, PKCS12, or Java keystores</td></tr>
+					<tr><td>LDAP support</td><td>no*</td><td>yes</td></tr>
+					<tr><td>Multi-block transport</td><td>no*</td><td>yes</td></tr>
+					<tr><td>Digital Signatures</td><td>no*</td><td>yes</td></tr>
+					<tr><td>Route Not Read</td><td>no</td><td>yes</td></tr>
+					<tr><td>Configurable Feature Set</td><td>yes</td><td>no</td></tr>
+					<tr><td>Transport Filters</td><td>no*</td><td>no</td></tr>
+					<tr><td>Resend</td><td>no*</td><td>yes</td></tr>
+					<tr><td>Delete</td><td>no*</td><td>yes</td></tr>
+					<tr><td>Message queue from console</td><td>no</td><td>yes</td></tr>
+				</tbody>
+      </table>
+			<p>* planned, but not yet implemented</p>
+			<br>
+   		<a href="#contents">(return to contents)</a>
   </body>
 </html>

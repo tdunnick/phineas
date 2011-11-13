@@ -19,12 +19,11 @@
  */
 
 #ifdef UNITTEST
-#ifndef SERVER
-#define SERVER
-#endif
+#define __SERVER__
+#define phineas_fatal(msg...) fprintf(stderr,msg),exit(1)
 #endif
 
-#ifdef SERVER
+#ifdef __SERVER__
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -185,7 +184,7 @@ DBUF *server_response (XML *xml, char *req)
     url = req + 5;
   else
     return (NULL);
-#ifdef RECEIVER
+#ifdef __RECEIVER__
   ch = xml_get_text (xml, "Phineas.Receiver.Url");
   if (strstarts (url, ch))
   {
@@ -198,7 +197,7 @@ DBUF *server_response (XML *xml, char *req)
     return (server_respond (200, "<h3>%s</h3>Receiver", Software));
   }
 #endif
-#ifdef CONSOLE
+#ifdef __CONSOLE__
   ch = xml_get_text (xml, "Phineas.Console.Url");
   if (strstarts (url, ch))
     return (console_response (xml, req));
@@ -262,11 +261,13 @@ int server_header (DBUF *b)
 void server_logrequest (NETCON *conn, int sz, char *req)
 {
   int i;
-  char buf[MAX_PATH];
+  char *ch, buf[MAX_PATH];
 
   for (i = 0; i < sz; i++)
+  {
     if (req[i] == '\n')
       break;
+  }
   info ("%s: %.*s\n", net_remotehost (conn, buf), i, req);
 }
 
@@ -277,8 +278,10 @@ int server_request (void *parm)
 {
   SERVERPARM *s;
   DBUF *req, *res;
+  char *curl;
 
   s = (SERVERPARM *) parm;
+  curl = xml_get_text (s->xml, "Phineas.Console.Url");
   res = NULL;
   while ((req = server_receive (s->conn)) != NULL)
   {
@@ -290,7 +293,12 @@ int server_request (void *parm)
       return (-1);
     }
     dbuf_putc (req, 0);
-    server_logrequest (s->conn, dbuf_size (req), dbuf_getbuf (req));
+    /*
+     * log the request, but filter out GET requests for the console... 
+     * noise
+     */
+    if (!(*curl && strstarts (dbuf_getbuf (req) + 4, curl)))
+      server_logrequest (s->conn, dbuf_size (req), dbuf_getbuf (req));
     if ((res = server_response (s->xml, dbuf_getbuf (req))) == NULL)
     {
       res = server_respond (500,
@@ -317,12 +325,14 @@ int server_accept (XML *xml, NETCON *conn, SSL_CTX *ctx, TASKQ *q)
   debug ("accepting connection\n");
   if ((c = net_accept (conn, ctx)) == NULL)
   {
-    warn ("failed to successfully accept socket\n");
+    debug ("failed to successfully accept socket\n");
     return (-1);
   }
   s = (SERVERPARM *) malloc (sizeof (SERVERPARM));
   s->conn = c;
   s->xml = xml;
+  if (!task_available (q))
+    warn ("No available server threads for request\n");
   task_add (q, server_request, s);
   return (0);
 }
@@ -379,11 +389,21 @@ server_task (XML *xml)
   if ((threads = xml_get_int (xml, "Phineas.Server.NumThreads")) == 0)
     threads = 2;
   if (port = xml_get_int (xml, "Phineas.Server.Port"))
-    conn = net_open ("ANY", port, threads, NULL);
+  {
+    if ((conn = net_open ("ANY", port, threads, NULL)) == NULL)
+    {
+      return (phineas_fatal ("Failed to open port %d\n", port));
+    }
+  }
   if (port = xml_get_int (xml, "Phineas.Server.SSL.Port"))
   {
     ctx = server_ctx (xml);
-    ssl = net_open ("ANY", port, threads, ctx);
+    if ((ssl = net_open ("ANY", port, threads, ctx)) == NULL)
+    {
+      if (conn != NULL)
+        net_close (conn);
+      return (phineas_fatal ("Failed to open SSL port %d\n", port));
+    }
     if (conn != NULL)
       threads *= 2;
   }
@@ -396,7 +416,9 @@ server_task (XML *xml)
     if (ctx != NULL)
       SSL_CTX_free (ctx);
   }
-  return (e);
+  if (e)
+    phineas_fatal ("Failed to start PHINEAS server");
+  return (0);
 }
 
 #endif

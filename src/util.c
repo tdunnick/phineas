@@ -61,6 +61,22 @@ int strstarts (char *s, char *prefix)
 }
 
 /*
+ * return true if string has nothing "visible"
+ */
+int strempty (char *s)
+{
+  if (s == NULL)
+    return (1);
+  while (*s)
+  {
+    if (!isspace (*s))
+      return (0);
+    s++;
+  }
+  return (1);
+}
+
+/*
  * PHINMS formatted times
  * TODO thread safety for localtime...
  */
@@ -160,22 +176,33 @@ int writefile (char *path, unsigned char *buf, int sz)
 
 
 /*
- * set a loadpath 
+ * set a loadpath - underlying directory must exist!
  */
 char LoadPath[MAX_PATH] = "";		/* where we loaded from		*/
 
 char *loadpath (char *prog)
 {
   char *ch;
+  struct stat st;
 
   if (prog != NULL)
   {
-    strcpy (LoadPath, prog);
-    fixpath (LoadPath);
-    if ((ch = strrchr (LoadPath, DIRSEP)) != NULL)
-      ch[1] = 0;
-    else				/* it's all program name	*/
-      *LoadPath = 0;
+    _fullpath (LoadPath, prog, MAX_PATH);
+    while (stat (LoadPath, &st) || S_ISREG (st.st_mode))
+    {
+      if ((ch = strrchr (LoadPath, DIRSEP)) == NULL)
+      {
+	*LoadPath = 0;
+	break;
+      }
+      *ch = 0;
+    }
+    if (*LoadPath)
+    {
+      ch = LoadPath + strlen (LoadPath);
+      *ch++ = DIRSEP;
+      *ch = 0;
+    }
   }
   return (LoadPath);
 }
@@ -216,6 +243,7 @@ int fixpath (char *p)
   memmove (p, LoadPath, l);
   return (lp + l);
 }
+
 
 /*
  * copy a path, limited to MAX_PATH - return copy length

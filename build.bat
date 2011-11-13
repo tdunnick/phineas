@@ -11,14 +11,23 @@ IF NOT EXIST src\icon.o CALL :genicon
 REM where binarys go...
 SET BIN=%~dp0bin\
 
-REM shared sources
-SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
-  crypt.c log.c queue.c fileq.c filter.c ebxml.c ^
-  cpa.c console.c config.c server.c
+REM the following control what gets included in the build
+REM __SENDER__ sender support
+REM __RECEIVER__ receiver support
+REM __SERVER__ server support
+REM __CONSOLE__ console support
+REM __FILEQ__ file based queues
+REM __ODBCQ__ ODBC based queues
 
-REM sender and receiver specific sources
-SET SSRC=find.c fpoller.c qpoller.c ebxml_sender.c
-SET RSRC=ebxml_receiver.c 
+REM our basic build options
+SET DEFS=-D__SERVER__ -D__CONSOLE__ -D__FILEQ__ -D__ODBCQ__
+
+REM sources
+SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
+  crypt.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
+  cpa.c console.c config.c server.c ^
+  find.c fpoller.c qpoller.c ebxml_sender.c ^
+  ebxml_receiver.c 
 
 REM build targets
 IF "%1" == "sender" CALL :sender
@@ -26,6 +35,8 @@ IF "%1" == "receiver" CALL :receiver
 IF "%1" == "phineas" CALL :phineas
 IF "%1" == "cpa" CALL :cpa
 IF "%1" == "xmlb" CALL :xmlb
+IF "%1" == "chelp" CALL :chelp
+IF "%1" == "psetup" CALL :psetup
 IF "%1" == "isapi" CALL :isapi
 IF "%2" == "run" GOTO :run
 REM our default build
@@ -36,19 +47,19 @@ GOTO :eof
 REM build a sender
 :sender
 SET TARGET=phineass
-SET BLD=-DSENDER -DSERVER -DCONSOLE %SRC% %SSRC% main.c icon.o 
+SET BLD=-D__SENDER__ %DEFS% %SRC% main.c icon.o 
 GOTO :build
 
 REM build a receiver
 :receiver
 SET TARGET=phineasr
-SET BLD=-DRECEIVER -DSERVER -DCONSOLE %SRC% %RSRC% main.c icon.o
+SET BLD=-D__RECEIVER__ %DEFS% %SRC% main.c icon.o
 GOTO :build
 
 REM build a tranceiver
 :phineas
 SET TARGET=phineas
-SET BLD=-DRECEIVER -DSENDER -DSERVER -DCONSOLE %SRC% %SSRC% %RSRC% ^
+SET BLD=-D__RECEIVER__ -D__SENDER__ %DEFS% %SRC% ^
   main.c icon.o
 GOTO :build
 
@@ -64,6 +75,19 @@ SET TARGET=xmlb
 SET BLD=-DCMDLINE xmlb.c
 GOTO :build
 
+REM build config help extractor
+:chelp
+SET TARGET=chelp
+SET BLD=-DCMDLINE chelp.c
+GOTO :build
+
+REM build config setup utility
+:psetup
+SET TARGET=psetup
+SET BLD=-DCMDLINE psetup.c
+GOTO :build
+
+:build
 :build
 ECHO building %TARGET%
 IF EXIST %BIN%%TARGET%.exe DEL %BIN%%TARGET%.exe
@@ -86,6 +110,8 @@ CALL :phineas
 CALL :cpa
 CALL :xmlb
 CALL :isapi
+CALL :chelp
+CALL :psetup
 GOTO :eof
 
 REM generate our icon resource using MinGW (wish tinyc had this!)

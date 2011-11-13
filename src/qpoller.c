@@ -15,6 +15,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define __SENDER__
+#endif
+
+#ifdef __SENDER__
+
 #include <stdio.h>
 
 #ifdef UNITTEST
@@ -236,4 +242,5 @@ int main (int argc, char **argv)
   info ("%s unit test completed\n", argv[0]);
 }
 
-#endif
+#endif /* UNITTEST */
+#endif /* __SENDER__ */

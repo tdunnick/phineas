@@ -15,6 +15,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define __SENDER__
+#endif
+
+#ifdef __SENDER__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -389,7 +395,7 @@ MIME *ebxml_getsoap (XML *xml, QUEUEROW *r)
     ebxml_set (soap, soap_dbinf, "Arguments",
       queue_field_get (r, "ARGUMENTS"));
     ebxml_set (soap, soap_dbinf, "MessageRecipient",
-      queue_field_get (r, "MESSAGERECEIPIENT"));
+      queue_field_get (r, "MESSAGERECIPIENT"));
   }
   debug ("building soap mime container...\n");
   msg = mime_alloc ();
@@ -464,45 +470,50 @@ int ebxml_qping (XML *xml, int route)
   QUEUEROW *r;
   int pl;
   char *ch,
-    buf[MAX_PATH],
-    pid[PTIMESZ];
+  buf[MAX_PATH],
+  pid[PTIMESZ];
 
   /*
    * queue it up
    */
   ch = ebxml_route_info (xml, route, "Queue");
+  debug ("queuing ping for %s\n", ch);
   if ((q = queue_find (ch)) == NULL)
   {
     error ("Can't find queue for %s\n", ch);
     return (-1);
   }
   ppid (pid);
+  debug ("prepping new row\n");
   r = queue_row_alloc (q);
-	  sprintf (buf, "%s-%s", ebxml_route_info (xml, route, "Name"), pid);
-	  queue_field_set (r, "MESSAGEID", buf);
+  sprintf (buf, "%s-%s", ebxml_route_info (xml, route, "Name"), pid);
+  queue_field_set (r, "MESSAGEID", buf);
   queue_field_set (r, "PAYLOADFILE", "");
   queue_field_set (r, "DESTINATIONFILENAME", "");
-	  queue_field_set (r, "ROUTEINFO", ebxml_route_info (xml, route, "Name"));
-	  queue_field_set (r, "SERVICE", "urn:oasis:names:tc:ebxml-msg:service");
-	  queue_field_set (r, "ACTION", "Ping");
-	  queue_field_set (r, "ARGUMENTS", ebxml_route_info (xml, route, "Arguments"));
-	  queue_field_set (r, "MESSAGERECEIPIENT",
-	    ebxml_route_info (xml, route, "Recipient"));
-	  queue_field_set (r, "ENCRYPTION","no");
-	  queue_field_set (r, "SIGNATURE", "no");
-	  queue_field_set (r, "PUBLICKEYLDAPADDRESS", "");
-	  queue_field_set (r, "PUBLICKEYLDAPBASEDN", "");
-	  queue_field_set (r, "PUBLICKEYLDAPDN", "");
-	  queue_field_set (r, "CERTIFICATEURL","");
-	  queue_field_set (r, "PROCESSINGSTATUS", "waiting");
-	  queue_field_set (r, "TRANSPORTSTATUS", "queued");
-	  queue_field_set (r, "PRIORITY", "0");
-	  if (pl = queue_push (r) < 1)
-	  {
-	    error ("Failed queueing ping for %s\n", ebxml_route_info (xml, route, "Name"));
-	    pl = -1;
-	  }
-	  queue_row_free (r);
+  queue_field_set (r, "ROUTEINFO", ebxml_route_info (xml, route, "Name"));
+  queue_field_set (r, "SERVICE", "urn:oasis:names:tc:ebxml-msg:service");
+  queue_field_set (r, "ACTION", "Ping");
+  queue_field_set (r, "ARGUMENTS", 
+    ebxml_route_info (xml, route, "Arguments"));
+  queue_field_set (r, "MESSAGERECIPIENT",
+  ebxml_route_info (xml, route, "Recipient"));
+  queue_field_set (r, "ENCRYPTION","no");
+  queue_field_set (r, "SIGNATURE", "no");
+  queue_field_set (r, "PUBLICKEYLDAPADDRESS", "");
+  queue_field_set (r, "PUBLICKEYLDAPBASEDN", "");
+  queue_field_set (r, "PUBLICKEYLDAPDN", "");
+  queue_field_set (r, "CERTIFICATEURL","");
+  queue_field_set (r, "PROCESSINGSTATUS", "waiting");
+  queue_field_set (r, "TRANSPORTSTATUS", "queued");
+  queue_field_set (r, "PRIORITY", "0");
+  debug ("pushing the queue\n");
+  if (pl = queue_push (r) < 1)
+  {
+    error ("Failed queueing ping for %s\n", 
+	ebxml_route_info (xml, route, "Name"));
+    pl = -1;
+  }
+  queue_row_free (r);
   info ("ebXML Ping for %s queueing completed\n",
     ebxml_route_info (xml, route, "Name"));
   return (0);
@@ -578,7 +589,7 @@ int ebxml_fprocessor (XML *xml, char *prefix, char *fname)
   queue_field_set (r, "SERVICE", ebxml_get (xml, prefix, "Service"));
   queue_field_set (r, "ACTION", ebxml_get (xml, prefix, "Action"));
   queue_field_set (r, "ARGUMENTS", ebxml_get (xml, prefix, "Arguments"));
-  queue_field_set (r, "MESSAGERECEIPIENT",
+  queue_field_set (r, "MESSAGERECIPIENT",
     ebxml_get (xml, prefix, "Recipient"));
   queue_field_set (r, "ENCRYPTION",
     *ebxml_get (xml, prefix, "Encryption.Type") ? "yes" : "no");
@@ -895,8 +906,8 @@ int main (int argc, char **argv)
   int arg = 1;
 
   xml = xml_parse (PhineasConfig);
+  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
   queue_init (xml);
-  queue_register ("FileQueue", fileq_connect);
 
   /* test folder polling */
   if ((argc > arg) && (strcmp (argv[arg], "-f") == 0))
@@ -942,4 +953,5 @@ int main (int argc, char **argv)
   exit (0);
 }
 
-#endif
+#endif /* UNITTEST */
+#endif /* __SENDER__ */

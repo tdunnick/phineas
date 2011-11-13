@@ -15,17 +15,22 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+#ifdef UNITTEST
+#define __CONSOLE__
+#endif
+
+#ifdef __CONSOLE__
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
-#define DEBUG
-
 #ifdef UNITTEST
 #undef UNITTEST
-#define SERVER
-#define SENDER
-#define RECEIVER
+#define __SERVER__
+#define __SENDER__
+#define __RECEIVER__
 #include "unittest.h"
 #include "dbuf.c"
 #include "util.c"
@@ -71,6 +76,7 @@ XML *ConfigXml = NULL;
 #define PORT_WIDTH 4
 #define DIR_WIDTH 50
 #define PASS_WIDTH 14
+#define NUM_WIDTH 4
 
 /*
  * tag types
@@ -81,7 +87,8 @@ XML *ConfigXml = NULL;
 #define TAG_SELECT 3
 #define TAG_RADIO 4
 #define TAG_PASSWD 5
-#define TAG_SUBMIT 6
+#define TAG_NUMBER 6
+#define TAG_SUBMIT 7
 
 // most options for a list
 #define MAXOPT 50
@@ -102,11 +109,62 @@ int config_inputtype (char *pre, int input)
     return (TAG_SELECT);
   if (strcmp (ch, "password") == 0)
     return (TAG_PASSWD);
+  if (strcmp (ch, "number") == 0)
+    return (TAG_NUMBER);
   if (strcmp (ch, "radio") == 0)
     return (TAG_RADIO);
   if (strcmp (ch, "submit") == 0)
     return (TAG_SUBMIT);
   return (TAG_TEXT);
+}
+
+/*
+ * issue javascript help attributes
+ */
+
+int config_addhelp (char *help, DBUF *b)
+{
+  int prevc;
+  char *ch;
+
+  if (strempty (ch = help))
+    return (0);
+  dbuf_printf (b, " OnMouseOver=\"showHelp (this, '");
+  prevc = ' ';
+  while (*ch)
+  {
+    if (isspace (*ch))
+    {
+      if (!isspace (prevc))
+        dbuf_putc (b, ' ');
+    }
+    else if (*ch == '"')
+      dbuf_printf (b, "&quot;");
+    else if (*ch == '\'')
+      dbuf_printf (b, "\\'");
+    else
+      dbuf_putc (b, *ch);
+    prevc = *ch++;
+  }
+  return (dbuf_printf (b, "')\" onMouseOut=\"hideHelp()\" "));
+}
+
+int config_help (char *pre, int input, DBUF *b)
+{
+  char *ch;
+
+  if ((ch = xml_getf (ConfigXml, "%s.Input[%d].Help", pre, input)) == NULL)
+    return (0);
+  return (config_addhelp (ch, b));
+}
+
+int config_tabhelp (char *pre, int tab, DBUF *b)
+{
+  char *ch;
+
+  if ((ch = xml_getf (ConfigXml, "%s[%d].Help", pre, tab)) == NULL)
+    return (0);
+  return (config_addhelp (ch, b));
 }
 
 /*
@@ -198,6 +256,7 @@ char *config_prompt (char *dst, char *src)
   return (dst);
 }
 
+
 /*
  * build a form input for this tag
  */
@@ -222,16 +281,19 @@ int config_getInput (XML *xml, char *configpre, int input,
   // debug ("input path=%s prompt=%s value=%s\n", path, prompt, value);
 
   sz = dbuf_size (b);
-  dbuf_printf (b, "<tr><td valign='top'>%s</td><td>", prompt);
+  dbuf_printf (b, "<tr><td valign='top'>%s</td><td", prompt);
+  config_help (configpre, input, b);
+  dbuf_printf (b, ">");
   width = 24;
   switch (config_inputtype (configpre, input))
   {
     case TAG_SUBMIT:
       dbuf_setsize (b, sz);
-      dbuf_printf (b, "<tr><td colspan='2'>"
-	"<button type='button' name='%s' value='%s'"
-	"onClick='setRequest (this, \"%s\")'>"
-	"%s</button>", name, prompt, path, prompt);
+      dbuf_printf (b, "<tr><td colspan='2'");
+      config_help (configpre, input, b);
+      dbuf_printf (b, "><button type='button' name='%s' value='%s'"
+	"onClick='setRequest (this, \"%s\")'>%s</button>",
+        name, prompt, path, prompt);
       break;
     case TAG_SELECT :
       if (config_list (xml, configpre, input, list))
@@ -250,6 +312,9 @@ int config_getInput (XML *xml, char *configpre, int input,
       goto istext;
     case TAG_DIR :
       width = DIR_WIDTH;
+      goto istext;
+    case TAG_NUMBER :
+      width = NUM_WIDTH;
       goto istext;
     case TAG_TEXT :
       width = atoi (xml_getf (ConfigXml, "%s.Input[%d].Width", 
@@ -275,6 +340,7 @@ int config_getRepeats (XML *xml, char *configpre, int input,
       repeats,
       path_len,
       name_len;
+  char hbuf[124];
 
   if ((repeats = xml_count (xml, path)) == 0)
     repeats = 1;
@@ -289,7 +355,11 @@ int config_getRepeats (XML *xml, char *configpre, int input,
   }
   name[name_len] = 0;
   path[path_len] = 0;
-  dbuf_printf (b, "<tr><td><button type='button' "
+  sprintf (hbuf, "Click this to add another %s to the end of the list", 
+    name);
+  dbuf_printf (b, "<tr><td");
+  config_addhelp (hbuf, b);
+  dbuf_printf (b, "><button type='button' "
     "name='%s' onClick='addfield(this)'>"
     "Add %s</button></td><td></td></tr>", name, name);
   return (0);
@@ -430,7 +500,9 @@ config_getTabs (XML *xml, char *configpre, DBUF *b)
   n = xml_count (ConfigXml, prefix);
   for (i = 0; i < n; i++)
   {
-    dbuf_printf (b, "<li><a href='#tab%s_%d'>%s</a></li>\n",
+    dbuf_printf (b, "<li");
+    config_tabhelp (prefix, i, b);
+    dbuf_printf (b, "><a href='#tab%s_%d'>%s</a></li>\n",
       id, i + 1, xml_getf (ConfigXml, "%s[%d].Name", prefix, i));
   }
   dbuf_printf (b, "</ul><div class='tabs-container'>\n");
@@ -546,13 +618,13 @@ int config_setup ()
   }
   /* conditionally remove chunks we don't use			*/
   strcpy (path, "Config");
-#ifndef SENDER
+#ifndef __SENDER__
   config_detab (path, "Phineas.Sender");
 #endif
-#ifndef RECEIVER
+#ifndef __RECEIVER__
   config_detab (path, "Phineas.Receiver");
 #endif
-#ifndef SERVER
+#ifndef __SERVER__
   config_detab (path, "Phineas.Server");
 #endif
   debug ("loaded configuraton %s\n", EditConfig);
@@ -584,7 +656,7 @@ DBUF *config_getConfig ()
   dbuf_printf (b, "<form method='POST' action='#' >\n"
     "<input type='hidden' name='%s' id='%s' />", REQUEST, REQUEST);
   config_getTabs (EditXml, "Config", b);
-  dbuf_printf (b, "</form>\n");
+  dbuf_printf (b, "<div style=\"height: 100px\"></form>\n");
 #ifdef UNITTEST
   dbuf_printf (b, "</div></body></html>");
 #endif
@@ -837,4 +909,5 @@ int main (int argc, char **argv)
   info ("%s unit test completed\n", argv[0]);
 }
 
-#endif
+#endif /* UNITTEST */
+#endif /* __CONSOLE__ */

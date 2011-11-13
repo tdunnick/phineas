@@ -26,19 +26,27 @@
 #include "qpoller.h"
 #include "ebxml.h"
 
-#define VERSION " 0.1c 11/12/2011"
+#ifndef VERSION
+#define VERSION "0.2 11/02/2011"
+#endif
 
-#ifdef SENDER
-#ifdef RECEIVER
-char Software[] = "PHINEAS" VERSION;
+#ifdef __SENDER__
+#ifdef __RECEIVER__
+char Software[] = "PHINEAS " VERSION;
 #else /* just SENDER */
-char Software[] = "PHINEAS Sender" VERSION;
+char Software[] = "PHINEAS Sender " VERSION;
 #endif /* RECEIVER and SENDER */
-#elif RECEIVER
-char Software[] = "PHINEAS Receiver" VERSION;
+#elif __RECEIVER__
+char Software[] = "PHINEAS Receiver " VERSION;
 #else /* WTF? */
-char Software[] = "PHINEAS" VERSION;
-#endif /* SENDER */
+char Software[] = "PHINEAS " VERSION;
+#endif /* __SENDER__ */
+
+#ifndef CMDLINE
+char ClassName[20];
+#define THIS_CLASSNAME ClassName
+#define THIS_TITLE Software
+#endif
 
 #define PHINEAS_RUNNING 0
 #define PHINEAS_SHUTDOWN 1
@@ -82,13 +90,13 @@ int phineas_fatal (char *fmt, ...)
   va_start (ap, fmt);
   vsprintf (buf + 13, fmt, ap); 
   va_end (ap);
+  phineas_stop ();
 #ifdef CMDLINE
     fputs (buf, stderr);
 #else
-    MessageBox (NULL, buf, Software, MB_OK);
+ MessageBox (NULL, buf, Software, MB_OK);
+ SendMessage (FindWindow (THIS_CLASSNAME, THIS_TITLE), WM_CLOSE, 0, 0 );
 #endif
-  if (Config != NULL)
-    Config = xml_free (Config);
   return (-1);
 }
 
@@ -150,20 +158,18 @@ int phineas_start (int argc, char **argv)
   debug ("initializing queues\n");
   if (queue_init (Config))
     return (phineas_fatal ("Can't initialize queues\n"));
-  queue_register ("FileQueue", fileq_connect);
   Taskq = task_allocq (3, 1000);
-#ifdef SERVER
+#ifdef __SERVER__
   debug ("initializing server\n");
   task_add (Taskq, server_task, Config);
 #endif
-#ifdef SENDER
+#ifdef __SENDER__
   debug ("initializing sender\n");
   fpoller_register ("ebxml", ebxml_fprocessor);
   task_add (Taskq, fpoller_task, Config);
   qpoller_register ("EbXmlSndQ", ebxml_qprocessor);
   task_add (Taskq, qpoller_task, Config);
 #endif 
-  task_start (Taskq);
   info ("Initialzation complete\n");
   return (0);
 }
@@ -217,17 +223,11 @@ main (int argc, char **argv)
 #include <winsvc.h>
 #include <shellapi.h>
 
-
-#define ICON_SENDER_ID 102
-#define ICON_RECEIVER_ID 103
-
-#ifdef SENDER
-#define PHINEAS_ICON_ID ICON_SENDER_ID
+#ifdef __SENDER__
+#define PHINEAS_ICON_ID 102
 #else
-#define PHINEAS_ICON_ID ICON_RECEIVER_ID
+#define PHINEAS_ICON_ID 103
 #endif
-#define THIS_CLASSNAME      "PHINEAS"
-#define THIS_TITLE          Software
 
 /* notes whether we have a popup running */
 static BOOL InPopup       = FALSE;
@@ -275,20 +275,13 @@ WinMain (HINSTANCE hInst, HINSTANCE prev, LPSTR cmdline, int show)
   int n;
   HMENU   hSysMenu    = NULL;
   HWND    hWnd        = NULL;
-  HWND    hPrev       = NULL;
   MSG     msg;
 
-  myInstance = hInst;
-
-  /* look for previous instance and exit if found */
-  if (hPrev = FindWindow (THIS_CLASSNAME, THIS_TITLE))
-  {
-
-    MessageBox (NULL, "Already Running", THIS_TITLE, MB_OK);
-    return 0; //SendMessage( hPrev, WM_CLOSE, 0, 0 );
-  }
+  /* set up a unique classname based on our PID */
+  sprintf (ClassName, "PHINEAS_%d", getpid ());
 
   /* let windows know we are here... */
+  myInstance = hInst;
   w_register (hInst);
 
   /*

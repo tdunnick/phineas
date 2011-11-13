@@ -18,6 +18,8 @@ and optionally run PHINEAS artifacts.  In particular you will need
 to modify "build.bat" for the installation paths of the components 
 mentioned above.
 
+PHINEAS now includes a script for building NSIS installation packages.
+See http://nsis.sourceforge.net for more information.
 
 Current build artifacts (in bin/) include:
 
@@ -26,6 +28,9 @@ phineasr.exe - a stand alone service tray receiver
 phineas.exe - a stand alone service tray tranceiver
 xmlb.exe - an XML beautifier
 cpa.exe - a CPA generator
+chelp.exe - configuration help generator
+psetup.exe - configuration setup routine
+accessdb.vbs - creates an empty ACCESS dB for Phineas
 
 Before running PHINEAS you will additonally need to edit and/or create
 a configuration file using templates/Phineas.xml.  Modify src\unittest.h 

@@ -82,6 +82,7 @@ int task_add (TASKQ *q, int (*fn)(void *), void *p);
 void task_run (TASKQ *q);
 #define task_running(q) ((q)->running)
 #define task_waiting(q) ((q)->waiting)
+#define task_available(q) ((q)->maxthreads-(q)->running)
 #define task_stopping(q) ((q)->stop)
 
 #endif /* __TASK__*/

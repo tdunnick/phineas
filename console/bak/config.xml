@@ -158,7 +158,8 @@
     </Input>
     <Input>
       <Suffix>Console.Root</Suffix>
-      <Type>dir</Type>
+      <Type>text</Type>
+      <Width>44</Width>
       <Help>
 	The Console Root is the folder where console static content and
 	configuration information is located.  This is normally
@@ -171,7 +172,8 @@
     </Input>
     <Input>
       <Suffix>Console.Config</Suffix>
-      <Type>file</Type>
+      <Type>text</Type>
+      <Width>44</Width>
       <Help>
 	The configuration screen layout of the Phineas console is
 	determined by XML in the Console Config.  Depending on the type
@@ -202,7 +204,8 @@
     </Help>
     <Input>
       <Suffix>Port</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	The standalone server non-encrypted HTTP Port may be a standard
 	(e.g. 80) or private (e.g. 8080) value.
@@ -210,7 +213,8 @@
     </Input>
     <Input>
       <Suffix>NumThreads</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	The server NumThreads will determine how may simultaneous
 	connection can be made to Phineas.  This includes both
@@ -222,7 +226,8 @@
     </Input>
     <Input>
       <Suffix>SSL.Port</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	Set the SSL.Port for encrypted HTTPS connections. It may be
 	a standard (e.g. 443) or private (e.g. 8443) value.
@@ -386,7 +391,8 @@
     </Help>
     <Input>
       <Suffix>PollInterval</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	The Phineas sender periodically checks designated folders for
 	files ready to process, and queues for messages ready to send.
@@ -396,7 +402,8 @@
     </Input>
     <Input>
       <Suffix>MaxThreads</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	MaxThreads determines how many connections the sender may
 	have active at any one time.  Three is a typical maximum value.
@@ -414,7 +421,8 @@
     </Input>
     <Input>
       <Suffix>MaxRetry</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	If a send attempt fails (for example, if the host is not
 	responding), the sender will normally retry.  The MaxRetry
@@ -423,13 +431,177 @@
     </Input>
     <Input>
       <Suffix>DelayRetry</Suffix>
-      <Type>number</Type>
+      <Type>text</Type>
+      <Width>4</Width>
       <Help>
 	Before a sender retries sending a message, it will wait
 	for the receiver/network to correct whatever condition may
 	have caused the failure.  The DelayRetry determines the intial
 	wait in seconds.  Each subsequent retry will double the wait
 	interval for an exponential retry back-off.
+      </Help>
+    </Input>
+  </Tab>
+  <Tab>
+    <Name>Routes</Name>
+    <Repeats>true</Repeats>
+    <Prefix>Phineas.Sender.RouteInfo.Route</Prefix>
+    <Help>
+      A Route is used by the sender to select a physical end point for
+      the transport.  That includes things like the domain name, path,
+      ports, and protocol.  It also determines the CPA required by
+      the receiver.
+    </Help>
+    <Input>
+      <Suffix>Name</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	The Name identifies a sender's route.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>PartyId</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	The PartyId identifies the receiver for a route.
+	CDC issues these for PHINMS installation.  However, it can be
+	any unique identifier designated by the receiver.  See the
+	General PartyID for details.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Cpa</Suffix>
+      <Type>24</Type>
+      <Help>
+	The Cpa identifies the certificate protocol agreement file
+	used for the route connection.  It is kept in the CpaDirectory.
+	The naming convention is the receiver and sender PartyId separated
+	by a period.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Host</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	The Host is the domain or IP designation for the receiver
+	(e.g. "some.remote.receiver.gov").
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Path</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	The Path is the URL path expected by the receiver (typically
+	"/receiver/receivefile" for PHINMS hosts).
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Port</Suffix>
+      <Type>text</Type>
+      <Width>4</Width>
+      <Help>
+	The Port is the port used by the receiver (typically 80 for 
+	non-encryption, or 443 for encrypted connections).
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Protocol</Suffix>
+      <Type>select</Type>
+      <Option>http</Option>
+      <Option>https</Option>
+      <Help>
+	The Protocol determines whether SSL encryption and optional
+	authentication is selected for the connection.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Timeout</Suffix>
+      <Type>text</Type>
+      <Width>4</Width>
+      <Help>
+	After the sender transmits a payload request, it waits for a
+	response.  If it waits longer than the Timeout in seconds, it
+	assumes there is some problem with the receiver or networks and
+	optionally retries the send.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Retry</Suffix>
+      <Type>text</Type>
+      <Width>4</Width>
+      <Help>
+	After a Timeout, an attempt may be made to resend the message.
+	The Retry determines how many times that attempt will be made.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Authentication.Type</Suffix>
+      <Type>select</Type>
+      <Option/>
+      <Option>basic</Option>
+      <Option>custom</Option>
+      <Option>sdn</Option>
+      <Option>certificate</Option>
+      <Help>
+	If the sender must authenticate itself to the receiver for 
+	an SSL connection, the method is specified by the 
+	Authentication Type.  Currently only certificate authentication
+	is supported.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Authentication.Id</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	An Authentication Id specifies the DN 
+	(distinguished name or Subject) identified in the encryption
+	payload envelop.  It is only needed to select a specific
+	certificate from a store, and is normally derived from
+	the certificate if left blank. This will be matched against the 
+	receiver's decryption certificate.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Authentication.Password</Suffix>
+      <Type>password</Type>
+      <Help>
+	The Authentication Password is used to optinally decrypt the 
+	Authetication Unc.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Authentication.Unc</Suffix>
+      <Type>text</Type>
+      <Width>44</Width>
+      <Help>
+	The certificate store used for authentication is specified by
+	the Authentication Unc (Universal Naming Convention).  
+	Currently only file based names are supported.
+	This can be in PEM, DER, or PKCS12 formats.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Queue</Suffix>
+      <Type>select</Type>
+      <Ref>Phineas.QueueInfo.Queue</Ref>
+      <Help>
+	The Queue specifies where an audit record of the sender's
+	transport is recorded.  For routes it is only
+	needed for Ping requests.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Name</Suffix>
+      <Name>Export.CPA</Name>
+      <Type>submit</Type>
+      <Help>
+	Click Export.CPA to create a communication protocol agreement
+	file for this route.
       </Help>
     </Input>
   </Tab>
@@ -573,210 +745,6 @@
     </Input>
   </Tab>
   <Tab>
-    <Name>Routes</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.Sender.RouteInfo.Route</Prefix>
-    <Help>
-      A Route is used by the sender to select a physical end point for
-      the transport.  That includes things like the domain name, path,
-      ports, and protocol.  It also determines the CPA required by
-      the receiver.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Name identifies a sender's route.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>PartyId</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The PartyId identifies the receiver for a route.
-	CDC issues these for PHINMS installation.  However, it can be
-	any unique identifier designated by the receiver.  See the
-	General PartyID for details.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Cpa</Suffix>
-      <Type>24</Type>
-      <Help>
-	The Cpa identifies the certificate protocol agreement file
-	used for the route connection.  It is kept in the CpaDirectory.
-	The naming convention is the receiver and sender PartyId separated
-	by a period.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Host</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Host is the domain or IP designation for the receiver
-	(e.g. "some.remote.receiver.gov").
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Path</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Path is the URL path expected by the receiver (typically
-	"/receiver/receivefile" for PHINMS hosts).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Port</Suffix>
-      <Type>number</Type>
-      <Help>
-	The Port is the port used by the receiver (typically 80 for 
-	non-encryption, or 443 for encrypted connections).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Protocol</Suffix>
-      <Type>select</Type>
-      <Option>http</Option>
-      <Option>https</Option>
-      <Help>
-	The Protocol determines whether SSL encryption and optional
-	authentication is selected for the connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Timeout</Suffix>
-      <Type>number</Type>
-      <Help>
-	After the sender transmits a payload request, it waits for a
-	response.  If it waits longer than the Timeout in seconds, it
-	assumes there is some problem with the receiver or networks and
-	optionally retries the send.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Retry</Suffix>
-      <Type>number</Type>
-      <Help>
-	After a Timeout, an attempt may be made to resend the message.
-	The Retry determines how many times that attempt will be made.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Type</Suffix>
-      <Type>select</Type>
-      <Option/>
-      <Option>basic</Option>
-      <Option>custom</Option>
-      <Option>sdn</Option>
-      <Option>certificate</Option>
-      <Help>
-	If the sender must authenticate itself to the receiver for 
-	an SSL connection, the method is specified by the 
-	Authentication Type.  Currently only certificate authentication
-	is supported.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Id</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	An Authentication Id specifies the DN 
-	(distinguished name or Subject) identified in the encryption
-	payload envelop.  It is only needed to select a specific
-	certificate from a store, and is normally derived from
-	the certificate if left blank. This will be matched against the 
-	receiver's decryption certificate.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Password</Suffix>
-      <Type>password</Type>
-      <Help>
-	The Authentication Password is used to optinally decrypt the 
-	Authetication Unc.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Unc</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The certificate store used for authentication is specified by
-	the Authentication Unc (Universal Naming Convention).  
-	Currently only file based names are supported.
-	This can be in PEM, DER, or PKCS12 formats.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Queue</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Queue</Ref>
-      <Help>
-	The Queue specifies where an audit record of the sender's
-	transport is recorded.  For routes it is only
-	needed for Ping requests.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Name>Export.CPA</Name>
-      <Type>submit</Type>
-      <Help>
-	Click Export.CPA to create a communication protocol agreement
-	file for this route.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Queues</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.QueueInfo.Queue</Prefix>
-    <Help>
-      A Phineas Queue is used to record and control transport activities.
-      It's underlying implementation is generally a database table and
-      associated driver.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The name associated with a specific queue.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Type</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Type</Ref>
-      <Help>
-	The Type of queue determines which fields are supported
-	(see queue Type).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Connection</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Connection</Ref>
-      <Help>
-	The Connection used for accessing the queue (see queue Connection).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Table</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The name of the Table for this queue.  Note for a file queue
-	this makes up part of the file name.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
     <Name>Q Types</Name>
     <Repeats>true</Repeats>
     <Prefix>Phineas.QueueInfo.Type</Prefix>
@@ -863,6 +831,50 @@
 	Naming Convention) path.  The nature
 	of the path is determined by the connection type (for example
 	ODBC conventions).
+      </Help>
+    </Input>
+  </Tab>
+  <Tab>
+    <Name>Queues</Name>
+    <Repeats>true</Repeats>
+    <Prefix>Phineas.QueueInfo.Queue</Prefix>
+    <Help>
+      A Phineas Queue is used to record and control transport activities.
+      It's underlying implementation is generally a database table and
+      associated driver.
+    </Help>
+    <Input>
+      <Suffix>Name</Suffix>
+      <Type>text</Type>
+      <Width>24</Width>
+      <Help>
+	The name associated with a specific queue.
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Type</Suffix>
+      <Type>select</Type>
+      <Ref>Phineas.QueueInfo.Type</Ref>
+      <Help>
+	The Type of queue determines which fields are supported
+	(see queue Type).
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Connection</Suffix>
+      <Type>select</Type>
+      <Ref>Phineas.QueueInfo.Connection</Ref>
+      <Help>
+	The Connection used for accessing the queue (see queue Connection).
+      </Help>
+    </Input>
+    <Input>
+      <Suffix>Table</Suffix>
+      <Type>text</Type>
+      <Width>44</Width>
+      <Help>
+	The name of the Table for this queue.  Note for a file queue
+	this makes up part of the file name.
       </Help>
     </Input>
   </Tab>

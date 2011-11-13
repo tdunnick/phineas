@@ -15,6 +15,11 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define __RECEIVER__
+#endif
+
+#ifdef __RECEIVER__
 
 #ifdef UNITTEST
 #undef UNITTEST
@@ -597,8 +602,8 @@ int main (int argc, char **argv)
   SSL_library_init();
   OpenSSL_add_all_ciphers();
   xml = xml_parse (PhineasConfig);
+  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
   queue_init (xml);
-  queue_register ("FileQueue", fileq_connect);
 
   debug ("Reading test request\n");
   if ((in = readfile ("examples/request2.txt", &len)) != NULL)
@@ -613,4 +618,5 @@ int main (int argc, char **argv)
   exit (0);
 }
 
-#endif
+#endif /* UNITTEST */
+#endif /* __RECEIVER__ */

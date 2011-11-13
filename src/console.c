@@ -15,6 +15,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define __CONSOLE__
+#endif
+
+#ifdef __CONSOLE__
+
 #include <stdio.h>
 
 #ifdef UNITTEST
@@ -761,12 +767,12 @@ DBUF *console_doGet (XML *xml, char *req)
   {
     rowdetail = config_getConfig ();
   }
-#ifdef SENDER
+#ifdef __SENDER__
   else if (console_getParm (buf, parm, "ping") != NULL)
   {
-	if (isdigit (*buf) && ebxml_qping (xml, atoi (buf)))
-	  info ("Ping queueing failed\n");
-	rowdetail = console_ping (xml);
+    if (isdigit (*buf) && ebxml_qping (xml, atoi (buf)))
+      error ("Ping queueing failed\n");
+    rowdetail = console_ping (xml);
   }
 #endif
   else
@@ -826,7 +832,6 @@ int main (int argc, char **argv)
   xml_set_text (xml, "Phineas.QueueInfo.Queue[0].Table", "TransportQ.test");
   xml_set_text (xml, "Phineas.QueueInfo.Queue[1].Table", "ReceiveQ.test");
   queue_init (xml);
-  queue_register ("FileQueue", fileq_connect);
   b = console_doGet (xml, "/Phineas/console/console.html?", "");
   if (b == NULL)
     fatal ("Couldn't get console page\n");
@@ -838,5 +843,5 @@ int main (int argc, char **argv)
    info ("%s unit test completed\n", argv[0]);
 }
 
-#endif
-
+#endif /* UNITTEST */
+#endif /* __CONSOLE__ */

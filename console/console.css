@@ -1,3 +1,39 @@
+/*
+ * console.css
+ *
+ * Copyright 2011 Thomas L Dunnick
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+/*
+ * Note that parts of this CSS have been derived from the following,
+ * and that those copyrights and license agreements may supercede the
+ * one above...
+ *
+ * Yetii - Yet (E)Another Tab Interface Implementation
+ * version 1.6
+ * http://www.kminek.pl/lab/yetii/
+ * Copyright (c) Grzegorz Wojcik
+ * Code licensed under the BSD License:
+ * http://www.kminek.pl/bsdlicense.txt
+ *
+ * and
+ *
+ * Bubble Tooltips by Alessandro Fulciniti
+ * - http://pro.html.it - http://web-graphics.com 
+ */
+
 body { background:#008; }
 table#nav { width: 100%; background:#008; color:white; }
 table#nav img { border:transparent; width:48; }
@@ -9,9 +45,6 @@ div#console {
 	overflow: hidden;
 	}
 tr.selected { font-weight: bold; }
-/*
-iframe { width:100%; height:100%; overflow:visible; }
-*/
 
 div.configlayout {
 	width: 99%;
@@ -63,4 +96,22 @@ ul.configlayout li a.active {
 	border: #888 1px solid;
 	border-top: 0;
 	padding: 25px 10px 0 10px;
+}
+
+.tip {
+  width: 200px; 
+  color: RED;
+  font:11px arial,sans-serif;
+  text-decoration:none;
+  text-align:left
+}
+
+.tip span.top {
+  padding: 30px 8px 0;
+  background: url(images/tip.gif) no-repeat top
+}
+
+.tip span.bottom {
+  padding:3px 8px 15px;
+  background: url(images/tip.gif) no-repeat bottom
 }

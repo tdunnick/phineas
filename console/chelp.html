@@ -1,0 +1,457 @@
+<html><body><div style="padding: 20px">The <b>General</b> tab - 
+      Here are the general configuration items that affect 
+      the over all function of Phineas. Note that most of the
+      paths here may be specified relative to the InstallDirectory.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>InstallDirectory</b> - a folder or directory<div style="padding-left: 20px">
+	The InstallDirectory is a full path to where you installed
+	Phineas.  It is used to resolve any relative path in the 
+	configuration (e.g. a path that doesn't start with a drive
+	letter or leading directory slash).
+      </div></div>
+<div style="padding-left: 20px"><b>PartyId</b> - text<div style="padding-left: 20px">
+	Each end point of an ebXML connection is identified by a PartyID.
+	CDC issues these for PHINMS installation.  However, it can be
+	any unique identifier you choose, as long as it is acceptible
+	to your communicating endpoint(s).  A good alternative is to use
+	the full domain name of the server hosting Phineas (e.g. 
+	"my.server.name.and.domain").
+      </div></div>
+<div style="padding-left: 20px"><b>Organization</b> - text<div style="padding-left: 20px">
+	Set the Organization to something that readily identifys who
+	is hosting Phineas.
+      </div></div>
+<div style="padding-left: 20px"><b>SoapTemplate</b> - a file<div style="padding-left: 20px">
+	The SoapTemplate is the location of the ebXML SOAP template 
+	used for composing messages.  You should normally not need 
+	to change this from the default "templates/soap.xml".
+      </div></div>
+<div style="padding-left: 20px"><b>EncryptionTemplate</b> - a file<div style="padding-left: 20px">
+	The EncryptionTemplate is the location of the ebXML 
+	encryption template used in the payload part of the messages.  
+	You should normally not need to change this from the
+	default "templates/encryption.xml". 
+      </div></div>
+<div style="padding-left: 20px"><b>CpaTemplate</b> - a file<div style="padding-left: 20px">
+	The CpaTemplate is the location of the ebXML CPA template 
+	used for creating new CPAs (Communications Protocol Agreement).  
+	You should normally not need to change this from the default
+	"templates/cpa.xml".
+      </div></div>
+<div style="padding-left: 20px"><b>CpaDirectory</b> - a folder or directory<div style="padding-left: 20px">
+	CPAs are stored in the folder designed by the CpaDirectory.
+	The CPA (Communications Protocol Agreement) is exchanged between
+	an ebXML sender and receiver and required for communications.
+      </div></div>
+<div style="padding-left: 20px"><b>TempDirectory</b> - a folder or directory<div style="padding-left: 20px">
+	Temporary files are placed in the folder designated by the
+	TempDirectory.
+      </div></div>
+<div style="padding-left: 20px"><b>LogFile</b> - a file<div style="padding-left: 20px">
+	All general log entries go into the file designated by the
+	LogFile.  A new log is started every time Phineas restarts,
+	and the old log is renamed with a timestamp extension.
+      </div></div>
+<div style="padding-left: 20px"><b>LogLevel</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The LogLevel determines the type of messages placed into the
+	LogFile, with debug providing the most messages and error the
+	fewest.  Setting it to none will suppress logging altogether.
+      </div></div>
+<div style="padding-left: 20px"><b>Console Url</b> - text<div style="padding-left: 20px">
+	Phineas can optionally provide a WEB based console for monitoring
+	and configuration.  For a stand-alone implementation, the
+	Console Url determine the path used for accessing the console.
+	Note the protocol, host, and port will be added.
+      </div></div>
+<div style="padding-left: 20px"><b>Console Root</b> - a folder or directory<div style="padding-left: 20px">
+	The Console Root is the folder where console static content and
+	configuration information is located.  This is normally
+	found in the Phineas install path, but can be anywhere on the
+	file system including in a HTTP server root.  Note that the
+	dynamic part of the console will not (directly) be rendered by
+	an HTTP server however.  Phineas must be running and configured
+	for that.
+      </div></div>
+<div style="padding-left: 20px"><b>Console Config</b> - a file<div style="padding-left: 20px">
+	The configuration screen layout of the Phineas console is
+	determined by XML in the Console Config.  Depending on the type
+	of Phineas build, parts may be ignored however (for example
+	a SENDER build will ignore RECEIVER configuration items).
+	This file is normally found in the Console Root, but may be
+	located anywhere.
+      </div></div>
+<div style="padding-left: 20px"><b>Receiver Url</b> - text<div style="padding-left: 20px">
+	For standalone RECEIVER builds of Phineas, the Receiver Url
+	determines the path used for ebXML requests.  For example
+	a typical PHINMS receiver responds to "/receiver/receivefile".
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Server</b> tab - 
+      Phineas is typically run as a stand alone program, and thus has it's
+      own build in HTTP(S) server.  Settings for that server are 
+      configured here.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;Server&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Server&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Port</b> - a numeric value<div style="padding-left: 20px">
+	The standalone server non-encrypted HTTP Port may be a standard
+	(e.g. 80) or private (e.g. 8080) value.
+      </div></div>
+<div style="padding-left: 20px"><b>NumThreads</b> - a numeric value<div style="padding-left: 20px">
+	The server NumThreads will determine how may simultaneous
+	connection can be made to Phineas.  This includes both
+	ebXML and console (browser) requests. Each request gets its
+	own process or "thread".  Don't go overboard here.  Memory
+	and process related overhead limit the possible improvement
+	in performance.
+      </div></div>
+<div style="padding-left: 20px"><b>SSL Port</b> - a numeric value<div style="padding-left: 20px">
+	Set the SSL.Port for encrypted HTTPS connections. It may be
+	a standard (e.g. 443) or private (e.g. 8443) value.
+      </div></div>
+<div style="padding-left: 20px"><b>SSL CertFile</b> - a file<div style="padding-left: 20px">
+	Clients connecting to the Phineas server using HTTPS will be
+	presented with the credentials found in the SSL CertFile.  This
+	can be in PEM, DER, or PKCS12 formats.
+      </div></div>
+<div style="padding-left: 20px"><b>SSL KeyFile</b> - a file<div style="padding-left: 20px">
+	For HTTPS connections, this file holds the private key used by
+	the server. This can be in PEM, DER, or PKCS12 formats, and
+	defaults to the SSL CertFile above.
+      </div></div>
+<div style="padding-left: 20px"><b>SSL Password</b> - a password<div style="padding-left: 20px">
+	The SSL Password is use to access encrypted SSL CertFile and/or
+	SSL Keyfile.
+      </div></div>
+<div style="padding-left: 20px"><b>SSL AuthFile</b> - a file<div style="padding-left: 20px">
+	The SSL AuthFile is a set of PEM formatted CA (certificate
+	authority) certificates.  It is used to authenticate clients.
+	If not given, clients will not be required to authenticate.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Services</b> tab - 
+      When a message is received by Phineas, the service requested
+      determines how (or if) that message will be processed.  Services
+      define this processing.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;Receiver&gt;</b><div style="padding-left: 20px;"><b>&lt;MapInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Map&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Map&gt;</b></div><b>&lt;/MapInfo&gt;</b></div><b>&lt;/Receiver&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The Name is used to identify a receiver's service mapping.
+      </div></div>
+<div style="padding-left: 20px"><b>Directory</b> - a folder or directory<div style="padding-left: 20px">
+	Received payloads are written to the Directory found in this
+	service.
+      </div></div>
+<div style="padding-left: 20px"><b>Queue</b> - a drop down list of item selections<div style="padding-left: 20px">
+	Received messages are recorded in the Queue for this service.
+	See the Queue configurations for more information.
+      </div></div>
+<div style="padding-left: 20px"><b>Filter</b> - text<div style="padding-left: 20px">
+	The Filter is a command line program that is expected to 
+	read from stdin and write to stdout.  The payload may be run through
+	this filter prior to being stored on disk.  A typical use
+	would be to data broker an HL7 message.
+      </div></div>
+<div style="padding-left: 20px"><b>Service</b> - text<div style="padding-left: 20px">
+	The sender designates the Service in the ebXML which is then
+	matched to the one specified here.
+      </div></div>
+<div style="padding-left: 20px"><b>Action</b> - text<div style="padding-left: 20px">
+	The sender designates the Action in the ebXML which is then
+	matched to the one specified here.
+      </div></div>
+<div style="padding-left: 20px"><b>Arguments</b> - text<div style="padding-left: 20px">
+	Optional information used by the processing service 
+	can be given in the Arguments.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Type</b> - a drop down list of item selections<div style="padding-left: 20px">
+	Payloads may be encrypted using PEM, DER, or PKCS12 certificates.
+	This specifies the decryption certificate/key. Otherwise payloads
+	are not decrypted.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Id</b> - text<div style="padding-left: 20px">
+	An Encryption Id specifies optional the DN 
+	(distinguished name or Subject)
+	used to match against the sender's encryption certificate.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Password</b> - a password<div style="padding-left: 20px">
+	The Encryption Password is used to decrypt the certificate/key.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Unc</b> - text<div style="padding-left: 20px">
+	The certificate or key to use for decryption is specified by
+	the Encryption Unc (Universal Naming Convention).  
+	Currently only file UNC's are supported.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Sender</b> tab - 
+      These settings are needed for Phineas to send files and include
+      things like destination, file selections, transport,
+      encryption, and so forth.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;Sender&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Sender&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>PollInterval</b> - a numeric value<div style="padding-left: 20px">
+	The Phineas sender periodically checks designated folders for
+	files ready to process, and queues for messages ready to send.
+	The PollInterval determines the occurance frequency in seconds
+	of these checks.
+      </div></div>
+<div style="padding-left: 20px"><b>MaxThreads</b> - a numeric value<div style="padding-left: 20px">
+	MaxThreads determines how many connections the sender may
+	have active at any one time.  Three is a typical maximum value.
+      </div></div>
+<div style="padding-left: 20px"><b>CertificateAuthority</b> - a file<div style="padding-left: 20px">
+	The CertificateAuthority is a set of PEM formatted CA (certificate
+	authority) certificates.  It is used to authenticate receivers
+	for HTTPS connections.  If not given, receivers will not be 
+	required to authenticate.
+      </div></div>
+<div style="padding-left: 20px"><b>MaxRetry</b> - a numeric value<div style="padding-left: 20px">
+	If a send attempt fails (for example, if the host is not
+	responding), the sender will normally retry.  The MaxRetry
+	determines the number of attempt that will be made.
+      </div></div>
+<div style="padding-left: 20px"><b>DelayRetry</b> - a numeric value<div style="padding-left: 20px">
+	Before a sender retries sending a message, it will wait
+	for the receiver/network to correct whatever condition may
+	have caused the failure.  The DelayRetry determines the intial
+	wait in seconds.  Each subsequent retry will double the wait
+	interval for an exponential retry back-off.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Maps</b> tab - 
+      A sender's map associates files with a Route and Queue.  When
+      those files get selected for transport they will be 
+      recorded in the Queue and sent to the Route's destination.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;Sender&gt;</b><div style="padding-left: 20px;"><b>&lt;MapInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Map&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Map&gt;</b></div><b>&lt;/MapInfo&gt;</b></div><b>&lt;/Sender&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The Name of the sender map associated with a file folder.
+      </div></div>
+<div style="padding-left: 20px"><b>Queue</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The name of the Queue used to record files processed from
+	a folder map.
+      </div></div>
+<div style="padding-left: 20px"><b>Processor</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The type of Processor used for this folder.  Currently only
+	ebxml is supported.  Future versions may include other protocols
+	like MLLP.
+      </div></div>
+<div style="padding-left: 20px"><b>Folder</b> - a folder or directory<div style="padding-left: 20px">
+	The Folder is periodically checked for files to be added to a
+	queue (and subsequently processed or sent).  This can include
+	wild card designations to restrict which files get selected
+	(for example, "data/outgoing/*.txt").
+      </div></div>
+<div style="padding-left: 20px"><b>Processed</b> - a folder or directory<div style="padding-left: 20px">
+	The Processed folder gets files after they have been processed
+	by the folder poller.
+      </div></div>
+<div style="padding-left: 20px"><b>Acknowledged</b> - a folder or directory<div style="padding-left: 20px">
+	After the queue processors is finished it will add a status
+	message from the remote receiver to a file in the Acknowledged
+	folder.
+      </div></div>
+<div style="padding-left: 20px"><b>Route</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The Route designates the payload destination for a selected folder 
+	mapping.
+      </div></div>
+<div style="padding-left: 20px"><b>Service</b> - text<div style="padding-left: 20px">
+	The Service (and Action) identifies how the receiver should 
+	handle the incoming request (payload).
+      </div></div>
+<div style="padding-left: 20px"><b>Action</b> - text<div style="padding-left: 20px">
+	The Action (and Service) identifies how the receiver should 
+	handle the incoming request (payload).
+      </div></div>
+<div style="padding-left: 20px"><b>Arguments</b> - text<div style="padding-left: 20px">
+	The send can pass optional Arguments to the receiver to further
+	affect processing of the request.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Type</b> - a drop down list of item selections<div style="padding-left: 20px">
+	If payload encryption is desired, the Encryption Type determines
+	the method.  Currently on certificate encryption is supported.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Id</b> - text<div style="padding-left: 20px">
+	An Encryption Id specifies optional the DN 
+	(distinguished name or Subject) identified to the 
+	receiver in the encryption payload.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Password</b> - a password<div style="padding-left: 20px">
+	The Encryption Password is used to decrypt the certificate.
+      </div></div>
+<div style="padding-left: 20px"><b>Encryption Unc</b> - text<div style="padding-left: 20px">
+	The certificate to use for encryption is specified by
+	the Encryption Unc (Universal Naming Convention).
+	Currently only file based names are supported.
+	This can be in PEM, DER, or PKCS12 formats.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Routes</b> tab - 
+      A Route is used by the sender to select a physical end point for
+      the transport.  That includes things like the domain name, path,
+      ports, and protocol.  It also determines the CPA required by
+      the receiver.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;Sender&gt;</b><div style="padding-left: 20px;"><b>&lt;RouteInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Route&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Route&gt;</b></div><b>&lt;/RouteInfo&gt;</b></div><b>&lt;/Sender&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The Name identifies a sender's route.
+      </div></div>
+<div style="padding-left: 20px"><b>PartyId</b> - text<div style="padding-left: 20px">
+	The PartyId identifies the receiver for a route.
+	CDC issues these for PHINMS installation.  However, it can be
+	any unique identifier designated by the receiver.  See the
+	General PartyID for details.
+      </div></div>
+<div style="padding-left: 20px"><b>Cpa</b> - text<div style="padding-left: 20px">
+	The Cpa identifies the certificate protocol agreement file
+	used for the route connection.  It is kept in the CpaDirectory.
+	The naming convention is the receiver and sender PartyId separated
+	by a period.
+      </div></div>
+<div style="padding-left: 20px"><b>Host</b> - text<div style="padding-left: 20px">
+	The Host is the domain or IP designation for the receiver
+	(e.g. "some.remote.receiver.gov").
+      </div></div>
+<div style="padding-left: 20px"><b>Path</b> - text<div style="padding-left: 20px">
+	The Path is the URL path expected by the receiver (typically
+	"/receiver/receivefile" for PHINMS hosts).
+      </div></div>
+<div style="padding-left: 20px"><b>Port</b> - a numeric value<div style="padding-left: 20px">
+	The Port is the port used by the receiver (typically 80 for 
+	non-encryption, or 443 for encrypted connections).
+      </div></div>
+<div style="padding-left: 20px"><b>Protocol</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The Protocol determines whether SSL encryption and optional
+	authentication is selected for the connection.
+      </div></div>
+<div style="padding-left: 20px"><b>Timeout</b> - a numeric value<div style="padding-left: 20px">
+	After the sender transmits a payload request, it waits for a
+	response.  If it waits longer than the Timeout in seconds, it
+	assumes there is some problem with the receiver or networks and
+	optionally retries the send.
+      </div></div>
+<div style="padding-left: 20px"><b>Retry</b> - a numeric value<div style="padding-left: 20px">
+	After a Timeout, an attempt may be made to resend the message.
+	The Retry determines how many times that attempt will be made.
+      </div></div>
+<div style="padding-left: 20px"><b>Authentication Type</b> - a drop down list of item selections<div style="padding-left: 20px">
+	If the sender must authenticate itself to the receiver for 
+	an SSL connection, the method is specified by the 
+	Authentication Type.  Currently only certificate authentication
+	is supported.
+      </div></div>
+<div style="padding-left: 20px"><b>Authentication Id</b> - text<div style="padding-left: 20px">
+	An Authentication Id specifies the DN 
+	(distinguished name or Subject) identified in the encryption
+	payload envelop.  It is only needed to select a specific
+	certificate from a store, and is normally derived from
+	the certificate if left blank. This will be matched against the 
+	receiver's decryption certificate.
+      </div></div>
+<div style="padding-left: 20px"><b>Authentication Password</b> - a password<div style="padding-left: 20px">
+	The Authentication Password is used to optinally decrypt the 
+	Authetication Unc.
+      </div></div>
+<div style="padding-left: 20px"><b>Authentication Unc</b> - text<div style="padding-left: 20px">
+	The certificate store used for authentication is specified by
+	the Authentication Unc (Universal Naming Convention).  
+	Currently only file based names are supported.
+	This can be in PEM, DER, or PKCS12 formats.
+      </div></div>
+<div style="padding-left: 20px"><b>Queue</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The Queue specifies where an audit record of the sender's
+	transport is recorded.  For routes it is only
+	needed for Ping requests.
+      </div></div>
+<div style="padding-left: 20px"><b>Name</b> - a submit button<div style="padding-left: 20px">
+	Click Export.CPA to create a communication protocol agreement
+	file for this route.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Queues</b> tab - 
+      A Phineas Queue is used to record and control transport activities.
+      It's underlying implementation is generally a database table and
+      associated driver.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;QueueInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Queue&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Queue&gt;</b></div><b>&lt;/QueueInfo&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The name associated with a specific queue.
+      </div></div>
+<div style="padding-left: 20px"><b>Type</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The Type of queue determines which fields are supported
+	(see queue Type).
+      </div></div>
+<div style="padding-left: 20px"><b>Connection</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The Connection used for accessing the queue (see queue Connection).
+      </div></div>
+<div style="padding-left: 20px"><b>Table</b> - text<div style="padding-left: 20px">
+	The name of the Table for this queue.  Note for a file queue
+	this makes up part of the file name.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Q Types</b> tab - 
+      The Queue Type identifies the fields of Queue, although the physical
+      implementation may include additional fields and/or have
+      order differences. Queue Types should begin with a "RECORDID" field.
+      EbXml queues are expected to have a specific set of fields present,
+      so you should NOT delete any found there. 
+      The EbXml defaults are fully compatible with existing
+      PHINMS databases.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;QueueInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Type&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Type&gt;</b></div><b>&lt;/QueueInfo&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The Name identifing the queue type.
+      </div></div>
+<div style="padding-left: 20px"><b>Field</b> - text<div style="padding-left: 20px">
+	One or more Field names for the queue.  Note that all queues
+	are expected to begin with a RecordId.  The Add Field button
+	can be used to add additional fields.  Blank fields are removed.
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Connections</b> tab - 
+      A Phineas Queue is associated with a Connection that determines
+      the physical implementation of a queue.  This is typically a
+      database connection, but Phineas also offers a light weight
+      file based connection.
+    
+<br><br><div style="padding-left: 20px;"><b>&lt;Phineas&gt;</b><div style="padding-left: 20px;"><b>&lt;QueueInfo&gt;</b><div style="padding-left: 20px;"><b>&lt;Connection&gt;</b><div style="padding-left: 20px;">The following configuration items are found here...</div><b>&lt;/Connection&gt;</b></div><b>&lt;/QueueInfo&gt;</b></div><b>&lt;/Phineas&gt;</b></div><br><br><div style="padding-left: 20px"><b>Name</b> - text<div style="padding-left: 20px">
+	The Name used to identify a queue connection.
+      </div></div>
+<div style="padding-left: 20px"><b>Type</b> - a drop down list of item selections<div style="padding-left: 20px">
+	The type of connection. Use "file" for file based or
+	"odbc" for an ODBC connection.
+      </div></div>
+<div style="padding-left: 20px"><b>Id</b> - text<div style="padding-left: 20px">
+	The Id is optionally used to authenticate the queue
+	connection.
+      </div></div>
+<div style="padding-left: 20px"><b>Password</b> - a password<div style="padding-left: 20px">
+	The Password is optionally used to authenticate the queue
+	connection.
+      </div></div>
+<div style="padding-left: 20px"><b>Unc</b> - text<div style="padding-left: 20px">
+	A queue connection is accessed by a Unc (Universal 
+	Naming Convention) path.  The nature
+	of the path is determined by the connection type (for example
+	ODBC conventions).
+      </div></div>
+</div>
+<div style="padding: 20px">The <b>Load/Save/Update</b> tab - 
+      The Phineas configuration is loaded from a disk file when the
+      program starts.  That is the RUNNING configuration.  The 
+      configuration being editted (here) may be loaded or saved from
+      that RUNNING configuration, or elsewhere.  Similarly changes made
+      in the web configuration GUI may be updated (in memory), or 
+      discarded by simply navigating away in the console.
+    
+<div style="padding-left: 20px"><b>Configuration File Name</b> - a file<div style="padding-left: 20px">
+	The configuration for Phineas is read or written to the
+	Configuration File Name.
+      </div></div>
+<div style="padding-left: 20px"><b>Save Configuration</b> - a submit button<div style="padding-left: 20px">
+	Click Save Configuration to save the current configuration in
+	edit to disk.
+      </div></div>
+<div style="padding-left: 20px"><b>Load Configuration</b> - a submit button<div style="padding-left: 20px">
+	Click Load Configuration to Load the current configuration in
+	edit from disk.
+      </div></div>
+<div style="padding-left: 20px"><b>Update Configuration</b> - a submit button<div style="padding-left: 20px">
+	Click Update Configuration to keep changes to the current 
+	configuration in edit.  Otherwise changes may be discarded
+	after you navigate away from the configuration screen.
+      </div></div>
+</div>
+</body></html>

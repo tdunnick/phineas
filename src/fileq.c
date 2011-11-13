@@ -15,6 +15,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define __FILEQ__
+#endif
+
+#ifdef __FILEQ__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +31,6 @@
 #include "util.c"
 #include "xml.c"
 #include "dbuf.c"
-#include "unittest.h"
 #include "queue.c"
 #define UNITTEST
 #define debug _DEBUG_
@@ -110,7 +115,10 @@ FILEQ *fileq_find (QUEUE *q)
   }
   pathf (path, "%s%s.txt", q->conn->conn, q->table);
   if ((fp = fopen (path, "a+")) == NULL)
+  {
+    error ("Can't open fileq %s\n", path);
     return (NULL);
+  }
   debug ("opened file %s\n", path);
   c = fileq_alloc (q->name, fp, FILEQXSZ);
   if (fileq_reindex (q, c) < 0)
@@ -290,6 +298,7 @@ int fileq_putrow (FILEQ *c, char *buf)
   fputs (buf, c->fp);
   fputc ('\n', c->fp);
   fileq_index (c, r, p);
+  return (r);
 }
 
 /*
@@ -472,6 +481,7 @@ int fileq_connect (QUEUECONN *conn)
   conn->get = fileq_get;
   conn->nextrow = fileq_next;
   conn->prevrow = fileq_prev;
+  debug ("Connection to %s completed\n", conn->name);
   return (0);
 }
 
@@ -609,12 +619,12 @@ int main (int argc, char **argv)
 
   if ((xml = xml_parse (PhineasConfig)) == NULL)
     return (-1);
+  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
   xml_set_text (xml, "Phineas.QueueInfo.Queue[0].Table", "TransportQ.test");
   xml_set_text (xml, "Phineas.QueueInfo.Queue[1].Table", "ReceiveQ.test");
   debug ("Configuring...\n");
   if (queue_init (xml))
     fatal ("Couldn't initialize\n"); 
-  queue_register ("FileQueue", fileq_connect);
   if (argc > 1)
     build_queues (buf);
   debug ("MemReceiveQ tests...\n");
@@ -695,3 +705,4 @@ int main (int argc, char **argv)
 }
 
 #endif /* UNITTEST */
+#endif /* __FILEQ__ */

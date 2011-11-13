@@ -25,9 +25,9 @@
   <!-- where we live -->
   <InstallDirectory></InstallDirectory>
   <!-- our party ID -->
-  <PartyId>my.party.id</PartyId>
+  <PartyId></PartyId>
   <!-- our organization -->
-  <Organization>my organization name</Organization>
+  <Organization></Organization>
   <!-- EbXML template for the SOAP component of a message -->
   <SoapTemplate>templates/soap.xml</SoapTemplate>
   <!-- ebXML template for SOAP acknowledgment -->
@@ -37,7 +37,7 @@
   <!-- EbXML template for the encrypted payload component of a message -->
   <EncryptionTemplate>templates/encryption.xml</EncryptionTemplate>
   <!-- CPA template -->
-  <CPATemplate>templates/cpa.xml</CPATemplate>
+  <CpaTemplate>templates/cpa.xml</CpaTemplate>
   <!-- CPA folder -->
   <CpaDirectory>cpa/</CpaDirectory>
   <!--a directory to temporarily stash files -->
@@ -92,7 +92,7 @@
       <Field id="SERVICE">SERVICE</Field>
       <Field id="ACTION">ACTION</Field>
       <Field id="ARGUMENTS">ARGUMENTS</Field>
-      <Field id="MESSAGERECEIPIENT">MESSAGERECEIPIENT</Field>
+      <Field id="MESSAGERECIPIENT">MESSAGERECIPIENT</Field>
       <Field id="MESSAGECREATIONTIME">MESSAGECREATIONTIME</Field>
       <Field id="ENCRYPTION">ENCRYPTION</Field>
       <Field id="SIGNATURE">SIGNATURE</Field>
@@ -136,9 +136,10 @@
       <Field id="LASTUPDATETIME">LASTUPDATETIME</Field>
       <Field id="PROCESSID">PROCESSID</Field>
     </Type>
-    <!-- queue (dB) connection information -->
+    <!-- queue (dB) standard connection information -->
     <Connection>
-      <Name>FileQueue</Name>
+      <Name>StdConn</Name>
+      <Type>file</Type>
       <Id/>
       <Password/>
       <Unc>queues/</Unc>
@@ -146,20 +147,20 @@
     </Connection>
     <!-- and the queues themselves -->
     <Queue>
-      <Name>MemSendQ</Name>
+      <Name>SendQ</Name>
       <CacheSize>50</CacheSize>
       <Type>EbXmlSndQ</Type>
-      <Connection>FileQueue</Connection>
+      <Connection>StdConn</Connection>
       <Table>TransportQ</Table>
     </Queue>
     <Queue>
-      <Name>MemReceiveQ</Name>
+      <Name>ReceiveQ</Name>
       <CacheSize>30</CacheSize>
       <Type>EbXmlRcvQ</Type>
-      <Connection>FileQueue</Connection>
+      <Connection>StdConn</Connection>
       <Table>ReceiveQ</Table>
     </Queue>
-  </QueueInfo>
+ </QueueInfo>
   <!--The sender's configuration-->
   <Sender>
     <!--second between map, queue, or other polling-->
@@ -169,9 +170,9 @@
     <!--certificate authority-->
     <CertificateAuthority>security/sslcert.ca</CertificateAuthority>
     <!--maximum number of send retries-->
-    <MaxRetry>2</MaxRetry>
+    <MaxRetry>5</MaxRetry>
     <!--starting delay for retry in seconds-->
-    <DelayRetry>1</DelayRetry>
+    <DelayRetry>5</DelayRetry>
     <!--Routes indicated EbXML end points for the sender-->
     <RouteInfo>
       <Route>
@@ -184,7 +185,7 @@
         <Protocol>http</Protocol>
         <Timeout>30</Timeout>
 	<Retry>5</Retry>
-	<Queue>MemSendQ</Queue>
+	<Queue>SendQ</Queue>
 	<!-- set when client authentication is used -->
         <Authentication>
           <Type/>
@@ -221,7 +222,7 @@
           <Password/>
           <Unc></Unc>
         </Encryption>
-        <Queue>MemSendQ</Queue>
+        <Queue>SendQ</Queue>
       </Map>
     </MapInfo>
   </Sender>
@@ -248,7 +249,7 @@
 	  <Password>changeit</Password>
 	  <Unc>security/phineas.pfx</Unc>
         </Encryption>
-	<Queue>MemReceiveQ</Queue>
+	<Queue>ReceiveQ</Queue>
       </Map>
     </MapInfo>
   </Receiver>

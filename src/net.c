@@ -15,6 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 #include "log.h"
 #include "net.h"
 #include "openssl/err.h"
@@ -249,6 +250,8 @@ NETCON *net_accept (NETCON *conn, SSL_CTX *ctx)
   c->sock = accept (conn->sock, (struct sockaddr *) &c->sin, &e);
   if (c->sock == INVALID_SOCKET)
   {
+    if (h_errno)
+      error ("socket accept error %d - %s\n", h_errno, strerror (h_errno));
     free (c);
     return (NULL);
   }
@@ -284,7 +287,10 @@ NETCON *net_ssl (NETCON *conn, SSL_CTX *ctx, int is_server)
      */
     if ((e = SSL_accept (conn->ssl)) != 1)
     {
-      error ("Can't complete SSL accept - %s\n", SSLREASON);
+      if (e)
+        error ("Can't complete SSL accept - %s\n", SSLREASON);
+      else
+	debug ("EOF on SSL_accept\n");
       return (net_close (conn));
     }
   }
@@ -359,6 +365,10 @@ int net_timeout (NETCON *conn, int timeout)
 
 /*
  * read from a socket
+ *
+ * note that the other end may have closed the connection or we
+ * may have timed out or when we get here, so we don't complain about
+ * IO errors (SSL_ERROR_SYSCALL).
  */
 int net_read (NETCON *conn, char *buf, int sz)
 {
@@ -368,14 +378,28 @@ int net_read (NETCON *conn, char *buf, int sz)
   while (n = sz - rsz)
   {
     if (conn->ssl != NULL)
-      n = SSL_read (conn->ssl, buf + rsz, n);
-    else
-      n = recv (conn->sock, buf + rsz, n, 0);
-    if (n <= 0) 
     {
-      if (h_errno && (h_errno != WSAETIMEDOUT))
-        error ("read error %d - %s\n", h_errno, strerror (h_errno));
-      break;
+      if ((n = SSL_read (conn->ssl, buf + rsz, n)) <= 0)
+      {
+	int e = SSL_get_error (conn->ssl, n);
+	if (e != SSL_ERROR_ZERO_RETURN)
+	{
+	  if (e != SSL_ERROR_SYSCALL) 
+	    error ("read error %d - %s\n", e, SSLREASON);
+	  else
+	    debug ("read EOF\n");
+	}
+	break;
+      }
+    }
+    else
+    {
+      if ((n = recv (conn->sock, buf + rsz, n, 0)) <= 0)
+      {
+        if (h_errno && (h_errno != WSAETIMEDOUT))
+          error ("read error %d - %s\n", h_errno, strerror (h_errno));
+        break;
+      }
     }
     rsz += n;
   }

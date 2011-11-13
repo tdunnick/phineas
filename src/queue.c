@@ -43,17 +43,39 @@
 #define debug(fmt...)
 #endif
 
+#ifdef __FILEQ__
+extern int fileq_connect (QUEUECONN *);
+#endif
+#ifdef __ODBCQ__
+extern int odbcq_connect (QUEUECONN *);
+#endif
+
+int no_connect (QUEUECONN *conn)
+{
+  return (-1);
+}
+
 /*
  * connection registration list
  */
 typedef struct queueapi
 {
-  struct queueapi *next;
   int (*connect) (QUEUECONN *conn);
-  char name[1];
+  char *name;
 } QUEUEAPI;
 
-QUEUEAPI *QApi = NULL;
+QUEUEAPI QApi[] = 
+{
+#ifdef __FILEQ__
+  { fileq_connect, "file" },
+#endif
+#ifdef __ODBCQ__
+  { odbcq_connect, "odbc" },
+#endif
+  { no_connect, "none" }
+};
+
+#define NUMQAPI (sizeof(QApi)/sizeof(QUEUEAPI))
 
 /*
  * common prefixes for the XML
@@ -77,26 +99,24 @@ QUEUECONN *queue_conn_alloc (XML *xml, int index)
 {
   QUEUECONN *conn;
   char *name, 
+       *type,
        *unc,
        *user,
        *pass,
-       path[80];
+       *driver;
   int i, sz;
 
-  sprintf (path, "%s[%d].Name", QP_CONN, index);
-  name = xml_get_text (xml, path);
-  debug ("getting API for %s\n", name);
-  sprintf (path, "%s[%d].Id", QP_CONN, index);
-  user = xml_get_text (xml, path);
-  sprintf (path, "%s[%d].Password", QP_CONN, index);
-  pass = xml_get_text (xml, path);
-  sprintf (path, "%s[%d].Unc", QP_CONN, index);
-  unc = xml_get_text (xml, path);
+  name = xml_getf (xml, "%s[%d].Name", QP_CONN, index);
+  type = xml_getf (xml, "%s[%d].Type", QP_CONN, index);
+  user = xml_getf (xml, "%s[%d].Id", QP_CONN, index);
+  pass = xml_getf (xml, "%s[%d].Password", QP_CONN, index);
+  unc = xml_getf (xml, "%s[%d].Unc", QP_CONN, index);
+  driver = xml_getf (xml, "%s[%d].Driver", QP_CONN, index);
   /*
    * calculate room needed
    */
-  sz = sizeof (QUEUECONN) + strlen (name) + strlen (unc) + strlen (user)
-    + strlen (pass) + 4;
+  sz = sizeof (QUEUECONN) + strlen (name) + strlen (type) + 
+    strlen (unc) + strlen (user) + strlen (pass) + strlen (driver) + 6;
   QUEUECONN *conn = (QUEUECONN *) malloc (sz);
   memset (conn, 0, sz);
   /*
@@ -104,12 +124,17 @@ QUEUECONN *queue_conn_alloc (XML *xml, int index)
    */
   conn->name = (char *) (conn + 1);
   strcpy (conn->name, name);
-  conn->unc = conn->name + strlen (name) + 1;
+  conn->type = conn->name + strlen (name) + 1;
+  strcpy (conn->type, type);
+  conn->unc = conn->type + strlen (type) + 1;
   strcpy (conn->unc, unc);
   conn->user = conn->unc + strlen (unc) + 1;
   strcpy (conn->user, user);
   conn->passwd = conn->user + strlen (user) + 1;
   strcpy (conn->passwd, pass);
+  conn->driver = conn->passwd + strlen (pass) + 1;
+  strcpy (conn->driver, driver);
+  debug ("allocated connection=%x for %s\n", conn, name);
   return (conn);
 }
 
@@ -123,9 +148,8 @@ QUEUETYPE *queue_type_alloc (XML *xml, int index)
   int i, fl, sz;
   int numfields;
 
-  sprintf (path, "%s[%d].Name", QP_TYPE, index);
-  debug ("allocating type %s\n", path);
-  name = xml_get_text (xml, path);
+  name = xml_getf (xml, "%s[%d].Name", QP_TYPE, index);
+  debug ("allocating type %s\n", name);
   fl = sprintf (path, "%s[%d].Field", QP_TYPE, index);
   numfields = xml_count (xml, path);
   sz = 0;
@@ -168,9 +192,9 @@ QUEUE *queue_alloc (XML *xml, int index)
        path[80];
 
   pl = sprintf (path, "%s[%d].", QP_QUEUE, index);
-  debug ("allocating queue %s\n", path);
   strcpy (path + pl, "Name");
   name = xml_get_text (xml, path);
+  debug ("allocating queue %s\n", name);
   strcpy (path + pl, "Type");
   type = xml_get_text (xml, path);
   for (t = QType; t != NULL; t = t->next)
@@ -232,37 +256,23 @@ QUEUE *queue_free (QUEUE *q)
  */
 int queue_connect (QUEUECONN *conn)
 {
-  QUEUEAPI *p;
+  int i;
 
   if (conn->conn != NULL)
     return (0);
-  for (p = QApi; p != NULL; p = p->next)
+  for (i = 0; i < NUMQAPI; i++)
   {
-    if (strcmp (p->name, conn->name) == 0)
+    if (strcmp (QApi[i].name, conn->type) == 0)
     {
-      return (p->connect (conn));
+      debug ("connecting %s using %s\n", conn->name, conn->type);
+      return (QApi[i].connect (conn));
     }
   }
+  error ("Connection type %s not found\n", conn->type);
   return (-1);
 }
 
 /******************* advertized entry points *********************/
-/*
- * Register connections
- */
-int queue_register (char *name, int (*c)(QUEUECONN *))
-{
-  QUEUEAPI *n, **p;
-
-  n = (QUEUEAPI *) malloc (sizeof (QUEUEAPI) + strlen (name));
-  n->next = NULL;
-  n->connect = c;
-  strcpy (n->name, name);
-  for (p = &QApi; *p != NULL; p = &(*p)->next);
-  *p = n;
-  return (0);
-}
-
 /*
  * Initialize queuing from a configuration file.
  * Return non-zero on error.
@@ -318,7 +328,6 @@ void queue_shutdown (void)
   QUEUE *q;
   QUEUETYPE *t;
   QUEUECONN *c;
-  QUEUEAPI *p;
   
   while (Queue != NULL)
   {
@@ -339,12 +348,6 @@ void queue_shutdown (void)
     if (c->conn != NULL)
       c->close (c->conn);
     free (c);
-  }
-  while (QApi != NULL)
-  {
-    p = QApi;
-    QApi = p->next;
-    free (p);
   }
 }
 

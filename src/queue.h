@@ -46,9 +46,11 @@ typedef struct queueconn
 {
   struct queueconn *next;	/* the list			*/
   char *name;			/* the name of this connection	*/
+  char *type; 			/* the connection type		*/
   char *unc;			/* the resource path		*/
   char *user;			/* UID for authenticaton	*/
   char *passwd;			/* password for authentication	*/
+  char *driver;			/* driver used			*/
   void *conn;			/* private data			*/
   int (*close) (void *conn);
   int (*push) (QUEUEROW *row);
@@ -98,8 +100,6 @@ typedef struct queuerow
 int queue_init (XML *config);
 /*  shut down the queuing system */
 void queue_shutdown (void);
-/* register a connection */
-int queue_register (char *name, int (*connect) (QUEUECONN *));
 /* find a queue by name */
 QUEUE *queue_find (char *name);
 /* get "top" row of a queue */

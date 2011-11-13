@@ -19,6 +19,12 @@
  * 03-11-10 T. Dunnick
  */
 
+#ifdef UNITTEST
+#define __SENDER__
+#endif
+
+#ifdef __SENDER__
+
 #include <stdlib.h>
 #include <string.h>
 #include <io.h>
@@ -220,3 +226,4 @@ int main (int argc, char **argv)
 }
 
 #endif
+#endif /* __SENDER__ */
