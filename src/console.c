@@ -348,6 +348,23 @@ DBUF *console_file (XML *xml, char *uri)
 }
 
 /*
+ * restart the console
+ */
+DBUF *console_restart ()
+{
+  extern int Status;
+  DBUF *b = dbuf_alloc ();
+
+  dbuf_printf (b, "<h3>Restarting...</h3>"
+    "<script type=\"text/javascript\">\n"
+    "document.getElementById ('restart').src = 'images/restart.gif';\n"
+    "setTimeout ('window.history.back ()', 8000);\n"
+    "</script\n>");
+  phineas_restart ();
+  return (b);
+}
+
+/*
  * return the status for a row
  */
 char *console_getStatusColor (QUEUEROW *r)
@@ -399,8 +416,12 @@ int console_header (DBUF *b, char *path)
       break;
     }
   }
-  l += sprintf (buf + l, "Connection: Keep-alive\r\n"
-    "Content-Length: %d\r\n\r\n", dbuf_size (b));
+  /*
+   * if we are shutting down, let the client know we are closing
+   * this connection.
+   */
+  l += sprintf (buf + l, "Connection: %s\r\nContent-Length: %d\r\n\r\n", 
+    phineas_running () ? "Keep-alive" : "Close", dbuf_size (b));
   debug ("inserting header:\n%s", buf);
   dbuf_insert (b, 0, buf, l);
   return (0);
@@ -766,6 +787,10 @@ DBUF *console_doGet (XML *xml, char *req)
   else if (console_hasParm (parm, "configure"))
   {
     rowdetail = config_getConfig ();
+  }
+  else if (console_hasParm (parm, "restart"))
+  {
+    rowdetail = console_restart ();
   }
 #ifdef __SENDER__
   else if (console_getParm (buf, parm, "ping") != NULL)

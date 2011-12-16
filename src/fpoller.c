@@ -131,7 +131,7 @@ int fpoller_task (void *parm)
     poll_interval = 5;
   debug ("%d maps %d interval\n", num_maps, poll_interval);
   poll_interval *= 1000;
-  while (!phineas_status ())
+  while (phineas_running ())
   {
     for (i = 0; i < num_maps; i++)
     {
@@ -150,9 +150,9 @@ int fpoller_task (void *parm)
 
 #ifdef UNITTEST
 int ran = 0;
-int phineas_status  ()
+int phineas_running  ()
 {
-  return (ran++ > 2);
+  return (ran++ < 3);
 }
 
 int test_processor (XML *xml, char *prefix, char *fname)

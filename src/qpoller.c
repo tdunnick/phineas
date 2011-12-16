@@ -188,7 +188,7 @@ int qpoller_task (void *parm)
     i = 1;
   q = task_allocq (i, poll_interval);
   debug ("%d queues %d interval\n", num_queues, poll_interval);
-  while (!phineas_status ())
+  while (phineas_running ())
   {
     for (i = 0; i < num_queues; i++)
     {
@@ -216,9 +216,9 @@ int qpoller_task (void *parm)
 #ifdef UNITTEST
 
 int ran = 0;
-int phineas_status  ()
+int phineas_running  ()
 {
-  return (ran++ > 2);
+  return (ran++ < 3);
 }
 
 int test_qprocessor (XML *x, QUEUEROW *r)

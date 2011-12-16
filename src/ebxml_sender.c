@@ -15,6 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 #ifdef UNITTEST
 #define __SENDER__
 #endif
@@ -407,6 +408,7 @@ MIME *ebxml_getsoap (XML *xml, QUEUEROW *r)
   xml_free (soap);
   mime_setBody (msg, ch, strlen (ch));
   free (ch);
+  debug ("returning soap message...\n");
   return (msg);
 }
 
@@ -445,6 +447,7 @@ MIME *ebxml_getmessage (XML *xml, QUEUEROW *r)
     mime_free (payload);
     return (NULL);
   }
+  debug ("building multipart mime message\n");
   msg = mime_alloc ();
   sprintf (buf, "type=\"text/xml\"; start=\"ebxml-envelope@%s\";",
      organization);
@@ -458,6 +461,7 @@ MIME *ebxml_getmessage (XML *xml, QUEUEROW *r)
   mime_setMultiPart (msg, soap);
   if (payload != NULL)
     mime_setMultiPart (msg, payload);
+  debug ("Completed multipart soap message\n");
   return (msg);
 }
 
@@ -617,12 +621,15 @@ int ebxml_fprocessor (XML *xml, char *prefix, char *fname)
  */
 SSL_CTX *ebxml_route_ctx (XML *xml, int route)
 {
-  char *id, *passwd, *unc;
+  char *id, *passwd, *unc, *ca,
+       pathbuf[MAX_PATH * 2];
 
+  debug ("getting SSL context for route %d\n", route);
   id = ebxml_route_info (xml, route, "Protocol");
   if (stricmp (id, "https"))
     return (NULL);
   id = ebxml_route_info (xml, route, "Authentication.Type");
+  debug ("authentication type %s\n", id);
   if (strcmp ("clientcert", id))
   {
     if (*id)
@@ -638,10 +645,14 @@ SSL_CTX *ebxml_route_ctx (XML *xml, int route)
   {
     id = ebxml_route_info (xml, route, "Authentication.Id");
     passwd = ebxml_route_info (xml, route, "Authentication.Password");
-    id = ebxml_route_info (xml, route, "Authentication.Unc");
+    unc = pathf (pathbuf, "%s",
+      ebxml_route_info (xml, route, "Authentication.Unc"));
+    debug ("unc path=%s\n", unc);
   }
-  return (net_ctx (unc, unc, passwd,
-    xml_get_text (xml, "Phineas.Sender.CertificateAuthority"), 0));
+  if (*(ca = xml_get_text (xml, "Phineas.Sender.CertificateAuthority")))
+    ca = pathf (pathbuf + MAX_PATH, "%s", ca);
+  debug ("ca path=%s\n", ca);
+  return (net_ctx (unc, unc, passwd, ca, 0));
 }
 
 /*
@@ -853,17 +864,20 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
   /*
    * update the queue with message status
    */
+  debug ("updating queue\n");
   queue_field_set (r, "TRANSPORTSTATUS", "attempted");
   queue_push (r);
   /*
    * send it to the destination
    */
+  debug ("sending to destination\n");
   if ((retries = xml_get_int (xml, "Phineas.Sender.MaxRetry")) == 0)
     retries = 1;
   if ((delay = xml_get_int (xml, "Phineas.Sender.DelayRetry")) == 0)
     delay = 5;
   for (try = 0; try < retries; try++)
   {
+    debug ("try=%d\n", try);
     if (ebxml_send (xml, r, m) == 0)
       break;
     sleep (delay * 1000);
@@ -875,10 +889,12 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "retries exhausted");
   }
+  debug ("getting ACK\n");
   ebxml_record_ack (xml, r);
   /*
    * update the queue with status from the reply
    */
+  debug ("updating reply\n");
   queue_push (r);
   /*
    * release all memory
@@ -891,9 +907,9 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
 #ifdef UNITTEST
 
 int ran = 0;
-int phineas_status  ()
+int phineas_running  ()
 {
-  return (ran++ > 2);
+  return (ran++ < 3);
 }
 
 int main (int argc, char **argv)

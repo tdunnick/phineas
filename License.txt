@@ -1,6 +1,6 @@
 Phineas - Public Health Information Network Extensible Architetural System 
 
-Copyright 2011 Thomas L Dunnick
+Copyright (c) 2011 Thomas L Dunnick
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -12,9 +12,29 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License below for the specific language governing permissions and
-limitations under the License.
+limitations under the License
 
-Apache License
+This product includes software developed by the OpenSSL Project
+for use in the OpenSSL Toolkit (http://www.openssl.org/).  Please
+see OpenSSL.txt for details.
+
+Additional copyrights apply as follows:
+
+The console tab Javascript...
+
+Yetii - Yet (E)Another Tab Interface Implementation
+version 1.6
+http://www.kminek.pl/lab/yetii/
+Copyright (c) Grzegorz Wojcik
+Code licensed under the BSD License:
+http://www.kminek.pl/bsdlicense.txt
+
+Also note that support for the help tips is loosely base on...
+
+Bubble Tooltips by Alessandro Fulciniti
+http://pro.html.it - http://web-graphics.com 
+
+The Apache License
 
 Version 2.0, January 2004
 

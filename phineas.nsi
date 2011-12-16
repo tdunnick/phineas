@@ -8,43 +8,58 @@ Name "Phineas"
 
 ; Our own configuration variables
 
+; version normally passed on command line, but...
+!ifndef VERSION
+!define VERSION 0.0
+!endif
+
+!ifndef PVERSION
+!define PVERSION "0.0.0.1"
+!endif
+
+; if we want to generate certificates...
+; !define CERTS
+
 var partyWin
 var orgWin
+var partyId
+var org
+
+!ifdef CERTS
 var unitWin
 var emailWin
 var stateWin
 var localWin
 var countryWin
 var commonWin
-
-var partyId
-var org
 var unit
 var email
 var state
 var local
 var country
 var common
+!endif
 
 ; Version information...
-VIProductVersion "0.2.0.0"
+
+VIProductVersion ${PVERSION}
 VIAddVersionKey "ProductName" "Phineas"
 VIAddVersionKey "Comments" "Extensible PHINMS Compatible Transport"
 VIAddVersionKey "CompanyName" ""
 VIAddVersionKey "LegalTrademarks" ""
 VIAddVersionKey "LegalCopyright" "© 2011 Thomas Dunnick"
 VIAddVersionKey "FileDescription" "Phineas Installer"
-VIAddVersionKey "FileVersion" "0.2"
+VIAddVersionKey "FileVersion" ${VERSION}
 
 ; The file to write
-OutFile "C:\usr\www\html\mywebspace\Phineas0.2.exe"
+OutFile "C:\usr\www\html\mywebspace\phineas\phineas${VERSION}.exe"
 
 ; Make sure nobody fiddled with this...
 CRCCheck force
 
 ; The default installation directory
 ; Note we will tack on "\Phineas" to the install directory for all Files
-InstallDir c:\temp
+InstallDir "C:\Program Files"
 
 ; Registry key to check for directory (so if you install again, it will 
 ; overwrite the old one automatically)
@@ -87,6 +102,7 @@ Section "Phineas Core (required)"
   SetOutPath "$INSTDIR\Phineas"
   File "README.TXT"
   File "License.txt"  
+  File "OpenSSL.txt"  
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\psetup.exe"
   SearchPath $0 "ssleay32.dll"
@@ -130,6 +146,13 @@ Section "Phineas Transceiver"
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\Phineas.exe"
   CreateShortCut "Phineas.lnk" "$INSTDIR\Phineas\bin\Phineas.exe" "" "$INSTDIR\Phineas\bin\Phineas.exe" 0 "" "" "Phineas Transceiver"
+SectionEnd
+
+Section /o "Phineas Service"
+  SetOutPath "$INSTDIR\Phineas\bin"
+  File "bin\Phineasd.exe"
+  File "bin\addservice.bat"
+  File "bin\delservice.bat"
 SectionEnd
 
 Section /o "Phineas Receiver"
@@ -221,6 +244,7 @@ SectionGroupEnd
 
 Section "- complete setup"
 
+
   ; make sure we have everything needed to run...
   IfFileExists "$INSTDIR\Phineas\bin\phineas*.exe" 0 noserver
   ; create our running configuration...
@@ -282,9 +306,11 @@ Function setupPage
     Abort
   ${Endif}
 
+!ifdef CERTS
   ${If} $country == ""
     StrCpy $country "USA"
   ${Endif}
+!endif 
 
   ${NSD_CreateLabel} 0 0u 30% 12u "Party ID *"
   Pop $0
@@ -294,6 +320,7 @@ Function setupPage
   Pop $0
   ${NSD_CreateText} 30% 15u 100% 12u $org
   Pop $orgWin
+!ifdef CERTS
   ${NSD_CreateLabel} 0 30u 30% 12u "Organizational Unit"
   Pop $0
   ${NSD_CreateText} 30% 30u 100% 12u $unit
@@ -318,6 +345,7 @@ Function setupPage
   Pop $0
   ${NSD_CreateText} 30% 105u 100% 12u $country
   Pop $countryWin
+!endif
   ${NSD_CreateLabel} 0 120u 30% 12u "(* required)"
   Pop $0
   nsDialogs::Show
@@ -327,25 +355,26 @@ FunctionEnd
 ; checking for required ones
 
 Function setupPageLeave
- ${NSD_GetText} $partyWin $partyId
- ${If} $partyId == ""
-   MessageBox MB_OK "You must complete the Party ID"
-   Abort
- ${Endif}
- ${NSD_GetText} $orgWin $org
- ${If} $org == ""
-   MessageBox MB_OK "You must complete the Organization"
-   Abort
- ${Endif}
- ${NSD_GetText} $emailWin $email
- ${NSD_GetText} $commonWin $common
- ${NSD_GetText} $stateWin $state
- ${NSD_GetText} $localWin $local
- ${NSD_GetText} $countryWin $country
- ${NSD_GetText} $commonWin $common
- ${NSD_GetText} $unitWin $unit
+  ${NSD_GetText} $partyWin $partyId
+  ${If} $partyId == ""
+    MessageBox MB_OK "You must complete the Party ID"
+    Abort
+  ${Endif}
+  ${NSD_GetText} $orgWin $org
+  ${If} $org == ""
+    MessageBox MB_OK "You must complete the Organization"
+    Abort
+  ${Endif}
+!ifdef CERTS
+  ${NSD_GetText} $emailWin $email
+  ${NSD_GetText} $commonWin $common
+  ${NSD_GetText} $stateWin $state
+  ${NSD_GetText} $localWin $local
+  ${NSD_GetText} $countryWin $country
+  ${NSD_GetText} $commonWin $common
+  ${NSD_GetText} $unitWin $unit
+!endif
 FunctionEnd
-
 
 ; after failures or aborts clean up artifacts of partial install
 

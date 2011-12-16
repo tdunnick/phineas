@@ -29,16 +29,29 @@ SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
   find.c fpoller.c qpoller.c ebxml_sender.c ^
   ebxml_receiver.c 
 
+SET OPTS=
+
+FOR %%o IN (%*) DO CALL :option %%o
+GOTO :eof
+
+:option
+SET o=%1
+IF NOT %o:~0,1% == - GOTO :target
+SET OPTS=%OPTS% %1
+GOTO :eof
+
 REM build targets
-IF "%1" == "sender" CALL :sender
-IF "%1" == "receiver" CALL :receiver
-IF "%1" == "phineas" CALL :phineas
-IF "%1" == "cpa" CALL :cpa
-IF "%1" == "xmlb" CALL :xmlb
-IF "%1" == "chelp" CALL :chelp
-IF "%1" == "psetup" CALL :psetup
-IF "%1" == "isapi" CALL :isapi
-IF "%2" == "run" GOTO :run
+:target
+IF "%1" == "sender" GOTO :sender
+IF "%1" == "receiver" GOTO :receiver
+IF "%1" == "phineas" GOTO :phineas
+IF "%1" == "service" GOTO :service
+IF "%1" == "cpa" GOTO :cpa
+IF "%1" == "xmlb" GOTO :xmlb
+IF "%1" == "chelp" GOTO :chelp
+IF "%1" == "psetup" GOTO :psetup
+IF "%1" == "isapi" GOTO :isapi
+IF "%1" == "run" GOTO :run
 REM our default build
 IF "%1" == "all" GOTO :all
 IF "%TARGET%." == "." ECHO Unknown target %1
@@ -60,6 +73,13 @@ REM build a tranceiver
 :phineas
 SET TARGET=phineas
 SET BLD=-D__RECEIVER__ -D__SENDER__ %DEFS% %SRC% ^
+  main.c icon.o
+GOTO :build
+
+REM build a service
+:service
+SET TARGET=phineasd
+SET BLD=-DSERVICE -D__RECEIVER__ -D__SENDER__ -ladvapi32 %DEFS% %SRC% ^
   main.c icon.o
 GOTO :build
 
@@ -88,10 +108,9 @@ SET BLD=-DCMDLINE psetup.c
 GOTO :build
 
 :build
-:build
 ECHO building %TARGET%
 IF EXIST %BIN%%TARGET%.exe DEL %BIN%%TARGET%.exe
-CALL cc -o %BIN%%TARGET%.exe %BLD%
+CALL cc -o %BIN%%TARGET%.exe %OPTS% %BLD% 
 GOTO :eof
 
 :run
@@ -104,9 +123,11 @@ GOTO :eof
 
 REM build all artifacts
 :all
+CALL :genicon
 CALL :sender
 CALL :receiver
 CALL :phineas
+CALL :service
 CALL :cpa
 CALL :xmlb
 CALL :isapi

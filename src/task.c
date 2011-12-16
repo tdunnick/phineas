@@ -91,7 +91,7 @@ int task_stop (TASKQ *q)
   }
   q->stop = 1;
   debug ("waiting on tasks to exit...\n");
-  while (q->waiting || (q->running > 1))
+  while (q->waiting || q->running)
   {
     set_ready (q);
     end_mutex (q);

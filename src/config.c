@@ -93,6 +93,18 @@ XML *ConfigXml = NULL;
 // most options for a list
 #define MAXOPT 50
 
+/*
+ * reset configuration globals
+ */
+void config_reset ()
+{
+  *EditConfig = 0;
+  if (EditXml != NULL)
+    EditXml = xml_free (EditXml);
+  if (ConfigXml != NULL)
+    ConfigXml = xml_free (ConfigXml);
+}
+
 int config_inputtype (char *pre, int input)
 {
   char *ch;

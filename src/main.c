@@ -15,6 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 #include <stdio.h>
 #include <signal.h>
 #include "util.h"
@@ -27,7 +28,7 @@
 #include "ebxml.h"
 
 #ifndef VERSION
-#define VERSION "0.2 11/02/2011"
+#define VERSION "0.3 12/16/2011"
 #endif
 
 #ifdef __SENDER__
@@ -42,6 +43,8 @@ char Software[] = "PHINEAS Receiver " VERSION;
 char Software[] = "PHINEAS " VERSION;
 #endif /* __SENDER__ */
 
+#define SLEEP_TIME 1000
+
 #ifndef CMDLINE
 char ClassName[20];
 #define THIS_CLASSNAME ClassName
@@ -49,8 +52,11 @@ char ClassName[20];
 #endif
 
 #define PHINEAS_RUNNING 0
-#define PHINEAS_SHUTDOWN 1
-#define PHINEAS_STOPPED 2
+#define PHINEAS_START 1
+#define PHINEAS_RESTART 2
+#define PHINEAS_SHUTDOWN 3
+#define PHINEAS_STOPPED 4
+int Status = PHINEAS_STOPPED;
 
 char LogName[MAX_PATH];
 char ConfigName[MAX_PATH];
@@ -58,24 +64,29 @@ XML *Config;
 TASKQ *Taskq = NULL;
 
 /*
- * return non-zero if we are shutting down
+ * return true if server is running or starting
  */
-int phineas_status ()
+int phineas_running ()
 {
-  if (Taskq == NULL)
-    return (PHINEAS_STOPPED);
-
-  if (task_stopping (Taskq))
+  switch (Status)
   {
-    debug ("waiting on %d/%d tasks\n", 
-	task_running(Taskq), task_waiting(Taskq));
-    if (task_running (Taskq) || task_waiting (Taskq))
-    {
-      return (PHINEAS_SHUTDOWN);
-    }
-    return (PHINEAS_STOPPED);
+    case PHINEAS_RUNNING :
+    case PHINEAS_START :
+      return (1);
+    default :
+      return (0);
   }
-  return (PHINEAS_RUNNING);
+}
+
+/*
+ * indicate server should restart
+ */
+int phineas_restart ()
+{
+  if (Status != PHINEAS_RUNNING)
+    return (-1);
+  Status = PHINEAS_RESTART;
+  return (0);
 }
 
 /*
@@ -85,6 +96,10 @@ int phineas_fatal (char *fmt, ...)
 {
   va_list ap;
   char buf[2048];
+
+#ifdef SERVICE
+  return (-1);
+#endif
 
   strcpy (buf, "FATAL ERROR: ");
   va_start (ap, fmt);
@@ -111,6 +126,7 @@ int phineas_start (int argc, char **argv)
   int fileq_connect (QUEUECONN *conn);
   extern int server_task (void *p);
 
+  Status = PHINEAS_START;
   loadpath (argv[0]);
   *ConfigName = 0;
   for (i = 1; i < argc; i++)
@@ -162,15 +178,19 @@ int phineas_start (int argc, char **argv)
 #ifdef __SERVER__
   debug ("initializing server\n");
   task_add (Taskq, server_task, Config);
+  sleep (1);
 #endif
 #ifdef __SENDER__
   debug ("initializing sender\n");
   fpoller_register ("ebxml", ebxml_fprocessor);
   task_add (Taskq, fpoller_task, Config);
+  sleep (1);
   qpoller_register ("EbXmlSndQ", ebxml_qprocessor);
   task_add (Taskq, qpoller_task, Config);
+  sleep (1);
 #endif 
-  info ("Initialzation complete\n");
+  Status = PHINEAS_RUNNING;
+  info ("Initialzation complete - %s is running\n", Software);
   return (0);
 }
 
@@ -179,6 +199,8 @@ int phineas_start (int argc, char **argv)
  */
 int phineas_stop ()
 {
+  Status = PHINEAS_SHUTDOWN;
+  debug ("Stopping phineas\n");
   if (Taskq != NULL)
   {
     debug ("shutting down tasks...\n");
@@ -192,10 +214,205 @@ int phineas_stop ()
     Config = xml_free (Config);
   debug ("shutting down networking...\n");
   net_shutdown ();
+  debug ("resetting configuration...\n");
+  config_reset ();
   info ("%s is stopped\n", Software); 
   LOGFILE = log_close (LOGFILE);
+  Status = PHINEAS_STOPPED;
   return (0);
 }
+
+/****************** windows service code *******************************/
+
+#ifdef SERVICE
+
+SERVICE_STATUS ServiceStatus; 
+SERVICE_STATUS_HANDLE hStatus; 
+
+#define START_TIME (SLEEP_TIME*4)
+// #define __SERVICELOG__
+#ifdef __SERVICELOG__
+#define LOGNAME "C:\\usr\\src\\phineas\\logs\\service.log"
+#define WriteToLog(fmt...) \
+  Write2Log("%s %d-",__FILE__,__LINE__),Write2Log(fmt)
+int Write2Log (char* str, ...)
+{
+  va_list ap;
+  FILE* log;
+
+  log = fopen (LOGNAME, "a+");
+  if (log == NULL)
+    return -1;
+  va_start (ap, str);
+  vfprintf(log, str, ap);
+  fclose(log);
+  va_end (ap);
+  return 0;
+}
+#else
+#define WriteToLog(fmt...)
+#endif
+
+/*
+ * initialize the service
+ */
+int main_init (int argc, char **argv)
+{
+  SC_HANDLE SCManager, MyService;
+  LPQUERY_SERVICE_CONFIG config;
+  DWORD szneeded = 0;
+  char buf[1024];
+
+  /*
+   * get the full path to our service through the manager
+   */
+  if ((SCManager = OpenSCManager (NULL, NULL, 0)) == NULL)
+  {
+    WriteToLog ("failed to open SCM\n");
+    return (-1);
+  }
+  if ((MyService = OpenService (SCManager, "Phineas", SERVICE_QUERY_CONFIG))
+   == NULL)
+  {
+    CloseServiceHandle (SCManager);
+    WriteToLog ("failed to open handle to %s\n", "Phineas");
+    return (-1);
+  }
+  config = (LPQUERY_SERVICE_CONFIG) buf;
+  if (!QueryServiceConfig (MyService, config, sizeof (buf), &szneeded))
+  {
+    CloseServiceHandle (MyService);
+    CloseServiceHandle (SCManager);
+    WriteToLog ("failed to get config for %s sz=%d needed=%d\n",
+      Software, sizeof (buf), szneeded);
+    return (-1);
+  }
+  CloseServiceHandle (MyService);
+  CloseServiceHandle (SCManager);
+
+
+  WriteToLog ("initializing %s %s\n", config->lpBinaryPathName,
+      argc > 1 ? argv[1] : "");
+  argv[0] = config->lpBinaryPathName;
+  WriteToLog ("starting server\n");
+  if (phineas_start (argc, argv))
+  {
+    WriteToLog ("Startup failed!\n");
+    return (-1);
+  }
+  WriteToLog ("initialization complete\n");
+  return (0);
+}
+
+void main_controller (DWORD request) 
+{
+  switch (request) 
+  { 
+    case SERVICE_CONTROL_STOP: 
+    case SERVICE_CONTROL_SHUTDOWN: 
+      WriteToLog ("Stop service request...\n");
+      ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
+      SetServiceStatus (hStatus, &ServiceStatus);
+      break;
+    default:
+      break;
+  } 
+  // Report current status
+  return; 
+}
+
+void main_service (int argc, char** argv) 
+{
+  ServiceStatus.dwServiceType = SERVICE_WIN32; 
+  ServiceStatus.dwCurrentState = SERVICE_START_PENDING; 
+  ServiceStatus.dwControlsAccepted =  
+   SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
+  ServiceStatus.dwWin32ExitCode = 0; 
+  ServiceStatus.dwServiceSpecificExitCode = 0; 
+  ServiceStatus.dwCheckPoint = 0; 
+  ServiceStatus.dwWaitHint = START_TIME; 
+  
+  WriteToLog ("Registering service\n");
+  hStatus = RegisterServiceCtrlHandler(Software,
+   (LPHANDLER_FUNCTION) main_controller); 
+  if (hStatus == (SERVICE_STATUS_HANDLE) 0) 
+  { 
+   // Registering Control Handler failed
+   return; 
+  }  
+  // Initialize Service 
+  WriteToLog ("Initializing\n");
+  if (main_init (argc, argv)) 
+  {
+   // Initialization failed
+   ServiceStatus.dwCurrentState = SERVICE_STOPPED; 
+   ServiceStatus.dwWin32ExitCode = -1; 
+   SetServiceStatus (hStatus, &ServiceStatus); 
+   WriteToLog ("Initializing failed!\n");
+   return; 
+  } 
+  // We report the running status to SCM. 
+  ServiceStatus.dwCurrentState = SERVICE_RUNNING; 
+  SetServiceStatus (hStatus, &ServiceStatus);
+  
+  // The worker loop of a service
+  WriteToLog ("Worker loop\n");
+  while (ServiceStatus.dwCurrentState == SERVICE_RUNNING)
+  {
+    switch (Status)
+    {
+      case PHINEAS_RUNNING : 
+        sleep (SLEEP_TIME);
+	break;
+      case PHINEAS_SHUTDOWN : 
+	debug ("SHUTDOWN\n");
+      case PHINEAS_STOPPED :
+	debug ("STOPPED\n");
+        ServiceStatus.dwCurrentState = SERVICE_STOPPED; 
+	break;
+      case PHINEAS_RESTART :
+	debug ("RESTARTING\n");
+	if (phineas_stop ())
+	{
+	  WriteToLog ("stop failed!\n");
+          ServiceStatus.dwCurrentState = SERVICE_STOPPED; 
+	}
+        WriteToLog ("attempting to re-initialize...\n");
+	if (main_init (argc, argv))
+	{
+	  WriteToLog ("start failed!\n");
+          ServiceStatus.dwCurrentState = SERVICE_STOPPED; 
+	}
+	break;
+    }
+  }
+  phineas_stop ();
+  WriteToLog ("Existing service\n");
+  ServiceStatus.dwCurrentState = SERVICE_STOPPED; 
+  ServiceStatus.dwWin32ExitCode = 0; 
+  SetServiceStatus (hStatus, &ServiceStatus);
+  return; 
+}
+
+void main ()
+{
+  SERVICE_TABLE_ENTRY ServiceTable[2];
+
+#ifdef LOGNAME
+  unlink (LOGNAME);
+#endif
+
+  WriteToLog ("Dispatching service\n");
+  ServiceTable[0].lpServiceName = Software;
+  ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION) main_service;
+  ServiceTable[1].lpServiceName = NULL;
+  ServiceTable[1].lpServiceProc = NULL;
+  // Start the control dispatcher thread for our service
+  StartServiceCtrlDispatcher (ServiceTable);  
+  WriteToLog ("Exiting main\n");
+}
+
+#endif /* SERVICE */
 
 #ifdef CMDLINE
 
@@ -205,20 +422,44 @@ int phineas_stop ()
 
 void catch_sig (int sig)
 {
-  phineas_stop ();
+  char buf[80];
+  printf ("Restart server? ");
+  if ((fgets (buf, 80, stdin) != NULL) && (toupper (*buf) == 'Y'))
+    Status = PHINEAS_RESTART;
+  else
+    Status = PHINEAS_SHUTDOWN;
 }
 
 main (int argc, char **argv)
 {
   signal (SIGINT, catch_sig);
-  if (phineas_start (argc, argv))
-    exit (1);
-  while (phineas_status () != PHINEAS_STOPPED)
-    sleep (5000);
+  phineas_start (argc, argv);
+  while (Status != PHINEAS_STOPPED)
+  {
+    switch (Status)
+    {
+      case PHINEAS_RUNNING : 
+        sleep (SLEEP_TIME);
+	break;
+      case PHINEAS_SHUTDOWN : 
+	debug ("SHUTDOWN\n");
+	phineas_stop ();
+      case PHINEAS_STOPPED :
+	debug ("STOPPED\n");
+	break;
+      case PHINEAS_RESTART :
+	debug ("RESTARTING\n");
+	if (!(phineas_stop () || phineas_start (argc, argv)))
+          signal (SIGINT, catch_sig);
+	break;
+    }
+  }
   exit (0);
 }
 
 #else /* the GUI version... */
+
+#ifndef SERVICE
 
 #include <winsvc.h>
 #include <shellapi.h>
@@ -272,7 +513,7 @@ struct mg_context *ctx;
 int WINAPI
 WinMain (HINSTANCE hInst, HINSTANCE prev, LPSTR cmdline, int show)
 {
-  int n;
+  int done;
   HMENU   hSysMenu    = NULL;
   HWND    hWnd        = NULL;
   MSG     msg;
@@ -303,17 +544,46 @@ WinMain (HINSTANCE hInst, HINSTANCE prev, LPSTR cmdline, int show)
   }
 
   /* initialize the server and start it up */
-  if (w_start () == 0)
+  done = w_start ();
+  debug ("entering service loop\n");
+  while (!done)
   {
     /* loop getting and dispatching messages */
-    while (GetMessage (&msg, NULL, 0, 0)) 
+    while (PeekMessage (&msg, NULL, 0, 0, PM_NOREMOVE))
     {
-      TranslateMessage (&msg);
-      DispatchMessage (&msg);
+      debug ("Peek message\n");
+      if (GetMessage (&msg, NULL, 0, 0)) 
+      {
+        TranslateMessage (&msg);
+        DispatchMessage (&msg);
+      }
+      else
+      {
+        debug ("QUIT message\n");
+	done = 1;
+      }
+    }
+    debug ("checking status %d\n", Status);
+    switch (Status)
+    {
+      case PHINEAS_RUNNING : 
+        sleep (SLEEP_TIME);
+	break;
+      case PHINEAS_SHUTDOWN : 
+	debug ("SHUTDOWN\n");
+	phineas_stop ();
+      case PHINEAS_STOPPED :
+	debug ("STOPPED\n");
+	break;
+      case PHINEAS_RESTART :
+	debug ("RESTARTING\n");
+        if (phineas_stop () || w_start ())
+	  done = 1;
+	break;
     }
   }
   /* clean up and die */
-  if (phineas_status () != PHINEAS_STOPPED)
+  if (Status != PHINEAS_STOPPED)
   {
     phineas_stop ();
   }
@@ -361,16 +631,6 @@ int w_start ()
   e = phineas_start (argc, argv);
   dbuf_free (b);
   return (e);
-}
-
-int w_restart ()
-{
-  int e;
-
-  debug ("restarting\n");
-  if (e = phineas_stop ())
-    return (e);
-  return (w_start ());
 }
 
 /************************** Tray Related ***************************/
@@ -460,6 +720,7 @@ w_message (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 void w_close (HWND hWnd)
 {
   //  Remove icon from system tray.
+  debug ("Closing service tray and posting QUIT message\n");
   w_remTrayIcon (hWnd, ID_TRAYICON);
   PostQuitMessage (0);
 }
@@ -528,7 +789,7 @@ w_statusMessage ()
    */
 
   // TODO build status message
-  switch (phineas_status ())
+  switch (Status)
   {
     case PHINEAS_RUNNING : ch = "running"; break;
     case PHINEAS_SHUTDOWN : ch = "shutting down"; break;
@@ -606,17 +867,17 @@ BOOL w_command (HWND hWnd, WORD wID, HWND hCtl)
       break;
 
     case ID_STOP:
-      if (phineas_status () == PHINEAS_RUNNING)
+      if (Status == PHINEAS_RUNNING)
         phineas_stop ();
       break;
 
     case ID_START:
     {
       int e = 0;
-      switch (phineas_status ())
+      switch (Status)
       {
 	case  PHINEAS_RUNNING :
-	  e = w_restart ();
+	  Status = PHINEAS_RESTART;
 	  break;
 	case PHINEAS_STOPPED :
 	  e = w_start ();
@@ -628,6 +889,7 @@ BOOL w_command (HWND hWnd, WORD wID, HWND hCtl)
 
     case ID_EXIT:
       phineas_stop ();
+      debug ("posting close message\n");
       PostMessage (hWnd, WM_CLOSE, 0, 0);
       break;
   }
@@ -697,4 +959,5 @@ HICON w_loadFileIcon (char *fname, int h, int w)
 {
   return LoadImage (NULL, fname, IMAGE_ICON, h, w, LR_LOADFROMFILE);
 }
-#endif
+#endif /* !SERVICE */
+#endif /* !CMDLINE */

@@ -102,6 +102,18 @@ function setRequest(o, v)
 }
 
 /*
+ * confirms a restart request
+ */
+
+function askRestart ()
+{
+  if (confirm ("Restart PHINEAS?"))
+  {
+	  window.location = "?restart";
+  }
+}
+
+/*
  * Support for bubble type help tips.
  * The following is loosely based on Bubble Tooltips by Alessandro Fulciniti
  * - http://pro.html.it - http://web-graphics.com 

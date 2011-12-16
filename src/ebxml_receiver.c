@@ -15,6 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
 #ifdef UNITTEST
 #define __RECEIVER__
 #endif
@@ -586,9 +587,9 @@ done:
 #ifdef UNITTEST
 
 int ran = 0;
-int phineas_status  ()
+int phineas_running  ()
 {
-  return (ran++ > 2);
+  return (ran++ < 3);
 }
 
 int main (int argc, char **argv)

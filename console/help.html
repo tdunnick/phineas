@@ -4,11 +4,6 @@
     <title>
       Phineas Help
     </title>
-		<style type="text/css">
-<!-- 
-
--->
-</style>
   </head>
   <body>
 		<style type="text/css">
@@ -97,7 +92,7 @@ padding-bottom: 20px;
     <table summary="Phineas navigation">
       <tr>
         <td>
-          <img src="images/queue.ico" alt="show queues">
+          <img src="images/queue.gif" alt="show queues">
         </td>
         <td>
           Show the Queues. <b>Phineas</b> tracks all transport
@@ -110,7 +105,7 @@ padding-bottom: 20px;
       </tr>
      <tr>
         <td>
-          <img src="images/ping.ico" alt="ping route">
+          <img src="images/ping.gif" alt="ping route">
         </td>
         <td>
           Send an ebXML "Ping" to selected route. Use this to
@@ -119,7 +114,7 @@ padding-bottom: 20px;
       </tr>
       <tr>
         <td width='80'>
-          <img src="images/log.ico" alt="show logging">
+          <img src="images/log.gif" alt="show logging">
         </td>
         <td>
           Show the log. The amount and type of information found
@@ -130,7 +125,7 @@ padding-bottom: 20px;
       </tr>
       <tr>
         <td>
-          <img src="images/loop.ico" alt="show configuration">
+          <img src="images/loop.gif" alt="show configuration">
         </td>
         <td>
           Show the configuration. <b>Phineas</b> is configured
@@ -141,39 +136,52 @@ padding-bottom: 20px;
       </tr>
       <tr>
         <td>
-          <img src="images/build.ico" alt="edit configuration">
+          <img src="images/build.gif" alt="edit configuration">
         </td>
         <td>
           Edit Configuration. This is a set of forms that you can
           use to modify a <b>Phineas</b> configuration, or export
-          a CPA. Addition information on the configuration may be 
+          a CPA. Additional information on the configuration may be 
 					found below.
         </td>
       </tr>
        <tr>
         <td>
-          <img src="images/print.ico" alt="print screen">
+          <img src="images/print.gif" alt="print screen">
         </td>
         <td>
-          Print the console contents.
+          Print the console contents.  This has the same effect as
+					your browser print function.
         </td>
       </tr>
       <tr>
         <td>
-          <img src="images/refresh.ico" alt="refresh screen">
+          <img src="images/refresh.gif" alt="refresh screen">
         </td>
         <td>
-          Refresh the console.
+          Refresh the console.  This has the same effect as your
+					browser refresh function.
         </td>
       </tr><!--
 <tr>
-<td><img src="images/delete.ico" alt="delete record"></td>
+<td><img src="images/delete.gif" alt="delete record"></td>
 <td>Delete selected item (not yet implemented).</td>
 </tr>
 -->
       <tr>
         <td>
-          <img src="images/help.ico" alt="provide help">
+          <img src="images/start.gif" alt="restart Phineas">
+        </td>
+        <td>
+          Restarts the <b>Phineas</b> server.  This will re-load
+					and re-initialize the running configuration.  You must 
+					confirm the restart.  Once commenced the restart icon
+					will flash green to red until the restart has completed.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <img src="images/help.gif" alt="provide help">
         </td>
         <td>
           This help.
@@ -569,9 +577,11 @@ padding-bottom: 20px;
 					<tr><td>Language</td> <td>ANSI C</td> <td>Java</td></tr>
 					<tr><td>License</td> <td>open source Apache</td> <td>proprietary</td></tr>
 					<tr><td>Server</td> <td>embedded (stand alone), ISAPI*, CGI*</td> <td>Tomcat</td></tr>
+					<tr><td>Execution Modes</td><td>Transceiver, Sender, or Receiver as Service, 
+					  Tray GUI, DOS Window, or Web server plugin*</td> <td>Transceiver as Service</td></tr>
 					<tr><td>Disk Foot Print</td> <td>2MB</td> <td>500MB (recommended)</td></tr>
 					<tr><td>Memory Foot Print</td> <td>10MB</td> <td>250MB (1GB recommended)</td></tr>
-					<tr><td>Queue support</td><td>file based, ODBC</td><td>JDBC (various)</td></tr>
+					<tr><td>Queue support</td><td>file based, ODBC</td><td>JDBC</td></tr>
 					<tr><td>Console</td><td>web based</td><td>Java application (stand alone)</td></tr>
 					<tr><td>Configuration GUI</td><td>user configurable, optional</td><td>fixed</td></tr>
 					<tr><td>Number of Config Files</td><td>1 required, 1 optional</td><td>12+</td></tr>
@@ -589,7 +599,7 @@ padding-bottom: 20px;
 					<tr><td>Transport Filters</td><td>no*</td><td>no</td></tr>
 					<tr><td>Resend</td><td>no*</td><td>yes</td></tr>
 					<tr><td>Delete</td><td>no*</td><td>yes</td></tr>
-					<tr><td>Message queue from console</td><td>no</td><td>yes</td></tr>
+					<tr><td>Queue message from console</td><td>no</td><td>yes</td></tr>
 				</tbody>
       </table>
 			<p>* planned, but not yet implemented</p>

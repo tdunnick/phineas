@@ -152,6 +152,10 @@ DBUF *server_respond (int code, char *fmt, ...)
   va_start (ap, fmt);
   len = vsnprintf (buf, 1024, fmt, ap);
   va_end (ap);
+  /*
+   * note our response body is limited to 1024 bytes - only small
+   * response is needed or allowed.
+   */
   if (len > 0)
   {
     len += 22;
@@ -161,10 +165,14 @@ DBUF *server_respond (int code, char *fmt, ...)
     *buf = 0;
     len = 22;
   }
+  /*
+   * if we are no longer running, notify the client that we are
+   * closing this connection.
+   */
   dbuf_printf (b, "Status: %d\r\n"
     "Content-Length: %d\r\n"
-    "Connection: Keep-alive\r\n\r\n<html><body>%s</body></html>",
-    code, len, buf);
+    "Connection: %s\r\n\r\n<html><body>%s</body></html>",
+    code, len, phineas_running () ? "Keep-alive" : "Close", buf);
   debug ("response:\n%s\n", dbuf_getbuf (b));
   return (b);
 }
@@ -355,7 +363,13 @@ int server_listen (XML *xml, NETCON *conn, NETCON *ssl, SSL_CTX *ctx,
   timeout.tv_sec = 2;
   timeout.tv_usec = 0;
 
-  while (phineas_status () == 0)
+  /*
+   * Keep servicing requests until they stop coming in AND we are
+   * no longer running.  This insures a nice shutdown, although a
+   * naughty client could keep us from shutting down by flooding us
+   * with requests.  We could add a counter here to prevent that.
+   */
+  while (1)
   {
     FD_ZERO (&fds);
     if (conn != NULL)
@@ -363,7 +377,11 @@ int server_listen (XML *xml, NETCON *conn, NETCON *ssl, SSL_CTX *ctx,
     if (ssl != NULL)
       FD_SET (ssl->sock, &fds);
     if (select (2, &fds, NULL, NULL, &timeout) <= 0)
-      continue;
+    {
+      if (phineas_running ())
+        continue;
+      break;
+    }
     if ((conn != NULL) && FD_ISSET (conn->sock, &fds))
       server_accept (xml, conn, NULL, t);
     if ((ssl != NULL) && FD_ISSET (ssl->sock, &fds))

@@ -70,6 +70,7 @@ typedef struct odbcq_conn
 typedef struct odbcq
 {
   struct odbcq *next;
+  ODBCQCONN *conn;			/* the connection 		*/
   int rowid;				/* max row number		*/
   int transport;			/* next transport row to pop	*/
   char *name;				/* queue name			*/
@@ -202,6 +203,7 @@ ODBCQ *odbcq_find (QUEUE *q)
    * set up connection and statement
    */
   c = (ODBCQCONN *) q->conn->conn;
+  o->conn = c;
   /*
    * set next row to pop and top row
    */
@@ -292,8 +294,26 @@ int odbcq_transport (QUEUE *q)
 int odbcq_close (void *conn)
 {
   ODBCQCONN *c;
+  ODBCQ **o, *f;
 
   c = (ODBCQCONN *) conn;
+  /*
+   * remove any meta data associated with this connection
+   */
+  o = &Odbcq;
+  while ((f = *o) != NULL)
+  {
+    if (f->conn == c)
+    {
+      *o = f->next;
+      free (f);
+    }
+    else
+      o = &(f->next);
+  }
+  /*
+   * shut down the connection
+   */
   SQLFreeHandle (SQL_HANDLE_STMT, c->stmt);
   SQLDisconnect (c->dbc);		/* disconnect from driver */
   SQLFreeHandle (SQL_HANDLE_DBC, c->dbc);

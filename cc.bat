@@ -20,9 +20,6 @@ REM
 REM the rest should just "work"...
 REM librarys referenced
 SET LIB=-lws2_32 -lshell32 -luser32 -lssleay32 -llibeay32 -lodbc32
-REM include locations
-SET INC=-I%TCC%\include -I%TCC%\include\winapi -I%TCCDIR%\psdk ^
-  -IC:\usr\prog\openssl\include -Iinclude
 REM compile
 CD src
 %TCC%\tcc.exe %LIBDIR% %LIB% %INC% %*

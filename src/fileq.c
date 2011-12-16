@@ -342,6 +342,7 @@ QUEUEROW *fileq_transport (QUEUE *q, FILEQ *c)
 
 /*
  * shutdown file based queuing
+ * TODO close based on conn, rather than everything...
  */
 int fileq_close (void *conn)
 {
