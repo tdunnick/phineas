@@ -1,7 +1,7 @@
 /*
  * util.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -276,7 +276,7 @@ char *pathf (char *dst, char *fmt, ...)
 /*************************** HTTP basics ***************************/
 
 /*
- * covert two hex digits to a value
+ * covert hex digit to a value
  */
 int gethex (int c)
 {
@@ -284,6 +284,16 @@ int gethex (int c)
   if (c > '9')
     return (c + 10 - 'A');
   return (c - '0');
+}
+
+/*
+ * convert value to hex digit
+ */
+int tohex (int c)
+{
+  if (c < 10)
+    return (c + '0');
+  return (c - 10 + 'A');
 }
 
 /*
@@ -308,6 +318,31 @@ char *urldecode (char *url)
   }
   *dst = 0;
   return (url);
+}
+
+/*
+ * encode a url
+ */
+char *urlencode (char *dst, char *src)
+{
+  char *ch;
+
+  ch = dst;
+  while (*ch = *src++)
+  {
+    if (*ch == ' ')
+      *ch = '+';
+    else if ((*ch < ' ') || 
+      (strchr ("$&+,/:;=?@<>#%{}|\\^~[]`", *ch) != NULL))
+    {
+      ch[1] = tohex (*ch / 16);
+      ch[2] = tohex (*ch % 16);
+      *ch = '%';
+      ch += 2;
+    }
+    ch++;
+  }
+  return (dst);
 }
 
 /*

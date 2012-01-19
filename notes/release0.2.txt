@@ -1,0 +1,3 @@
+Added ODBC support including PHINMS compatible Access dB's.
+Added configuration "help" generator.
+Added minimal setup program for installer.

@@ -1,0 +1,3 @@
+Added Windows Service Version.
+Added Restart button to console.
+Fixed various restart issues.

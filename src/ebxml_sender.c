@@ -1,7 +1,7 @@
 /*
  * ebxml_sender.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 #include "task.c"
 #include "fileq.c"
 #include "b64.c"
+#include "basicauth.c"
 #include "crypt.c"
 #include "find.c"
 #include "fpoller.c"
@@ -53,6 +54,7 @@
 #include "util.h"
 #include "log.h"
 #include "mime.h"
+#include "basicauth.h"
 #include "crypt.h"
 #include "ebxml.h"
 
@@ -457,6 +459,17 @@ MIME *ebxml_getmessage (XML *xml, QUEUEROW *r)
     ebxml_route_info (xml, route, "Port"));
   mime_setHeader (msg, "Host", buf, 99);
   mime_setHeader (msg, "Connection", "Close", 99);
+  if (strcmp ("basic", 
+    ebxml_route_info (xml, route, "Authentication.Type")) == 0)
+  {
+    basicauth_request (buf, 
+      ebxml_route_info (xml, route, "Authentication.Id"),
+      ebxml_route_info (xml, route, "Authentication.Password"));
+    pid = strchr (buf, ':');
+    *pid++ = 0;
+    while (isspace (*pid)) pid++;
+    mime_setHeader (msg, buf, pid, 99);
+  }
   mime_setHeader (msg, "SOAPAction", "\"ebXML\"", 99);
   mime_setMultiPart (msg, soap);
   if (payload != NULL)
@@ -630,7 +643,15 @@ SSL_CTX *ebxml_route_ctx (XML *xml, int route)
     return (NULL);
   id = ebxml_route_info (xml, route, "Authentication.Type");
   debug ("authentication type %s\n", id);
-  if (strcmp ("clientcert", id))
+  if (strcmp ("certificate", id) == 0)
+  {
+    id = ebxml_route_info (xml, route, "Authentication.Id");
+    passwd = ebxml_route_info (xml, route, "Authentication.Password");
+    unc = pathf (pathbuf, "%s",
+      ebxml_route_info (xml, route, "Authentication.Unc"));
+    debug ("unc path=%s\n", unc);
+  }
+  else 
   {
     if (*id)
     {
@@ -641,18 +662,31 @@ SSL_CTX *ebxml_route_ctx (XML *xml, int route)
     passwd = NULL;
     unc = NULL;
   }
-  else
-  {
-    id = ebxml_route_info (xml, route, "Authentication.Id");
-    passwd = ebxml_route_info (xml, route, "Authentication.Password");
-    unc = pathf (pathbuf, "%s",
-      ebxml_route_info (xml, route, "Authentication.Unc"));
-    debug ("unc path=%s\n", unc);
-  }
   if (*(ca = xml_get_text (xml, "Phineas.Sender.CertificateAuthority")))
     ca = pathf (pathbuf + MAX_PATH, "%s", ca);
   debug ("ca path=%s\n", ca);
   return (net_ctx (unc, unc, passwd, ca, 0));
+}
+
+/*
+ * check the http status code for problems
+ */
+int ebxml_status (char *reply)
+{
+  char *ch, *nl;
+
+  if ((nl = strchr (reply, '\n')) == NULL)
+    nl = reply + strlen (reply);
+  if (((ch = strchr (reply, ' ')) != NULL) && (ch < nl))
+  {
+    while (isspace (*ch)) ch++;
+    if (atoi (ch) == 200)
+      return (0);
+  }
+  else
+    ch = reply;
+  error ("EbXML reply failed: %.*s\n", nl - ch, ch);
+  return (-1);
 }
 
 /*
@@ -664,6 +698,8 @@ int ebxml_parse_reply (char *reply, QUEUEROW *r)
   XML *rxml;
   char buf[PTIMESZ];
 
+  if (ebxml_status (reply))
+    return (-1);
   if ((msg = mime_parse (reply)) == NULL)
   {
     error ("Failed parsing reply message\n");

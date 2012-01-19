@@ -1,7 +1,7 @@
 /*
  * xml.h
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -107,6 +107,11 @@ XMLNODE *xml_insert (XML *xml, char *path, char *snippet);
 XMLNODE *xml_set_attribute (XML *xml, char *path, char *name, char *value);
 char *xml_get_attribute (XML *xml, char *path, char *name);
 int xml_count (XML *xml, char *path);
+int xml_pathadd (XML *xml, char *path, int index, char *key);
+int xml_first (XML *xml, char *path);
+int xml_last (XML *xml, char *path);
+int xml_next (XML *xml, char *path);
+int xml_prev (XML *xml, char *path);
 int xml_path_opts (XML *xml, int path_sep, int indx_sep);
 XML *xml_parse (char *buf);
 XMLNODE *xml_normalize (XML *xml);

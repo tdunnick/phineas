@@ -1,0 +1,3 @@
+Added checking for DLL loads and that logging starts without issue.  
+Attempt nicer socket close.
+

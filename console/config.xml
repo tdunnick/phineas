@@ -1,5 +1,5 @@
 <!-- 
-  Copyright 2011 Thomas L Dunnick
+  Copyright 2011-2012 Thomas L Dunnick
  
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,16 +17,12 @@
   form.  
 
   "Tab" creates a selection tab with "Name"
-
+  "Set" creates a selection tab set for repeated tags with "Name"
   "Input" creates a form input field of "Type"
 
-  The "Tab.Prefix" is combined with the "Input.Suffix" to create
+  "Tags" are combined replacing space with path separator into
   a tag path into the configuration being edited. This path is also
-  used for the default "Name" and the suffix to construct the default
-  "Prompt".  
-
-  If a "Tab" has "Repeats", a subtab is created for each repeated
-  set of "Input"s with one extra "NEW" tab.
+  used for the default "Name" and "Prompt".  
 
   If an "Input" has "Repeats", a "Add" button will be present to
   add additional copies of the field.
@@ -37,15 +33,15 @@
 
 <Config>
   <Tab>
-    <Name>General</Name>
-    <Prefix>Phineas</Prefix>
+    <Name>General Settings</Name>
+    <Tags>Phineas</Tags>
     <Help>
       Here are the general configuration items that affect 
-      the over all function of Phineas. Note that most of the
+      the over all function of Phineas.  Note that most of the
       paths here may be specified relative to the InstallDirectory.
     </Help>
     <Input>
-      <Suffix>InstallDirectory</Suffix>
+      <Tags>InstallDirectory</Tags>
       <Type>dir</Type>
       <Help>
 	The InstallDirectory is a full path to where you installed
@@ -54,191 +50,163 @@
 	letter or leading directory slash).
       </Help>
     </Input>
-    <Input>
-      <Suffix>PartyId</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
+    <Tab>
+      <Name>Identification</Name>
       <Help>
-	Each end point of an ebXML connection is identified by a PartyID.
-	CDC issues these for PHINMS installation.  However, it can be
-	any unique identifier you choose, as long as it is acceptible
-	to your communicating endpoint(s).  A good alternative is to use
-	the full domain name of the server hosting Phineas (e.g. 
-	"my.server.name.and.domain").
+        Identifies Phineas to external PHINMS compatible services.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Organization</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
+      <Input>
+        <Tags>PartyId</Tags>
+        <Type>text</Type>
+        <Width>24</Width>
+        <Help>
+  	Each end point of an ebXML connection is identified by a PartyID.
+  	CDC issues these for PHINMS installation.  However, it can be
+  	any unique identifier you choose, as long as it is acceptible
+  	to your communicating endpoint(s).  A good alternative is to use
+  	the full domain name of the server hosting Phineas (e.g. 
+  	"my.server.name.and.domain").
+        </Help>
+      </Input>
+      <Input>
+        <Tags>Organization</Tags>
+        <Type>text</Type>
+        <Width>44</Width>
+        <Help>
+  	Set the Organization to something that readily identifys who
+  	is hosting Phineas.
+        </Help>
+      </Input>
+    </Tab>
+    <Tab>
+      <Name>Templates</Name>
       <Help>
-	Set the Organization to something that readily identifys who
-	is hosting Phineas.
+	Phineas uses template files to build and parse
+	various parts of the ebXML payloads.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>SoapTemplate</Suffix>
-      <Type>file</Type>
+      <Input>
+        <Tags>SoapTemplate</Tags>
+        <Type>file</Type>
+        <Help>
+  	The SoapTemplate is the location of the ebXML SOAP template 
+  	used for composing messages.  You should normally not need 
+  	to change this from the default "templates/soap.xml".
+        </Help>
+      </Input>
+      <Input>
+        <Tags>EncryptionTemplate</Tags>
+        <Type>file</Type>
+        <Help>
+  	The EncryptionTemplate is the location of the ebXML 
+  	encryption template used in the payload part of the messages.  
+  	You should normally not need to change this from the
+  	default "templates/encryption.xml". 
+        </Help>
+      </Input>
+      <Input>
+        <Tags>CpaTemplate</Tags>
+        <Type>file</Type>
+        <Help>
+  	The CpaTemplate is the location of the ebXML CPA template 
+  	used for creating new CPAs (Communications Protocol Agreement).  
+  	You should normally not need to change this from the default
+  	"templates/cpa.xml".
+        </Help>
+      </Input>
+      <Input>
+        <Tags>CpaDirectory</Tags>
+        <Type>dir</Type>
+        <Help>
+  	CPAs are stored in the folder designed by the CpaDirectory.
+  	The CPA (Communications Protocol Agreement) is exchanged between
+  	an ebXML sender and receiver and required for communications.
+        </Help>
+      </Input>
+    </Tab>
+    <Tab>
+      <Name>Logging</Name>
       <Help>
-	The SoapTemplate is the location of the ebXML SOAP template 
-	used for composing messages.  You should normally not need 
-	to change this from the default "templates/soap.xml".
+	Identifies where and how logging occurs in Phineas.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>EncryptionTemplate</Suffix>
-      <Type>file</Type>
+      <Input>
+        <Tags>TempDirectory</Tags>
+        <Type>dir</Type>
+        <Help>
+  	Temporary files are placed in the folder designated by the
+  	TempDirectory.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>LogFile</Tags>
+        <Type>file</Type>
+        <Help>
+  	All general log entries go into the file designated by the
+  	LogFile.  A new log is started every time Phineas restarts,
+  	and the old log is renamed with a timestamp extension.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>LogLevel</Tags>
+        <Type>select</Type>
+        <Option>debug</Option>
+        <Option>info</Option>
+        <Option>warn</Option>
+        <Option>error</Option>
+        <Option>none</Option>
+        <Help>
+  	The LogLevel determines the type of messages placed into the
+  	LogFile, with debug providing the most messages and error the
+  	fewest.  Setting it to none will suppress logging altogether.
+        </Help>
+      </Input>
+    </Tab>
+    <Tab>
+      <Name>Server</Name>
+      <Tags>Server</Tags>
       <Help>
-	The EncryptionTemplate is the location of the ebXML 
-	encryption template used in the payload part of the messages.  
-	You should normally not need to change this from the
-	default "templates/encryption.xml". 
+        Phineas is typically run as a stand alone program, and thus has it's
+        own build in HTTP(S) server.  Settings for that server are 
+        configured here.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>CpaTemplate</Suffix>
-      <Type>file</Type>
-      <Help>
-	The CpaTemplate is the location of the ebXML CPA template 
-	used for creating new CPAs (Communications Protocol Agreement).  
-	You should normally not need to change this from the default
-	"templates/cpa.xml".
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>CpaDirectory</Suffix>
-      <Type>dir</Type>
-      <Help>
-	CPAs are stored in the folder designed by the CpaDirectory.
-	The CPA (Communications Protocol Agreement) is exchanged between
-	an ebXML sender and receiver and required for communications.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>TempDirectory</Suffix>
-      <Type>dir</Type>
-      <Help>
-	Temporary files are placed in the folder designated by the
-	TempDirectory.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>LogFile</Suffix>
-      <Type>file</Type>
-      <Help>
-	All general log entries go into the file designated by the
-	LogFile.  A new log is started every time Phineas restarts,
-	and the old log is renamed with a timestamp extension.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>LogLevel</Suffix>
-      <Type>select</Type>
-      <Option>debug</Option>
-      <Option>info</Option>
-      <Option>warn</Option>
-      <Option>error</Option>
-      <Option>none</Option>
-      <Help>
-	The LogLevel determines the type of messages placed into the
-	LogFile, with debug providing the most messages and error the
-	fewest.  Setting it to none will suppress logging altogether.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Console.Url</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	Phineas can optionally provide a WEB based console for monitoring
-	and configuration.  For a stand-alone implementation, the
-	Console Url determine the path used for accessing the console.
-	Note the protocol, host, and port will be added.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Console.Root</Suffix>
-      <Type>dir</Type>
-      <Help>
-	The Console Root is the folder where console static content and
-	configuration information is located.  This is normally
-	found in the Phineas install path, but can be anywhere on the
-	file system including in a HTTP server root.  Note that the
-	dynamic part of the console will not (directly) be rendered by
-	an HTTP server however.  Phineas must be running and configured
-	for that.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Console.Config</Suffix>
-      <Type>file</Type>
-      <Help>
-	The configuration screen layout of the Phineas console is
-	determined by XML in the Console Config.  Depending on the type
-	of Phineas build, parts may be ignored however (for example
-	a SENDER build will ignore RECEIVER configuration items).
-	This file is normally found in the Console Root, but may be
-	located anywhere.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Receiver.Url</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	For standalone RECEIVER builds of Phineas, the Receiver Url
-	determines the path used for ebXML requests.  For example
-	a typical PHINMS receiver responds to "/receiver/receivefile".
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Server</Name>
-    <Prefix>Phineas.Server</Prefix>
-    <Help>
-      Phineas is typically run as a stand alone program, and thus has it's
-      own build in HTTP(S) server.  Settings for that server are 
-      configured here.
-    </Help>
-    <Input>
-      <Suffix>Port</Suffix>
-      <Type>number</Type>
-      <Help>
-	The standalone server non-encrypted HTTP Port may be a standard
-	(e.g. 80) or private (e.g. 8080) value.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>NumThreads</Suffix>
-      <Type>number</Type>
-      <Help>
-	The server NumThreads will determine how may simultaneous
-	connection can be made to Phineas.  This includes both
-	ebXML and console (browser) requests. Each request gets its
-	own process or "thread".  Don't go overboard here.  Memory
-	and process related overhead limit the possible improvement
-	in performance.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>SSL.Port</Suffix>
-      <Type>number</Type>
-      <Help>
-	Set the SSL.Port for encrypted HTTPS connections. It may be
-	a standard (e.g. 443) or private (e.g. 8443) value.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>SSL.CertFile</Suffix>
-      <Type>file</Type>
-      <Help>
-	Clients connecting to the Phineas server using HTTPS will be
-	presented with the credentials found in the SSL CertFile.  This
-	can be in PEM, DER, or PKCS12 formats.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>SSL.KeyFile</Suffix>
+      <Input>
+        <Tags>Port</Tags>
+        <Type>number</Type>
+        <Help>
+  	The standalone server non-encrypted HTTP Port may be a standard
+  	(e.g. 80) or private (e.g. 8080) value.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>NumThreads</Tags>
+        <Type>number</Type>
+        <Help>
+  	The server NumThreads will determine how may simultaneous
+  	connection can be made to Phineas.  This includes both
+  	ebXML and console (browser) requests. Each request gets its
+  	own process or "thread".  Don't go overboard here.  Memory
+  	and process related overhead limit the possible improvement
+  	in performance.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>SSL Port</Tags>
+        <Type>number</Type>
+        <Help>
+  	Set the SSL.Port for encrypted HTTPS connections. It may be
+  	a standard (e.g. 443) or private (e.g. 8443) value.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>SSL CertFile</Tags>
+        <Type>file</Type>
+        <Help>
+  	Clients connecting to the Phineas server using HTTPS will be
+  	presented with the credentials found in the SSL CertFile.  This
+  	can be in PEM, DER, or PKCS12 formats.
+        </Help>
+      </Input>
+      <Input>
+      <Tags>SSL KeyFile</Tags>
       <Type>file</Type>
       <Help>
 	For HTTPS connections, this file holds the private key used by
@@ -247,7 +215,7 @@
       </Help>
     </Input>
     <Input>
-      <Suffix>SSL.Password</Suffix>
+      <Tags>SSL Password</Tags>
       <Type>password</Type>
       <Help>
 	The SSL Password is use to access encrypted SSL CertFile and/or
@@ -255,7 +223,7 @@
       </Help>
     </Input>
     <Input>
-      <Suffix>SSL.AuthFile</Suffix>
+      <Tags>SSL AuthFile</Tags>
       <Type>file</Type>
       <Help>
 	The SSL AuthFile is a set of PEM formatted CA (certificate
@@ -263,608 +231,761 @@
 	If not given, clients will not be required to authenticate.
       </Help>
     </Input>
+    </Tab>
+    <Tab>
+      <Name>Console</Name>
+      <Help>
+	Phineas can optionally provide a WEB based console for monitoring
+	and configuration.  
+      </Help>
+      <Tags>Console</Tags>
+      <Input>
+        <Tags>Url</Tags>
+        <Type>text</Type>
+        <Width>44</Width>
+        <Help>
+  	The Console Url determine the path used for accessing the console.
+  	Note the protocol, host, and port will be added.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>Root</Tags>
+        <Type>dir</Type>
+        <Help>
+  	The Console Root is the folder where console static content and
+  	configuration information is located.  This is normally
+  	found in the Phineas install path, but can be anywhere on the
+  	file system including in a HTTP server root.  Note that the
+  	dynamic part of the console will not (directly) be rendered by
+  	an HTTP server however.  Phineas must be running and configured
+  	for that.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>Config</Tags>
+        <Type>file</Type>
+        <Help>
+  	The configuration screen layout of the Phineas console is
+  	determined by XML in the Console Config.  Depending on the type
+  	of Phineas build, parts may be ignored however (for example
+  	a SENDER build will ignore RECEIVER configuration items).
+  	This file is normally found in the Console Root, but may be
+  	located anywhere.
+        </Help>
+      </Input>
+      <Set>
+        <Name>Console Users</Name>
+        <Tags>BasicAuth</Tags>
+        <Help>
+  	Credentials for Basic Authentication.  If set
+	the user is prompted for their user ID and password before getting
+	access to the console.
+        </Help>
+        <Input>
+          <Tags>UserID</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name (user id) supplied by the user.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The password supplied by the user.
+          </Help>
+        </Input>
+        <Input>
+          <Name>Update Configuration</Name>
+          <Type>submit</Type>
+          <Help>
+    	Click Update Configuration to keep changes to the current 
+    	configuration in edit.  Otherwise changes may be discarded
+    	after you navigate away from the configuration screen.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
   </Tab>
   <Tab>
-    <Name>Services</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.Receiver.MapInfo.Map</Prefix>
+    <Name>Receiver Services</Name>
+    <Tags>Phineas Receiver</Tags>
     <Help>
       When a message is received by Phineas, the service requested
       determines how (or if) that message will be processed.  Services
       define this processing.
     </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
+    <Tab>
+      <Name>Receiver Settings</Name>
       <Help>
-	The Name is used to identify a receiver's service mapping.
+	General settings applied to the Phineas receiver.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Directory</Suffix>
-      <Type>dir</Type>
-      <Help>
-	Received payloads are written to the Directory found in this
-	service.
+      <Input>
+        <Tags>Url</Tags>
+        <Type>text</Type>
+        <Width>44</Width>
+        <Help>
+  	For standalone RECEIVER builds of Phineas, the Receiver Url
+  	determines the path used for ebXML requests.  For example
+  	a typical PHINMS receiver responds to "/receiver/receivefile".
+        </Help>
+      </Input>
+      <Set>
+        <Name>Service Users</Name>
+        <Tags>BasicAuth</Tags>
+        <Help>
+  	Credentials for Basic Authentication.  If set
+	the sender must include user ID and password
+	in the HTTP (Mime) header "Authorization" to use this service.
+        </Help>
+        <Input>
+          <Tags>UserID</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name (user id) supplied by the sender.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The password supplied by the sender.
+          </Help>
+        </Input>
+        <Input>
+          <Name>Update Configuration</Name>
+          <Type>submit</Type>
+          <Help>
+    	Click Update Configuration to keep changes to the current 
+    	configuration in edit.  Otherwise changes may be discarded
+    	after you navigate away from the configuration screen.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
+    <Tab>
+      <Name>Service Maps</Name>
+      <Help>Each service maps to a "service" and "action" pair.
+	This provides the specifics associated with each request.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Queue</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Queue</Ref>
-      <Help>
-	Received messages are recorded in the Queue for this service.
-	See the Queue configurations for more information.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Filter</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The Filter is a command line program that is expected to 
-	read from stdin and write to stdout.  The payload may be run through
-	this filter prior to being stored on disk.  A typical use
-	would be to data broker an HL7 message.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Service</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The sender designates the Service in the ebXML which is then
-	matched to the one specified here.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Action</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The sender designates the Action in the ebXML which is then
-	matched to the one specified here.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Arguments</Suffix>
-      <Type>text</Type>
-      <Width>80</Width>
-      <Help>
-	Optional information used by the processing service 
-	can be given in the Arguments.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Type</Suffix>
-      <Type>select</Type>
-      <Option/>
-      <Option>certificate</Option>
-      <Option>LDAP</Option>
-      <Help>
-	Payloads may be encrypted using PEM, DER, or PKCS12 certificates.
-	This specifies the decryption certificate/key. Otherwise payloads
-	are not decrypted.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Id</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	An Encryption Id specifies optional the DN 
-	(distinguished name or Subject)
-	used to match against the sender's encryption certificate.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Password</Suffix>
-      <Type>password</Type>
-      <Help>
-	The Encryption Password is used to decrypt the certificate/key.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Unc</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The certificate or key to use for decryption is specified by
-	the Encryption Unc (Universal Naming Convention).  
-	Currently only file UNC's are supported.
-      </Help>
-    </Input>
+      <Set>
+        <Tags>MapInfo Map</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name is used to identify a receiver's service mapping.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Directory</Tags>
+          <Type>dir</Type>
+          <Help>
+    	Received payloads are written to the Directory found in this
+    	service.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Queue</Tags>
+          <Type>select</Type>
+          <Ref>Phineas.QueueInfo.Queue</Ref>
+          <Help>
+    	Received messages are recorded in the Queue for this service.
+    	See the Queue configurations for more information.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Filter</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	The Filter is a command line program that is expected to 
+    	read from stdin and write to stdout.  The payload may be run through
+    	this filter prior to being stored on disk.  A typical use
+    	would be to data broker an HL7 message.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Service</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The sender designates the Service in the ebXML which is then
+    	matched to the one specified here.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Action</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The sender designates the Action in the ebXML which is then
+    	matched to the one specified here.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Arguments</Tags>
+          <Type>text</Type>
+          <Width>80</Width>
+          <Help>
+    	Optional information used by the processing service 
+    	can be given in the Arguments.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Type</Tags>
+          <Type>select</Type>
+          <Option/>
+          <Option>certificate</Option>
+          <Option>LDAP</Option>
+          <Help>
+    	Payloads may be encrypted using PEM, DER, or PKCS12 certificates.
+    	This specifies the decryption certificate/key. Otherwise payloads
+    	are not decrypted.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Id</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	An Encryption Id specifies optional the DN 
+    	(distinguished name or Subject)
+    	used to match against the sender's encryption certificate.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The Encryption Password is used to decrypt the certificate/key.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Unc</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	The certificate or key to use for decryption is specified by
+    	the Encryption Unc (Universal Naming Convention).  
+    	Currently only file UNC's are supported.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
   </Tab>
   <Tab>
-    <Name>Sender</Name>
-    <Prefix>Phineas.Sender</Prefix>
+    <Name>Sender Configuration</Name>
+    <Tags>Phineas Sender</Tags>
     <Help>
       These settings are needed for Phineas to send files and include
       things like destination, file selections, transport,
       encryption, and so forth.
     </Help>
-    <Input>
-      <Suffix>PollInterval</Suffix>
-      <Type>number</Type>
+    <Tab>
+      <Name>Service Settings</Name>
       <Help>
-	The Phineas sender periodically checks designated folders for
-	files ready to process, and queues for messages ready to send.
-	The PollInterval determines the occurance frequency in seconds
-	of these checks.
+	The general configuration shared by all sending Routes.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>MaxThreads</Suffix>
-      <Type>number</Type>
+      <Input>
+        <Tags>PollInterval</Tags>
+        <Type>number</Type>
+        <Help>
+  	The Phineas sender periodically checks designated folders for
+  	files ready to process, and queues for messages ready to send.
+  	The PollInterval determines the occurance frequency in seconds
+  	of these checks.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>MaxThreads</Tags>
+        <Type>number</Type>
+        <Help>
+  	MaxThreads determines how many connections the sender may
+  	have active at any one time.  Three is a typical maximum value.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>CertificateAuthority</Tags>
+        <Type>file</Type>
+        <Help>
+  	The CertificateAuthority is a set of PEM formatted CA (certificate
+  	authority) certificates.  It is used to authenticate receivers
+  	for HTTPS connections.  If not given, receivers will not be 
+  	required to authenticate.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>MaxRetry</Tags>
+        <Type>number</Type>
+        <Help>
+  	If a send attempt fails (for example, if the host is not
+  	responding), the sender will normally retry.  The MaxRetry
+  	determines the number of attempt that will be made.
+        </Help>
+      </Input>
+      <Input>
+        <Tags>DelayRetry</Tags>
+        <Type>number</Type>
+        <Help>
+  	Before a sender retries sending a message, it will wait
+  	for the receiver/network to correct whatever condition may
+  	have caused the failure.  The DelayRetry determines the intial
+  	wait in seconds.  Each subsequent retry will double the wait
+  	interval for an exponential retry back-off.
+        </Help>
+      </Input>
+    </Tab>
+    <Tab>
+      <Name>Maps</Name>
       <Help>
-	MaxThreads determines how many connections the sender may
-	have active at any one time.  Three is a typical maximum value.
+        A sender's map associates files with a Route and Queue.  When
+        those files get selected for transport they will be 
+        recorded in the Queue and sent to the Route's destination.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>CertificateAuthority</Suffix>
-      <Type>file</Type>
+      <Set>
+        <Tags>MapInfo Map</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name of the sender map associated with a file folder.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Queue</Tags>
+          <Type>select</Type>
+          <Ref>Phineas QueueInfo Queue</Ref>
+          <Help>
+    	The name of the Queue used to record files processed from
+    	a folder map.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Processor</Tags>
+          <Type>select</Type>
+          <Option>ebxml</Option>
+          <Help>
+    	The type of Processor used for this folder.  Currently only
+    	ebxml is supported.  Future versions may include other protocols
+    	like MLLP.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Folder</Tags>
+          <Type>dir</Type>
+          <Help>
+    	The Folder is periodically checked for files to be added to a
+    	queue (and subsequently processed or sent).  This can include
+    	wild card designations to restrict which files get selected
+    	(for example, "data/outgoing/*.txt").
+          </Help>
+       </Input>
+        <Input>
+          <Tags>Processed</Tags>
+          <Type>dir</Type>
+          <Help>
+    	The Processed folder gets files after they have been processed
+    	by the folder poller.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Acknowledged</Tags>
+          <Type>dir</Type>
+          <Help>
+    	After the queue processors is finished it will add a status
+    	message from the remote receiver to a file in the Acknowledged
+    	folder.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Route</Tags>
+          <Type>select</Type>
+          <Ref>Phineas Sender RouteInfo Route</Ref>
+          <Help>
+    	The Route designates the payload destination for a selected folder 
+    	mapping.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Service</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Service (and Action) identifies how the receiver should 
+    	handle the incoming request (payload).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Action</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Action (and Service) identifies how the receiver should 
+    	handle the incoming request (payload).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Arguments</Tags>
+          <Type>text</Type>
+          <Width>80</Width>
+          <Help>
+    	The send can pass optional Arguments to the receiver to further
+    	affect processing of the request.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Type</Tags>
+          <Type>select</Type>
+          <Option/>
+          <Option>certificate</Option>
+          <Option>LDAP</Option>
+          <Help>
+    	If payload encryption is desired, the Encryption Type determines
+    	the method.  Currently on certificate encryption is supported.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Id</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	An Encryption Id specifies optional the DN 
+    	(distinguished name or Subject) identified to the 
+    	receiver in the encryption payload.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The Encryption Password is used to decrypt the certificate.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Encryption Unc</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	The certificate to use for encryption is specified by
+    	the Encryption Unc (Universal Naming Convention).
+    	Currently only file based names are supported.
+    	This can be in PEM, DER, or PKCS12 formats.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
+    <Tab>
+      <Name>Routes</Name>
       <Help>
-	The CertificateAuthority is a set of PEM formatted CA (certificate
-	authority) certificates.  It is used to authenticate receivers
-	for HTTPS connections.  If not given, receivers will not be 
-	required to authenticate.
+        A Route is used by the sender to select a physical end point for
+        the transport.  That includes things like the domain name, path,
+        ports, and protocol.  It also determines the CPA required by
+        the receiver.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>MaxRetry</Suffix>
-      <Type>number</Type>
-      <Help>
-	If a send attempt fails (for example, if the host is not
-	responding), the sender will normally retry.  The MaxRetry
-	determines the number of attempt that will be made.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>DelayRetry</Suffix>
-      <Type>number</Type>
-      <Help>
-	Before a sender retries sending a message, it will wait
-	for the receiver/network to correct whatever condition may
-	have caused the failure.  The DelayRetry determines the intial
-	wait in seconds.  Each subsequent retry will double the wait
-	interval for an exponential retry back-off.
-      </Help>
-    </Input>
+      <Set>
+        <Tags>RouteInfo Route</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name identifies a sender's route.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>PartyId</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The PartyId identifies the receiver for a route.
+    	CDC issues these for PHINMS installation.  However, it can be
+    	any unique identifier designated by the receiver.  See the
+    	General PartyID for details.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Cpa</Tags>
+          <Type>24</Type>
+          <Help>
+    	The Cpa identifies the certificate protocol agreement file
+    	used for the route connection.  It is kept in the CpaDirectory.
+    	The naming convention is the receiver and sender PartyId separated
+    	by a period.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Host</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Host is the domain or IP designation for the receiver
+    	(e.g. "some.remote.receiver.gov").
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Path</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Path is the URL path expected by the receiver (typically
+    	"/receiver/receivefile" for PHINMS hosts).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Port</Tags>
+          <Type>number</Type>
+          <Help>
+    	The Port is the port used by the receiver (typically 80 for 
+    	non-encryption, or 443 for encrypted connections).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Protocol</Tags>
+          <Type>select</Type>
+          <Option>http</Option>
+          <Option>https</Option>
+          <Help>
+    	The Protocol determines whether SSL encryption and optional
+    	authentication is selected for the connection.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Timeout</Tags>
+          <Type>number</Type>
+          <Help>
+    	After the sender transmits a payload request, it waits for a
+    	response.  If it waits longer than the Timeout in seconds, it
+    	assumes there is some problem with the receiver or networks and
+    	optionally retries the send.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Retry</Tags>
+          <Type>number</Type>
+          <Help>
+    	After a Timeout, an attempt may be made to resend the message.
+    	The Retry determines how many times that attempt will be made.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Authentication Type</Tags>
+          <Type>select</Type>
+          <Option/>
+          <Option>basic</Option>
+          <Option>custom</Option>
+          <Option>sdn</Option>
+          <Option>certificate</Option>
+          <Help>
+    	If the sender must authenticate itself to the receiver for 
+    	an SSL connection, the method is specified by the 
+    	Authentication Type.  Currently only certificate authentication
+    	is supported.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Authentication Id</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	An Authentication Id specifies the DN 
+    	(distinguished name or Subject) identified in the encryption
+    	payload envelop.  It is only needed to select a specific
+    	certificate from a store, and is normally derived from
+    	the certificate if left blank. This will be matched against the 
+    	receiver's decryption certificate.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Authentication Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The Authentication Password is used to optinally decrypt the 
+    	Authetication Unc.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Authentication Unc</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	The certificate store used for authentication is specified by
+    	the Authentication Unc (Universal Naming Convention).  
+    	Currently only file based names are supported.
+    	This can be in PEM, DER, or PKCS12 formats.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Queue</Tags>
+          <Type>select</Type>
+          <Ref>Phineas QueueInfo Queue</Ref>
+          <Help>
+    	The Queue specifies where an audit record of the sender's
+    	transport is recorded.  For routes it is only
+    	needed for Ping requests.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Name</Tags>
+          <Name>Export CPA</Name>
+          <Type>submit</Type>
+          <Help>
+    	Click Export CPA to create a communication protocol agreement
+    	file for this route.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
   </Tab>
   <Tab>
-    <Name>Maps</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.Sender.MapInfo.Map</Prefix>
+    <Name>Transport Queues</Name>
     <Help>
-      A sender's map associates files with a Route and Queue.  When
-      those files get selected for transport they will be 
-      recorded in the Queue and sent to the Route's destination.
+      Message sent and received by Phineas are recorded and processed
+      from queues. Just like the line at a fast food chain, messages
+      in queues are "first come first served" or FIFO (first in first out).
+      Each queue has a type and connection associated with it.
     </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
+    <Tab>
+      <Name>Queues</Name>
       <Help>
-	The Name of the sender map associated with a file folder.
+        A Phineas Queue is used to record and control transport activities.
+        It's underlying implementation is generally a database table and
+        associated driver.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Queue</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Queue</Ref>
+      <Set>
+        <Tags>Phineas QueueInfo Queue</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The name associated with a specific queue.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Type</Tags>
+          <Type>select</Type>
+          <Ref>Phineas QueueInfo Type</Ref>
+          <Help>
+    	The Type of queue determines which fields are supported
+    	(see queue Type).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Connection</Tags>
+          <Type>select</Type>
+          <Ref>Phineas QueueInfo Connection</Ref>
+          <Help>
+    	The Connection used for accessing the queue (see queue Connection).
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Table</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	The name of the Table for this queue.  Note for a file queue
+    	this makes up part of the file name.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
+    <Tab>
+      <Name>Q Types</Name>
       <Help>
-	The name of the Queue used to record files processed from
-	a folder map.
+        The Queue Type identifies the fields of Queue, although the physical
+        implementation may include additional fields and/or have
+        order differences. Queue Types should begin with a "RECORDID" field.
+        EbXml queues are expected to have a specific set of fields present,
+        so you should NOT delete any found there. 
+        The EbXml defaults are fully compatible with existing
+        PHINMS databases.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Processor</Suffix>
-      <Type>select</Type>
-      <Option>ebxml</Option>
+      <Set>
+        <Tags>Phineas QueueInfo Type</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name identifing the queue type.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Field</Tags>
+          <Repeats>true</Repeats>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	One or more Field names for the queue.  Note that all queues
+    	are expected to begin with a RecordId.  The Add Field button
+    	can be used to add additional fields.  Blank fields are removed.
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
+    <Tab>
+      <Name>Connections</Name>
       <Help>
-	The type of Processor used for this folder.  Currently only
-	ebxml is supported.  Future versions may include other protocols
-	like MLLP.
+        A Phineas Queue is associated with a Connection that determines
+        the physical implementation of a queue.  This is typically a
+        database connection, but Phineas also offers a light weight
+        file based connection.
       </Help>
-    </Input>
-    <Input>
-      <Suffix>Folder</Suffix>
-      <Type>dir</Type>
-      <Help>
-	The Folder is periodically checked for files to be added to a
-	queue (and subsequently processed or sent).  This can include
-	wild card designations to restrict which files get selected
-	(for example, "data/outgoing/*.txt").
-      </Help>
-   </Input>
-    <Input>
-      <Suffix>Processed</Suffix>
-      <Type>dir</Type>
-      <Help>
-	The Processed folder gets files after they have been processed
-	by the folder poller.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Acknowledged</Suffix>
-      <Type>dir</Type>
-      <Help>
-	After the queue processors is finished it will add a status
-	message from the remote receiver to a file in the Acknowledged
-	folder.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Route</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.Sender.RouteInfo.Route</Ref>
-      <Help>
-	The Route designates the payload destination for a selected folder 
-	mapping.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Service</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Service (and Action) identifies how the receiver should 
-	handle the incoming request (payload).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Action</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Action (and Service) identifies how the receiver should 
-	handle the incoming request (payload).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Arguments</Suffix>
-      <Type>text</Type>
-      <Width>80</Width>
-      <Help>
-	The send can pass optional Arguments to the receiver to further
-	affect processing of the request.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Type</Suffix>
-      <Type>select</Type>
-      <Option/>
-      <Option>certificate</Option>
-      <Option>LDAP</Option>
-      <Help>
-	If payload encryption is desired, the Encryption Type determines
-	the method.  Currently on certificate encryption is supported.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Id</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	An Encryption Id specifies optional the DN 
-	(distinguished name or Subject) identified to the 
-	receiver in the encryption payload.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Password</Suffix>
-      <Type>password</Type>
-      <Help>
-	The Encryption Password is used to decrypt the certificate.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Encryption.Unc</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The certificate to use for encryption is specified by
-	the Encryption Unc (Universal Naming Convention).
-	Currently only file based names are supported.
-	This can be in PEM, DER, or PKCS12 formats.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Routes</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.Sender.RouteInfo.Route</Prefix>
-    <Help>
-      A Route is used by the sender to select a physical end point for
-      the transport.  That includes things like the domain name, path,
-      ports, and protocol.  It also determines the CPA required by
-      the receiver.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Name identifies a sender's route.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>PartyId</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The PartyId identifies the receiver for a route.
-	CDC issues these for PHINMS installation.  However, it can be
-	any unique identifier designated by the receiver.  See the
-	General PartyID for details.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Cpa</Suffix>
-      <Type>24</Type>
-      <Help>
-	The Cpa identifies the certificate protocol agreement file
-	used for the route connection.  It is kept in the CpaDirectory.
-	The naming convention is the receiver and sender PartyId separated
-	by a period.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Host</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Host is the domain or IP designation for the receiver
-	(e.g. "some.remote.receiver.gov").
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Path</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Path is the URL path expected by the receiver (typically
-	"/receiver/receivefile" for PHINMS hosts).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Port</Suffix>
-      <Type>number</Type>
-      <Help>
-	The Port is the port used by the receiver (typically 80 for 
-	non-encryption, or 443 for encrypted connections).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Protocol</Suffix>
-      <Type>select</Type>
-      <Option>http</Option>
-      <Option>https</Option>
-      <Help>
-	The Protocol determines whether SSL encryption and optional
-	authentication is selected for the connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Timeout</Suffix>
-      <Type>number</Type>
-      <Help>
-	After the sender transmits a payload request, it waits for a
-	response.  If it waits longer than the Timeout in seconds, it
-	assumes there is some problem with the receiver or networks and
-	optionally retries the send.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Retry</Suffix>
-      <Type>number</Type>
-      <Help>
-	After a Timeout, an attempt may be made to resend the message.
-	The Retry determines how many times that attempt will be made.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Type</Suffix>
-      <Type>select</Type>
-      <Option/>
-      <Option>basic</Option>
-      <Option>custom</Option>
-      <Option>sdn</Option>
-      <Option>certificate</Option>
-      <Help>
-	If the sender must authenticate itself to the receiver for 
-	an SSL connection, the method is specified by the 
-	Authentication Type.  Currently only certificate authentication
-	is supported.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Id</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	An Authentication Id specifies the DN 
-	(distinguished name or Subject) identified in the encryption
-	payload envelop.  It is only needed to select a specific
-	certificate from a store, and is normally derived from
-	the certificate if left blank. This will be matched against the 
-	receiver's decryption certificate.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Password</Suffix>
-      <Type>password</Type>
-      <Help>
-	The Authentication Password is used to optinally decrypt the 
-	Authetication Unc.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Authentication.Unc</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The certificate store used for authentication is specified by
-	the Authentication Unc (Universal Naming Convention).  
-	Currently only file based names are supported.
-	This can be in PEM, DER, or PKCS12 formats.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Queue</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Queue</Ref>
-      <Help>
-	The Queue specifies where an audit record of the sender's
-	transport is recorded.  For routes it is only
-	needed for Ping requests.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Name>Export.CPA</Name>
-      <Type>submit</Type>
-      <Help>
-	Click Export.CPA to create a communication protocol agreement
-	file for this route.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Queues</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.QueueInfo.Queue</Prefix>
-    <Help>
-      A Phineas Queue is used to record and control transport activities.
-      It's underlying implementation is generally a database table and
-      associated driver.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The name associated with a specific queue.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Type</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Type</Ref>
-      <Help>
-	The Type of queue determines which fields are supported
-	(see queue Type).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Connection</Suffix>
-      <Type>select</Type>
-      <Ref>Phineas.QueueInfo.Connection</Ref>
-      <Help>
-	The Connection used for accessing the queue (see queue Connection).
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Table</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	The name of the Table for this queue.  Note for a file queue
-	this makes up part of the file name.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Q Types</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.QueueInfo.Type</Prefix>
-    <Help>
-      The Queue Type identifies the fields of Queue, although the physical
-      implementation may include additional fields and/or have
-      order differences. Queue Types should begin with a "RECORDID" field.
-      EbXml queues are expected to have a specific set of fields present,
-      so you should NOT delete any found there. 
-      The EbXml defaults are fully compatible with existing
-      PHINMS databases.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Name identifing the queue type.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Field</Suffix>
-      <Repeats>true</Repeats>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	One or more Field names for the queue.  Note that all queues
-	are expected to begin with a RecordId.  The Add Field button
-	can be used to add additional fields.  Blank fields are removed.
-      </Help>
-    </Input>
-  </Tab>
-  <Tab>
-    <Name>Connections</Name>
-    <Repeats>true</Repeats>
-    <Prefix>Phineas.QueueInfo.Connection</Prefix>
-    <Help>
-      A Phineas Queue is associated with a Connection that determines
-      the physical implementation of a queue.  This is typically a
-      database connection, but Phineas also offers a light weight
-      file based connection.
-    </Help>
-    <Input>
-      <Suffix>Name</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Name used to identify a queue connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Type</Suffix>
-      <Type>select</Type>
-      <Option>file</Option>
-      <Option>odbc</Option>
-      <Help>
-	The type of connection. Use "file" for file based or
-	"odbc" for an ODBC connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Id</Suffix>
-      <Type>text</Type>
-      <Width>24</Width>
-      <Help>
-	The Id is optionally used to authenticate the queue
-	connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Password</Suffix>
-      <Type>password</Type>
-      <Help>
-	The Password is optionally used to authenticate the queue
-	connection.
-      </Help>
-    </Input>
-    <Input>
-      <Suffix>Unc</Suffix>
-      <Type>text</Type>
-      <Width>44</Width>
-      <Help>
-	A queue connection is accessed by a Unc (Universal 
-	Naming Convention) path.  The nature
-	of the path is determined by the connection type (for example
-	ODBC conventions).
-      </Help>
-    </Input>
+      <Set>
+        <Tags>Phineas QueueInfo Connection</Tags>
+        <Input>
+          <Tags>Name</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Name used to identify a queue connection.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Type</Tags>
+          <Type>select</Type>
+          <Option>file</Option>
+          <Option>odbc</Option>
+          <Help>
+    	The type of connection. Use "file" for file based or
+    	"odbc" for an ODBC connection.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Id</Tags>
+          <Type>text</Type>
+          <Width>24</Width>
+          <Help>
+    	The Id is optionally used to authenticate the queue
+    	connection.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Password</Tags>
+          <Type>password</Type>
+          <Help>
+    	The Password is optionally used to authenticate the queue
+    	connection.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Unc</Tags>
+          <Type>text</Type>
+          <Width>44</Width>
+          <Help>
+    	A queue connection is accessed by a Unc (Universal 
+    	Naming Convention) path.  The nature
+    	of the path is determined by the connection type (for example
+    	ODBC conventions).
+          </Help>
+        </Input>
+      </Set>
+    </Tab>
   </Tab>
   <Tab>
     <Name>Load/Save/Update</Name>
@@ -877,7 +998,7 @@
       discarded by simply navigating away in the console.
     </Help>
     <Input>
-      <Name>Configuration.File.Name</Name>
+      <Name>Configuration File Name</Name>
       <Type>file</Type>
       <Help>
 	The configuration for Phineas is read or written to the
@@ -885,7 +1006,7 @@
       </Help>
     </Input>
     <Input>
-      <Name>Save.Configuration</Name>
+      <Name>Save Configuration</Name>
       <Type>submit</Type>
       <Help>
 	Click Save Configuration to save the current configuration in
@@ -893,7 +1014,7 @@
       </Help>
     </Input>
     <Input>
-      <Name>Load.Configuration</Name>
+      <Name>Load Configuration</Name>
       <Type>submit</Type>
       <Help>
 	Click Load Configuration to Load the current configuration in
@@ -901,7 +1022,7 @@
       </Help>
     </Input>
     <Input>
-      <Name>Update.Configuration</Name>
+      <Name>Update Configuration</Name>
       <Type>submit</Type>
       <Help>
 	Click Update Configuration to keep changes to the current 

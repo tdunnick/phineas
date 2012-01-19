@@ -26,7 +26,7 @@ REM sources
 SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
   crypt.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
   cpa.c console.c config.c server.c ^
-  find.c fpoller.c qpoller.c ebxml_sender.c ^
+  basicauth.c find.c fpoller.c qpoller.c ebxml_sender.c ^
   ebxml_receiver.c 
 
 SET OPTS=

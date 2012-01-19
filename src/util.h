@@ -1,7 +1,7 @@
 /*
  * util.h
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -36,9 +36,10 @@ int fixpath (char *p);
 int pathcopy (char *dst, char *src);
 char *pathf (char *dst, char *fmt, ...);
 /*
- * decode a url in place
+ * URL and html encoding...
  */
 char *urldecode (char *url);
+char *urlencode (char *dst, char *src);
 char *html_encode (char *dst, char *src);
 /*
  * rename file to backup with timestamp extension

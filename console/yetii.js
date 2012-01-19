@@ -53,7 +53,7 @@ function Yetii()
 
       if ((i + 1) == number)
       {
-			  this.links[i].blur(); // tld - added to remove browser "active" outlines
+	this.links[i].blur(); // tld - added to remove browser "active" outlines
         this.addClass(this.links[i], this.defaults.activeclass);
         this.addClass(this.listitems[i], this.defaults.activeclass + 'li');
       }
@@ -65,11 +65,11 @@ function Yetii()
     }
 
     if (this.defaults.leavecallback && (number != this.activebackup)) 
-		  this.defaults.leavecallback(this.defaults.active);
+      this.defaults.leavecallback(this.defaults.active);
     this.activebackup = number;
     this.defaults.active = number;
     if (this.defaults.callback) 
-		  this.defaults.callback(number);
+      this.defaults.callback(number);
   };
 
   this.rotate = function (interval)
@@ -158,6 +158,7 @@ function Yetii()
     return null;
   };
 
+
   this.contains = function (el, item, from)
   {
     return el.indexOf(item, from) != -1;
@@ -183,7 +184,7 @@ function Yetii()
   this.tabs = this.getTabs();
   this.defaults.active = (this.parseurl(this.defaults.id)) ? this.parseurl(this.defaults.id) : this.defaults.active;
   if (this.defaults.persist && this.readCookie(this.defaults.id)) 
-	  this.defaults.active = this.readCookie(this.defaults.id);
+    this.defaults.active = this.readCookie(this.defaults.id);
   this.activebackup = this.defaults.active;
   this.show(this.defaults.active);
 
@@ -196,7 +197,8 @@ function Yetii()
       if (self.timer1) clearTimeout(self.timer1);
       if (self.timer2) clearTimeout(self.timer2);
       self.show(this.customindex);
-      if (self.defaults.persist) self.createCookie(self.defaults.id, this.customindex, 0);
+      if (self.defaults.persist) 
+	self.createCookie(self.defaults.id, this.customindex, 0);
       if (self.defaults.wait) self.timer2 = setTimeout(function ()
       {
         self.rotate(self.defaults.interval);

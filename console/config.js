@@ -1,7 +1,7 @@
 /*
  * config.js
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -88,17 +88,55 @@ function addfield(o)
 }
 
 /*
+ * additions for Yetti to track and delete cookies on submit
+ */
+var tabber = new Array(); // Yetti tabbers used in config.c
+
+function addTabber (t)
+{
+  var n = tabber.length;
+  tabber[n] = t;
+}
+
+function deleteCookie(cname) // delete a cookie
+{
+  var cookies = document.cookie.split(";");
+
+  for (var i = 0; i < cookies.length; i++) 
+  {
+    var cookie = cookies[i].replace (/^\s*/, "");
+    var eqPos = cookie.indexOf("=");
+    var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+    if ((cname == null) || (cname == name))
+    {
+      document.cookie = name + "=deleted;expires=" + 
+        new Date(0).toUTCString() + ";path=/";
+    }
+  }
+}
+
+/*
  * our submit function...  
  * set the hidden request value to a name value pair to get around 
  * differences in how browser pass button values and to suppress
  * accidental submission by the Enter key and make user confirm
- * the submission.
+ * the submission.  
  */
 
 function setRequest(o, v)
 {
   o.form.ConfigurationRequest.value = o.name + ":" + v;
-  if (confirm(o.value)) o.form.submit();
+  if (confirm (o.value)) 
+  {
+    /* remove cookies???
+    for (var i = 0; i < tabber.length; i++)
+    {
+      if (tabber[i])
+        deleteCookie (tabber[i].defaults.id);
+    }
+    */
+    o.form.submit();
+  }
 }
 
 /*
@@ -109,7 +147,8 @@ function askRestart ()
 {
   if (confirm ("Restart PHINEAS?"))
   {
-	  window.location = "?restart";
+    deleteCookie (null);
+    window.location = "?restart";
   }
 }
 
@@ -171,6 +210,7 @@ function createHelp (h)
   }
   else
   {
+    // remove old text
     c = b.firstChild;
     c.removeChild (c.firstChild);
   }
@@ -204,7 +244,7 @@ function moveHelp (o, bubble)
     t += o.offsetTop;
   } while (o = o.offsetParent);
 
-  bubble.style.top = (t - 15) + "px";
+  bubble.style.top = (t) + "px";
   bubble.style.left = (l - 40) + "px";
 }
 

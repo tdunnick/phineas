@@ -1,7 +1,7 @@
 /*
  * xml.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -824,7 +824,7 @@ XMLNODE *xml_root (XML *xml)
 }
 
 /*
- * return the node and set parent and matching this name path
+ * return the node and set parent matching this name path
  */
 XMLNODE *xml_find_parent (XML *xml, char *path, XMLNODE **parent)
 {
@@ -1223,6 +1223,140 @@ int xml_count (XML *xml, char *path)
 }
 
 /*
+ * append a key to this path with given index. Return new path 
+ * length or -1 if bigger than MAX_PATH
+ */
+int xml_pathadd (XML *xml, char *path, int index, char *key)
+{
+  int l = 0;
+  int len = strlen (path);
+
+  // debug ("add %s to %s for index %d\n", key, path, index);
+  path += len;
+  if (index)
+    l = snprintf (path, MAX_PATH - len, "%c%s%c%d", xml->path_sep, key, 
+      xml->indx_sep, index);
+  else
+    l = snprintf (path, MAX_PATH - len, "%c%s", xml->path_sep, key);
+  return (l > 2 ? len + l : -1);
+}
+
+/*
+ * Replace path with path of the first child.  Return the path length
+ * or 0 if there are no children.
+ */
+int xml_first (XML *xml, char *path)
+{
+  XMLNODE *n;
+  
+  if ((n = xml_find (xml, path)) == NULL)
+    return (0);
+  if (xml_num_children (n) < 1)
+    return (0);
+  n = n->value;
+  // debug ("looking for first child to %s\n", path);
+  while (n->type != XML_ELEMENT)
+  {
+    if ((n = n->next) == NULL)
+      return (0);
+  }
+  // debug ("child is %s\n", n->key);
+  return (xml_pathadd (xml, path, 0, n->key));
+}
+
+/*
+ * Replace path with path of the last child.  Return the path length
+ * or 0 if there are no children.
+ */
+int xml_last (XML *xml, char *path)
+{
+  XMLNODE *n, *e, *l;
+  int index = 0;
+  
+  if ((n = xml_find (xml, path)) == NULL)
+    return (0);
+  if (xml_num_children (n) == 0)
+    return (0);
+  // find the last one
+  e = l = n = n->value;
+  while (l->next != NULL)
+  {
+    l = l->next;
+    if (l->type == XML_ELEMENT)
+      e = l;
+  }
+  if (e->type != XML_ELEMENT)
+    return (0);
+  // determine it's index
+  while (n != e)
+  {
+    if (strcmp (n->key, e->key) == 0)
+      index++;
+    n = n->next;
+  }
+  return (xml_pathadd (xml, path, index, n->key));
+}
+
+/*
+ * Replace path with the path of the next sibling.  Return the path
+ * length or 0 if no more siblings.
+ */
+int xml_next (XML *xml, char *path)
+{
+  XMLNODE *n, *p;
+  int index = 0;;
+  
+  if (((n = xml_find_parent (xml, path, &p)) == NULL) || (p == NULL))
+    return (0);
+  // debug ("looking for next\n");
+  while ((n = n->next) != NULL)
+  {
+    if (n->type == XML_ELEMENT)
+      break;
+  }
+  if (n == NULL)
+    return (0);
+  // determine index
+  // debug ("getting index\n");
+  for (p = p->value; p != n; p = p->next)
+  {
+    if (strcmp (p->key, n->key) == 0)
+      index++;
+  }
+  *strrchr (path, xml->path_sep) = 0;
+  return (xml_pathadd (xml, path, index, n->key));
+}
+
+/*
+ * Replace path with the path of the previous sibling.  Return the path
+ * length or 0 if no more siblings.
+ */
+int xml_prev (XML *xml, char *path)
+{
+  XMLNODE *n, *p, *t, *e;
+  int index = 0;;
+  
+  if (((n = xml_find_parent (xml, path, &p)) == NULL) || (p == NULL))
+    return (0);
+  e = NULL;
+  // determine index
+  for (t = p->value; t != n; t = t->next)
+  {
+    if (t->type == XML_ELEMENT)
+      e = t;
+  }
+  if (e == NULL)
+    return (0);
+  for (t = p->value; t != e; t = t->next)
+  {
+    if ((t->type == XML_ELEMENT) && (strcmp (t->key, e->key) == 0))
+      index++;
+  }
+  *strrchr (path, xml->path_sep) = 0;
+  return (xml_pathadd (xml, path, index, e->key));
+}
+
+/*
  * set the path separators
  */
 int xml_path_opts (XML *xml, int path_sep, int indx_sep)
@@ -1280,28 +1414,6 @@ XML *xml_parse (char *buf)
   if (**p)				/* incomplete parse	*/
     return (xml_free (xml));		/* indicates failure	*/
   return (xml);
-}
-
-void xml_node_match (XML *xml, DBUF *b, char *path, char *pat)
-{
-  int i;
-  XMLNODE *n;
-  
-}
-
-/*
- * Find all paths matching a pattern
- */
-char **xml_match (XML *xml, char *pat)
-{
-  DBUF *b;
-  char path[MAX_PATH];
-
-  b = dbuf_alloc ();
-  strcpy (path, xml_root (xml)->key);
-  xml_node_match (xml, b, path, pat);
-  dbuf_free (b);
-  return (NULL);
 }
 
 /*
@@ -1425,6 +1537,34 @@ void display (XML *x, DBUF *b, char *msg)
   printf ("\n----- %s -----\n%s\n", msg, dbuf_getbuf(b));
 }
 
+void dive (XML *xml, char *path, int level)
+{
+  char p[MAX_PATH], c[MAX_PATH];
+
+  // debug ("path=%s level=%d\n", path, level);
+  strcpy (p, path);
+  do
+  {
+    printf ("%*s%s\n", level * 2, "", p);
+    strcpy (c, p);
+    if (xml_first (xml, c) > 0)
+      dive (xml, c, level + 1);
+  } while (xml_next (xml, p) > 0);
+ }
+
+void rdive (XML *xml, char *path, int level)
+{
+  char p[MAX_PATH], c[MAX_PATH];
+  strcpy (p, path);
+  do
+  {
+    strcpy (c, p);
+    if (xml_last (xml, c) > 0)
+      rdive (xml, c, level + 1);
+    printf ("%*s%s\n", level * 2, "", p);
+  } while (xml_prev (xml, p) > 0);
+}
+
 int main (int argc, char **argv)
 {
   XMLNODE *n;
@@ -1434,6 +1574,8 @@ int main (int argc, char **argv)
   char *ch, *ch2;
   
   b = dbuf_alloc ();
+  // x = xml_alloc ();
+  // goto scratch;
   /* load test */
   x = xml_parse (PhineasConfig);
   display (x, b, "load test");
@@ -1445,6 +1587,8 @@ int main (int argc, char **argv)
   /* beautify test */
   x->doc = xml_node_beautify (x->doc, 2, 0);
   display (x, b, "beautified");
+
+scratch:
 
   /* build from scratch test */
   debug ("scratch build...\n");
@@ -1483,6 +1627,10 @@ int main (int argc, char **argv)
   xml_declare (x);
   debug ("displaying...\n");
   display (x, b, "constructed");
+  debug ("diving...\n");
+  dive (x, xml_root (x)->key, 0);
+  debug ("reverse diving...\n");
+  rdive (x, xml_root (x)->key, 0);
   xml_free (x);
 }
 

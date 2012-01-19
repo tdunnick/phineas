@@ -1,7 +1,7 @@
 /*
  * config.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -56,11 +56,11 @@ extern char ConfigName[];
  * these tag names are magic
  */
 char REQUEST[] = "ConfigurationRequest",
-     CONFIG[] = "Configuration.File.Name",
-     EXPORT[] = "Export.CPA",
-     SAVE[] = "Save.Configuration",
-     LOAD[] = "Load.Configuration",
-     UPDATE[] = "Update.Configuration";
+     CONFIG[] = "Configuration File Name",
+     EXPORT[] = "Export CPA",
+     SAVE[] = "Save Configuration",
+     LOAD[] = "Load Configuration",
+     UPDATE[] = "Update Configuration";
 
 /*
  * current configuration in edit
@@ -79,19 +79,28 @@ XML *ConfigXml = NULL;
 #define NUM_WIDTH 4
 
 /*
- * tag types
+ * input types
  */
-#define TAG_TEXT 0
-#define TAG_DIR 1
-#define TAG_FILE 2
-#define TAG_SELECT 3
-#define TAG_RADIO 4
-#define TAG_PASSWD 5
-#define TAG_NUMBER 6
-#define TAG_SUBMIT 7
+#define INPUT_TEXT 0
+#define INPUT_DIR 1
+#define INPUT_FILE 2
+#define INPUT_SELECT 3
+#define INPUT_RADIO 4
+#define INPUT_PASSWD 5
+#define INPUT_NUMBER 6
+#define INPUT_SUBMIT 7
+
+/*
+ * configuration tag types
+ */
+#define TAG_TAB 1
+#define TAG_SET 2
+#define TAG_INPUT 3
 
 // most options for a list
 #define MAXOPT 50
+
+/********************** non-generating support **********************/
 
 /*
  * reset configuration globals
@@ -105,33 +114,173 @@ void config_reset ()
     ConfigXml = xml_free (ConfigXml);
 }
 
-int config_inputtype (char *pre, int input)
+/*
+ * return tag type for an input
+ */
+int config_inputtype (char *path)
 {
   char *ch;
 
-  ch = xml_getf (ConfigXml, "%s.Input[%d].Type", pre, input);
-  // debug ("%s.Input[%d].Type=%s\n", pre, input, ch);
+  ch = xml_getf (ConfigXml, "%s%cType", path, ConfigXml->path_sep);
   if (strcmp (ch, "text") == 0)
-    return (TAG_TEXT);
+    return (INPUT_TEXT);
   if (strcmp (ch, "dir") == 0)
-    return (TAG_DIR);
+    return (INPUT_DIR);
   if (strcmp (ch, "file") == 0)
-    return (TAG_FILE);
+    return (INPUT_FILE);
   if (strcmp (ch, "select") == 0)
-    return (TAG_SELECT);
+    return (INPUT_SELECT);
   if (strcmp (ch, "password") == 0)
-    return (TAG_PASSWD);
+    return (INPUT_PASSWD);
   if (strcmp (ch, "number") == 0)
-    return (TAG_NUMBER);
+    return (INPUT_NUMBER);
   if (strcmp (ch, "radio") == 0)
-    return (TAG_RADIO);
+    return (INPUT_RADIO);
   if (strcmp (ch, "submit") == 0)
-    return (TAG_SUBMIT);
-  return (TAG_TEXT);
+    return (INPUT_SUBMIT);
+  return (INPUT_TEXT);
 }
 
 /*
+ * build a unique id suffix for a configuration prefix
+ * used for YETII tab id's and classes
+ */
+char *config_id (char *id, char *path)
+{
+  char *p;
+
+  p = id;
+  while (*p = *path++)
+  {
+    if (!isalnum (*p))
+      *p = '_';
+    p++;
+  }
+  return (id);
+}
+
+/*
+ * return the TAG_ type for a configuration path
+ */
+int config_tag (char *path)
+{
+  char *tag;
+
+  if ((tag = strrchr (path, ConfigXml->path_sep)) == NULL)
+    return (0);
+  tag++;
+  if (strncmp (tag, "Tab", 3) == 0)
+    return (TAG_TAB);
+  if (strncmp (tag, "Set", 3) == 0)
+    return (TAG_SET);
+  if (strncmp (tag, "Input", 5) == 0)
+    return (TAG_INPUT);
+  return (0);
+}
+
+char *config_fixpath (XML *xml, char *path)
+{
+  char *ch;
+
+  if (xml->path_sep != ' ')
+  {
+    for (ch = strchr (path, ' '); ch != NULL; ch = strchr (ch, ' '))
+      *ch = xml->path_sep;
+  }
+  return (path);
+}
+
+/*
+ * build a new path into our data
+ * xml - data in edit
+ * buf - destination for new prefix
+ * path - path into configuration item
+ * pre - current path (prefix) to prepend
+ * ix - index for repeated data tacked onto the end
+ */
+char *config_path (XML *xml, char *buf, char *path, char *pre, int ix)
+{
+  char p[MAX_PATH];
+  
+  *buf = 0;
+  				/* get tags for this path	*/
+  strcpy (p, xml_getf (ConfigXml, "%s%cTags", path, ConfigXml->path_sep));
+  if (*p == 0)			/* no tags, just use pre(fix)	*/
+    strcpy (buf, pre);
+  else if (*pre)		/* if pre, append with delim	*/
+    sprintf (buf, "%s %s", pre, p);
+  else				/* no pre, just use tags	*/
+    strcpy (buf, p);
+  config_fixpath (xml, buf);
+  if (ix && *buf)		/* add index if given		*/
+    sprintf (buf + strlen (buf), "%c%d",  xml->indx_sep, ix);
+  return (buf);
+}
+
+/*
+ * create a list of option or references for a tag
+ */
+int config_list (XML *xml, char *path, char **list)
+{
+  char *ch,
+       p[MAX_PATH];
+  int i, n, nopt;
+
+  n = 0;
+  ch = xml_getf (ConfigXml, "%s%cRef", path, ConfigXml->path_sep);
+  if (*ch)
+  {
+    config_fixpath (xml, strcpy (p, ch));
+    nopt = xml_count (xml, p);
+    for (i = 0; i < nopt; i++)
+    {
+      ch = xml_getf (xml, "%s%c%d%cName", p, 
+	xml->indx_sep, i, xml->path_sep);
+      if (*ch && (n < MAXOPT))
+	list[n++] = ch;
+    }
+  }
+  else
+  {
+    sprintf (p, "%s%cOption", path, ConfigXml->path_sep);
+    nopt = xml_count (ConfigXml, p);
+    for (i = 0; i < nopt; i++)
+    {
+      ch = xml_getf (ConfigXml, "%s%cOption%c%d", path,
+	ConfigXml->path_sep, ConfigXml->indx_sep, i);
+      if (n < MAXOPT)
+	list[n++] = ch;
+    }
+  }
+  list[n] = NULL;
+  return (n);
+}
+
+/*
+ * format a prompt based on a (partial) tag suffix
+ */
+char *config_prompt (char *dst, char *src)
+{
+  char *p;
+
+  p = dst;
+  while (*p = *src++)
+  {
+    if (!isalnum (*p))
+      *p = ' ';
+    p++;
+  }
+  *p = 0;
+  return (dst);
+}
+
+/*********************** html generation ************************/
+/*
  * issue javascript help attributes
+ * Note help is added to the child of the object moused over,
+ * as a convenience when building MOST of the form's HTML.  In
+ * some cases you will notice artificial HTML artifacts are created
+ * because of this however.
  */
 
 int config_addhelp (char *help, DBUF *b)
@@ -161,28 +310,21 @@ int config_addhelp (char *help, DBUF *b)
   return (dbuf_printf (b, "')\" onMouseOut=\"hideHelp()\" "));
 }
 
-int config_help (char *pre, int input, DBUF *b)
+/*
+ * check a path for help and add it
+ */
+int config_help (char *path, DBUF *b)
 {
   char *ch;
 
-  if ((ch = xml_getf (ConfigXml, "%s.Input[%d].Help", pre, input)) == NULL)
-    return (0);
-  return (config_addhelp (ch, b));
-}
-
-int config_tabhelp (char *pre, int tab, DBUF *b)
-{
-  char *ch;
-
-  if ((ch = xml_getf (ConfigXml, "%s[%d].Help", pre, tab)) == NULL)
-    return (0);
+  if ((ch = xml_getf (ConfigXml, "%s%cHelp", path, ConfigXml->path_sep)) 
+    == NULL) return (0);
   return (config_addhelp (ch, b));
 }
 
 /*
  * construct a select input from a list of values
  */
-
 int config_select (char *name, char *val, char **list, DBUF *b)
 {
   char *ch;
@@ -215,64 +357,16 @@ int config_radio (char *name, char *val, char **list, DBUF *b)
   return (0);
 }
 
-/*
- * create a list of option or references for a tag
- */
-int config_list (XML *xml, char *configpre, int tag, char **list)
-{
-  char *ch,
-       *ref,
-       path[MAX_PATH];
-  int i, n, nopt;
-
-  n = 0;
-  ref = xml_getf (ConfigXml, "%s.Input[%d].Ref", configpre, tag);
-  if (*ref)
-  {
-    nopt = xml_count (xml, ref);
-    for (i = 0; i < nopt; i++)
-    {
-      ch = xml_getf (xml, "%s[%d].Name", ref, i);
-      if (*ch && (n < MAXOPT))
-	list[n++] = ch;
-    }
-  }
-  else
-  {
-    sprintf (path, "%s.Input[%d].Option", configpre, tag);
-    nopt = xml_count (ConfigXml, path);
-    for (i = 0; i < nopt; i++)
-    {
-      ch = xml_getf (ConfigXml, "%s.Input[%d].Option[%d]", 
-	configpre, tag, i);
-      if (n < MAXOPT)
-	list[n++] = ch;
-    }
-  }
-  list[n] = NULL;
-  return (n);
-}
-
-char *config_prompt (char *dst, char *src)
-{
-  char *p;
-
-  p = dst;
-  while (*src)
-  {
-    if ((*p = *src++) == '.')
-      *p = ' ';
-    p++;
-  }
-  *p = 0;
-  return (dst);
-}
-
 
 /*
  * build a form input for this tag
+ * xml - xml in edit
+ * cpath - path to the configuration item
+ * path - path to the xml data
+ * name - suffix of data item
+ * b - buffer for resulting html
  */
-int config_getInput (XML *xml, char *configpre, int input, 
+int config_getInput (XML *xml, char *cpath, 
   char *path, char *name, DBUF *b)
 {
   int sz, width;
@@ -280,57 +374,56 @@ int config_getInput (XML *xml, char *configpre, int input,
        prompt[MAX_PATH],
        *list[MAXOPT];
 
-  // get the default value
-  if (strstarts (path, "Phineas."))
+  config_prompt (prompt, name);		/* build a prompt		*/
+  					/* and get default value	*/
+  if (strstarts (path, xml_root (xml)->key))
     value = xml_get_text (xml, path);
-  else if (strcmp (name, CONFIG) == 0)
+  else if (strcmp (prompt, CONFIG) == 0)
     value = EditConfig;
   else
     value = "";
-  config_prompt (prompt, name);
   if (*path == 0)
     path = name;
-  // debug ("input path=%s prompt=%s value=%s\n", path, prompt, value);
 
   sz = dbuf_size (b);
   dbuf_printf (b, "<tr><td valign='top'>%s</td><td", prompt);
-  config_help (configpre, input, b);
+  config_help (cpath, b);
   dbuf_printf (b, ">");
   width = 24;
-  switch (config_inputtype (configpre, input))
+  switch (config_inputtype (cpath))
   {
-    case TAG_SUBMIT:
+    case INPUT_SUBMIT:
       dbuf_setsize (b, sz);
       dbuf_printf (b, "<tr><td colspan='2'");
-      config_help (configpre, input, b);
+      config_help (cpath, b);
       dbuf_printf (b, "><button type='button' name='%s' value='%s'"
 	"onClick='setRequest (this, \"%s\")'>%s</button>",
         name, prompt, path, prompt);
       break;
-    case TAG_SELECT :
-      if (config_list (xml, configpre, input, list))
+    case INPUT_SELECT :
+      if (config_list (xml, cpath, list))
         config_select (path, value, list, b);
       break;
-    case TAG_RADIO :
-      if (config_list (xml, configpre, input, list))
+    case INPUT_RADIO :
+      if (config_list (xml, cpath, list))
         config_radio (path, value, list, b);
       break;
-    case TAG_PASSWD :
+    case INPUT_PASSWD :
       dbuf_printf (b, "<input type='password' name='%s' value='%s' "
         "size='%d'/>", path, value, PASS_WIDTH);
       break;
-    case TAG_FILE :
+    case INPUT_FILE :
       width = FILE_WIDTH;
       goto istext;
-    case TAG_DIR :
+    case INPUT_DIR :
       width = DIR_WIDTH;
       goto istext;
-    case TAG_NUMBER :
+    case INPUT_NUMBER :
       width = NUM_WIDTH;
       goto istext;
-    case TAG_TEXT :
-      width = atoi (xml_getf (ConfigXml, "%s.Input[%d].Width", 
-	configpre, input));
+    case INPUT_TEXT :
+      width = atoi (xml_getf (ConfigXml, "%s%cWidth", cpath, 
+	ConfigXml->path_sep));
       goto istext;
     default :
 istext:
@@ -343,9 +436,9 @@ istext:
 }
 
 /*
- * get inputs for a repeated field
+ * get inputs for a repeated field and include an "ADD" button
  */
-int config_getRepeats (XML *xml, char *configpre, int input,
+int config_getRepeats (XML *xml, char *cpath,
   char *path, char *name, DBUF *b)
 {
   int i,
@@ -363,7 +456,7 @@ int config_getRepeats (XML *xml, char *configpre, int input,
     if (path_len)
       sprintf (path + path_len, "[%d]", i);
     sprintf (name + name_len, " %d", i + 1);
-    config_getInput (xml, configpre, input, path, name, b);
+    config_getInput (xml, cpath, path, name, b);
   }
   name[name_len] = 0;
   path[path_len] = 0;
@@ -378,237 +471,402 @@ int config_getRepeats (XML *xml, char *configpre, int input,
 }
 
 /*
- * add a table of inputs for a (possibly repeated) tab
+ * Build configuration for Tabs
+ * A Tab identifies a discreate tabbed "page" of input.
+ * All tabs in the current path are built together at the same time.
  */
-int config_getTable (XML *xml, char *configpre, int index, DBUF *b)
-{
-  int t, num_inputs;
-  char *suffix,
-       *prefix,
-       name[MAX_PATH],
-       path[MAX_PATH];
-
-  prefix = xml_getf (ConfigXml, "%s.Prefix", configpre);
-  sprintf (path, "%s.Input", configpre);
-  num_inputs = xml_count (ConfigXml, path);
-  debug ("adding %d inputs for %s prefix=%s\n", num_inputs, path, prefix);
-  dbuf_printf (b, "<table border=0 summary='%s'>\n", prefix);
-  for (t = 0; t < num_inputs; t++)
-  {
-    suffix = xml_getf (ConfigXml, "%s.Input[%d].Suffix", configpre, t);
-    if (*prefix && *suffix)
-    {
-      if (index)
-        sprintf (path, "%s[%d].%s", prefix, index, suffix);
-      else
-	sprintf (path, "%s.%s", prefix, suffix);
-    }
-    else
-    {
-      *path = 0;
-    }
-    strcpy (name, xml_getf (ConfigXml, "%s.Input[%d].Name", configpre, t));
-    if (*name == 0)
-      strcpy (name, suffix);
-    // debug ("path=%s name=%s\n", path, name);
-    if (!strcmp (xml_getf (ConfigXml, "%s.Input[%d].Repeats", 
-      configpre, t), "true"))
-    {
-      config_getRepeats (xml, configpre, t, path, name, b);
-    }
-    else
-    {
-      config_getInput (xml, configpre, t, path, name, b);
-    }
-  }				/* end for each input tag	*/
-  dbuf_printf (b, "</table>\n");
-  return (0);
-}
-
-/*
- * build a unique id suffix for a configuration prefix
- */
-char *config_id (char *id, char *configpre)
-{
-  char *ch, *p;
-
-  p = id;
-  ch = configpre;
-  while ((ch = strchr (ch, '[')) != NULL)
-  {
-    *p++ = '_';
-    while (*++ch != ']')
-      *p++ = *ch;
-  }
-  *p = 0;
-  return (id);
-}
-
-/*
- * add tab contents.  Creates subtabs when repeats 
- */
-int config_getContents (XML *xml, char *configpre, DBUF *b)
-{
-  int l, i, n;
-  char *ch, *prefix,
-       id[20],
-       path[MAX_PATH];
-
-  debug ("getting prefix and tags...\n");
-  if (strcmp (xml_getf (ConfigXml, "%s.Repeats", configpre), "true"))
-  {
-    debug ("non-repeated tags...\n");
-    return (config_getTable (xml, configpre, 0, b));
-  }
-  config_id (id, configpre);
-  // get the configuration data prefix
-  prefix = xml_getf (ConfigXml, "%s.Prefix", configpre);
-  // and count number of repeated entries
-  n = xml_count (xml, prefix);
-  // start a new tab list
-  dbuf_printf (b, "<div id='configform%s' class='configlayout' >\n"
-    "<ul id='configform%s-nav' class='configlayout' >\n", id, id);
-  // add the tabs using the first tag for this prefix
-  for (i = 0; i < n; i++)
-  {
-    ch = xml_getf (xml, "%s[%d].%s", prefix, i, 
-      xml_getf (ConfigXml, "%s.Input[0].Suffix", configpre));
-    if (*ch == 0)
-      ch = "(not named)";
-    dbuf_printf (b, "<li><a href='#tag%s_%d'>%s</a></li>\n", id, i + 1, ch);
-  }
-  dbuf_printf (b, "<li><a href='#tag%s_%d'>NEW</a></li>\n"
-    "</ul><div class='tabs-container'>",
-    id, i + 1);
-  // add the form items
-  for (i = 0; i <= n; i++)
-  {
-    dbuf_printf (b, "<div class='tab%s' id='tag%s_%d'>\n", id, id, i + 1);
-    config_getTable (xml, configpre, i, b);
-    dbuf_printf (b, "</div>\n");
-  }
-  dbuf_printf (b, "</div></div>\n"
-    "<script type='text/javascript'>\n"
-    "var tabber%s = new Yetii({ id: 'configform%s', tabclass: 'tab%s', "
-    "persist: true });\n</script>\n", id, id, id);
-  return (0);
-}
-
-/*
- * get all the tabs for current config prefix
- */
-config_getTabs (XML *xml, char *configpre, DBUF *b)
+int config_tabs (XML *xml, char *path, char *prefix, DBUF *buf)
 {
   int i, n;
-  char id[20], prefix[MAX_PATH];
+  char id[MAX_PATH],
+       pre[MAX_PATH],
+       p[MAX_PATH];
 
-  config_id (id, configpre);
+  // get a tab count
+  if ((n = xml_count (ConfigXml, path)) < 2)
+  {
+    config_path (xml, pre, path, prefix, 0);
+    return (config_build (xml, path, pre, buf));
+  }
 
-  debug ("creating navigation...\n");
-
-  dbuf_printf (b, "<div id='configform%s' class='configlayout' >\n"
-    "<ul id='configform%s-nav' class='configlayout' >\n", id, id);
-  sprintf (prefix, "%s.Tab", configpre);
-  n = xml_count (ConfigXml, prefix);
+  config_id (id, path);
+  // pre html
+  dbuf_printf (buf, "<div id='%s' class='configlayout' >\n"
+    "<ul id='%s-nav' class='configlayout' >\n", id, id);
+  // build the tabs
   for (i = 0; i < n; i++)
   {
-    dbuf_printf (b, "<li");
-    config_tabhelp (prefix, i, b);
-    dbuf_printf (b, "><a href='#tab%s_%d'>%s</a></li>\n",
-      id, i + 1, xml_getf (ConfigXml, "%s[%d].Name", prefix, i));
+    dbuf_printf (buf, "<li");
+    sprintf (p, "%s%c%d", path, ConfigXml->indx_sep, i);
+    config_help (p, buf);
+    dbuf_printf (buf, "><a href='#%s_%d'>%s</a></li>\n", id, i + 1, 
+      xml_getf (ConfigXml, "%s%cName", p, ConfigXml->path_sep, i));
   }
-  dbuf_printf (b, "</ul><div class='tabs-container'>\n");
-
-  debug ("adding tabs...\n");
+  dbuf_printf (buf, "</ul><div class='tabs-container'>\n");
+  // build the tab content
   for (i = 0; i < n; i++)
   {
-    dbuf_printf (b, "<div class='tab' id='tab%s_%d'>\n", id, i);
-    sprintf (prefix, "%s.Tab[%d]", configpre, i);
-    config_getContents (xml, prefix, b);
-    dbuf_printf (b, "</div>\n");
+    dbuf_printf (buf, "<div class='t_%s' id='%s_%d'>\n", id, id, i + 1);
+    sprintf (p, "%s%c%d", path, ConfigXml->indx_sep, i);
+    config_path (xml, pre, p, prefix, 0);
+    config_build (xml, p, pre, buf);
+    dbuf_printf (buf, "</div>\n");
   }
-  dbuf_printf (b,
+  // post html
+  dbuf_printf (buf,
     "</div></div>\n<script type='text/javascript'>\n"
-    "var tabber = new Yetii({ id: 'configform%s', "
-    "persist: true });\n</script>\n", id);
+    "addTabber(new Yetii ({id:'%s',tabclass:'t_%s',persists:true}));\n"
+    "</script>\n", id, id);
+  return (0);
 }
 
 /*
- * remove unwanted tags from the configuration
+ * Build configuration for a Set
+ * A Set identifies repeated tags within the data xml.  The first
+ * input for that set is assumed to be the Key if not defined, and
+ * the keys determined that tabbed "pages".
+ * Each set is built independently.
  */
-int config_detag (char *path, char *pathp, char *prefix)
+int config_set (XML *xml, char *path, char *prefix, DBUF *buf)
 {
-  int i, n, pl;
-  char *ch;
+  int i, n;
+  char *ch,			/* for current input of set	*/
+       key[MAX_PATH],
+       pre[MAX_PATH],
+       id[MAX_PATH];		/* id used for this tab set	*/
+
+				/* add name and help...		*/
+  ch = xml_getf (ConfigXml, "%s%cName", path, ConfigXml->path_sep);
+  if (*ch)
+  {
+    dbuf_printf (buf, "<div");
+    config_help (path, buf);
+    dbuf_printf (buf, "><b>%s</b></div>", ch);
+  }
+  				/* set a new prefix 		*/
+  config_path (xml, pre, path, prefix, 0);
+  				/* get the ch for tabs 	*/
+  ch = xml_getf (ConfigXml, "%s%cKey", path, ConfigXml->path_sep);
+  if (*ch == 0) 		/* default uses first input	*/
+  {
+    ch = xml_getf (ConfigXml, "%s%cInput%cTags", path,
+      ConfigXml->path_sep, ConfigXml->path_sep);
+  }
+  if (*ch == 0)
+  {
+    error ("Set at %s missing key\n", path);
+    return (-1);
+  }
+  config_fixpath (xml, strcpy (key, ch));
+   				
+  n = xml_count (xml, pre);	/* get count of repeated items	*/
+  config_id (id, path);		/* get an id			*/
+  				/* set up tabber		*/
+  dbuf_printf (buf, "<div id='%s' class='configlayout' >\n"
+    "<ul id='%s-nav' class='configlayout' >\n", id, id);
+  				/* build tabs using ch data	*/
+  for (i = 0; i < n; i++)
+  {
+    config_path (xml, pre, path, prefix, i);
+    dbuf_printf (buf, "<li");
+    dbuf_printf (buf, "><a href='#%s_%d'>%s</a></li>\n", id, i + 1, 
+      xml_getf (xml, "%s%c%s", pre, xml->path_sep, key));
+  }
+  dbuf_printf (buf, "<li><a href='#%s_%d'>NEW</a></li>\n"
+    "</ul><div class='tabs-container'>", id, i + 1);
+  				/* build the tab content	*/
+  for (i = 0; i < n; i++)
+  {
+    config_path (xml, pre, path, prefix, i);
+    dbuf_printf (buf, "<div class='t_%s' id='%s_%d'>\n", id, id, i + 1);
+    config_build (xml, path, pre, buf);
+    dbuf_printf (buf, "</div>\n");
+  }
+  config_path (xml, pre, path, prefix, i);
+  dbuf_printf (buf, "<div class='t_%s' id='%s_%d'>\n", id, id, i + 1);
+  config_build (xml, path, pre, buf);
+  dbuf_printf (buf, "</div>\n");
+  				/* activate tabber		*/
+  dbuf_printf (buf,
+    "</div></div>\n<script type='text/javascript'>\n"
+    "addTabber(new Yetii({id:'%s',tabclass:'t_%s',persists:true}));\n"
+    "</script>\n", id, id);
+  return (0);
+}
+
+/*
+ * build one input for a given path 
+ * path should end in Input tag
+ */
+int config_input (XML *xml, char *cpath, char *prefix, DBUF *buf)
+{
+  char *name,
+       path[MAX_PATH];
+
+  /*
+  suffix = xml_getf (ConfigXml, "%s%cSuffix", cpath, ConfigXml->path_sep);
+  sprintf (path, "%s%c%s", prefix, xml->path_sep, suffix);
+  */
+  config_path (xml, path, cpath, prefix, 0);
+  name = xml_getf (ConfigXml, "%s%cName", cpath, ConfigXml->path_sep);
+  if (*name == 0)
+    name = xml_getf (ConfigXml, "%s%cTags", cpath, ConfigXml->path_sep);
+  debug ("path=%s name=%s\n", path, name);
+  if (!strcmp (xml_getf (ConfigXml, "%s%cRepeats", cpath, xml->path_sep),
+     "true"))
+  {
+    config_getRepeats (xml, cpath, path, name, buf);
+  }
+  else
+  {
+    config_getInput (xml, cpath, path, name, buf);
+  }
+}
+
+/*
+ * start and end input tables
+ */
+int config_endtable (int inputs, DBUF *buf)
+{
+  if (inputs)
+  {
+    dbuf_printf (buf, "</table>\n");
+  }
+  return (0);
+}
+
+int config_starttable (int inputs, DBUF *buf)
+{
+  if (inputs++ == 0)
+  {
+    dbuf_printf (buf, "<table summary=\"\">\n");
+  }
+  return (inputs);
+}
+
+/*
+ * Build configuration inputs for a given path
+ * Call recursively for each tabbed "page" of input
+ *
+ * xml - the data in edit (EditXml)
+ * path - the (partial) path to ConfigXml
+ * buf - holds the resulting HTML
+ */
+int config_build (XML *xml, char *path, char *prefix, DBUF *buf)
+{
+  int tabs = 0;			/* # tabs seen				*/
+  int inputs = 0;		/* # consecutive inputs			*/
+  char  p[MAX_PATH];
+
+  debug ("build path=%s prefix=%s\n", path, prefix);
+  strcpy (p, path);
+  if (xml_first (ConfigXml, p) < 1)
+    return (0);
+  do
+  {
+    debug ("next path=%s\n", p);
+    switch (config_tag (p))
+    {
+      case TAG_TAB :
+	if (tabs++ == 0)	// only once per path level
+	{
+	  inputs = config_endtable (inputs, buf);
+	  config_tabs (xml, p, prefix, buf);
+	}
+	break;
+      case TAG_SET :
+	inputs = config_endtable (inputs, buf);
+	config_set (xml, p, prefix, buf);
+	break;
+      case TAG_INPUT :
+	inputs = config_starttable (inputs, buf);
+	config_input (xml, p, prefix, buf);
+	break;
+      default :
+	break;
+    }
+  } while (xml_next (ConfigXml, p));
+  config_endtable (inputs, buf);
+  debug ("finished with %s\n", path);
+  return (0);
+}
+
+/********************* set up **********************************/
+
+/*
+ * remove unwanted items from the configuration
+ */
+int config_remove (XML *xml, char *path, char *prefix, char *match)
+{
+  char  p[MAX_PATH],
+	pre[MAX_PATH];
+
+  if ((xml == NULL) || (ConfigXml == NULL))
+    return (-1);
+  debug ("build path=%s prefix=%s\n", path, prefix);
+  strcpy (p, path);
+  if (xml_first (ConfigXml, p) < 1)
+    return (0);
+  do
+  {
+    config_path (xml, pre, path, prefix, 0);
+    debug ("next path=%s prefix=%s\n", p, pre);
+    if (strstarts (pre, match))
+      xml_delete (ConfigXml, path);
+    else switch (config_tag (p))
+    {
+      case TAG_TAB :
+      case TAG_SET :
+	config_remove (xml, p, pre, match);
+	break;
+      default :
+	break;
+    }
+  } while (xml_next (ConfigXml, p));
+  debug ("finished with %s\n", path);
+  return (0);
+}
+
+/******************* removal of empty data *********************/
+/*
+ * Remove empty repeated fields from data xml
+ */
+int config_cleaninput (XML *xml, char *prefix)
+{
+  int i, n;
   char p[MAX_PATH];
 
-
-  pl = strlen (path);
-  strcpy (path + pl, ".Input");
-  n = xml_count (ConfigXml, path);
-  debug ("checking %d %s for %s\n", n, path, prefix);
-  i = 0;
+  n = xml_count (xml, prefix);
+  sprintf (p, "%s%c%d", prefix, xml->indx_sep, i = 0);
   while (i < n)
   {
-    sprintf (path + pl, ".Input[%d]", i);
-    sprintf (p, "%s.%s", pathp, xml_getf (ConfigXml, "%s.Suffix", path));
-    ch = xml_getf (ConfigXml, "%s.Ref", path);
-    if (strstarts (p, prefix) || strstarts (ch, prefix))
+    if (*xml_get_text (xml, p))
     {
-      debug ("deleting config %s\n", path);
-      xml_delete (ConfigXml, path);
-      n--;
+      sprintf (p, "%s%c%d", prefix, xml->indx_sep, ++i);
     }
     else
     {
-      i++;
+      debug ("deleting input %s\n", p);
+      xml_delete (xml, p);
+      n--;
     }
   }
-  path[pl] = 0;
   return (0);
 }
 
 /*
- * remove unwanted tabs from the configuration
+ * Remove sets with empty keys from data xml
  */
-int config_detab (char *path, char *prefix)
+int config_cleanset (XML *xml, char *path, char *prefix)
 {
-  int i, n, pl;
-  char *ch;
+  int i, n;
+  char *ch,
+       suffix[MAX_PATH],
+       pre[MAX_PATH];
 
-  pl = strlen (path);
-  strcpy (path + pl, ".Tab");
-  n = xml_count (ConfigXml, path);
-  debug ("checking %d %s for %s\n", n, path, prefix);
-  i = 0;
+				/* get a key suffix		*/
+  ch = xml_getf (ConfigXml, "%s%cKey", path, ConfigXml->path_sep);
+  if (*ch == 0)
+  {
+    ch = xml_getf (ConfigXml, "%s%cInput%cTags", path,
+      ConfigXml->path_sep, ConfigXml->path_sep);
+    if (*ch == 0)
+    {
+      error ("No Key or Tags found for %s\n", path);
+      return (-1);
+    }
+  }
+  config_fixpath (xml, strcpy (suffix, ch));
+  /*
+   * Loop setting path to data and checking for key.  If we find
+   * a value then recurse on that path.  Otherwise, delete it.
+   */
+  config_path (xml, pre, path, prefix, i = 0);
+  n = xml_count (xml, pre);
   while (i < n)
   {
-    sprintf (path + pl, ".Tab[%d]", i);
-    ch = xml_getf (ConfigXml, "%s.Prefix", path);
-    if (strstarts (ch, prefix))
+    if (*xml_getf (xml, "%s%c%s", pre, xml->path_sep, suffix))
     {
-      debug ("deleting config %s\n", path);
-      xml_delete (ConfigXml, path);
-      n--;
+      config_clean (xml, path, pre);
+      config_path (xml, pre, path, prefix, ++i);
     }
     else
     {
-      if (strstarts (prefix, ch))
-	config_detag (path, ch, prefix);
-      i++;
+      debug ("deleting set at %s for %s\n", pre, path);
+      xml_delete (xml, pre);
+      n--;
     }
   }
-  path[pl] = 0;
   return (0);
 }
 
 /*
- * set up for configuration entry
+ * cleans a tab, removing empty data from xml
+ */
+int config_cleantab (XML *xml, char *path, char *prefix)
+{
+  int i, n;
+  char p[MAX_PATH],
+       pre[MAX_PATH];
+
+  n = xml_count (ConfigXml, path);
+  i = 0;
+  while (i < n)
+  {
+    sprintf (p, "%s%c%d", path, ConfigXml->indx_sep, i++);
+    config_path (xml, pre, p, prefix, 0);
+    config_clean (xml, p, pre);
+  }
+  return (0);
+}
+
+/*
+ * remove empty repeated field and/or set with empty "key"
+ */
+int config_clean (XML *xml, char *path, char *prefix)
+{
+  char  p[MAX_PATH];
+
+  if ((xml == NULL) || (ConfigXml == NULL))
+    return (-1);
+  debug ("build path=%s prefix=%s\n", path, prefix);
+  strcpy (p, path);
+  if (xml_first (ConfigXml, p) < 1)
+    return (0);
+  do
+  {
+    debug ("next path=%s\n", p);
+    switch (config_tag (p))
+    {
+      case TAG_TAB :
+	config_cleantab (xml, p, prefix);
+	break;
+      case TAG_SET :
+	config_cleanset (xml, p, prefix);
+	break;
+      case TAG_INPUT :
+	if (!strcmp ("true", xml_getf (ConfigXml, "%s%cRepeats", 
+	  path, ConfigXml->path_sep)))
+	config_cleaninput (xml, prefix);
+	break;
+      default :
+	break;
+    }
+  } while (xml_next (ConfigXml, p));
+  debug ("finished with %s\n", path);
+  return (0);
+}
+
+/*
+ * Set up for configuration entry.
+ * Loads the editor configuration, and the Phineas configuration.
+ * Removes unused parts from edit configuration.
+ * Note there is magic (hard coded paths) here...
  */
 int config_setup ()
 {
   int i, n;
-  char path[MAX_PATH];
+  char *ch, path[MAX_PATH];
 
   if (*EditConfig == 0)
     strcpy (EditConfig, ConfigName);
@@ -616,6 +874,7 @@ int config_setup ()
   if ((EditXml != NULL) && (ConfigXml != NULL))
     return (0);
   ConfigXml = xml_free (ConfigXml);
+  EditXml = xml_free (EditXml);
   if ((EditXml = xml_load (EditConfig)) == NULL)
   {
     error ("Can't load %s\n", EditConfig);
@@ -629,31 +888,38 @@ int config_setup ()
     return (-1);
   }
   /* conditionally remove chunks we don't use			*/
-  strcpy (path, "Config");
+  ch = xml_root (ConfigXml)->key;
+  config_path (EditXml, path, ch, "", 0);
 #ifndef __SENDER__
-  config_detab (path, "Phineas.Sender");
+  config_remove (EditXml, ch, path, "Phineas.Sender");
 #endif
 #ifndef __RECEIVER__
-  config_detab (path, "Phineas.Receiver");
+  config_remove (EditXml, ch, path, "Phineas.Receiver");
 #endif
 #ifndef __SERVER__
-  config_detab (path, "Phineas.Server");
+  config_remove (EditXml, ch, path, "Phineas.Server");
 #endif
+  config_clean (EditXml, ch, path);
   debug ("loaded configuraton %s\n", EditConfig);
   return (0);
 }
 
 /*
- * build the input
+ * Build the input form in HTML
+ * called from the console when the configuration editor is requested
  */
 DBUF *config_getConfig ()
 {
   DBUF *b;
   int i, n;
-  char prefix[MAX_PATH];
+  char *r, path[MAX_PATH];
 
+  debug ("getting configuration HTML\n");
   if (config_setup ())
+  {
+    debug ("setup failed!\n");
     return (NULL);
+  }
 
   b = dbuf_alloc ();
 #ifdef UNITTEST
@@ -667,42 +933,91 @@ DBUF *config_getConfig ()
 #endif
   dbuf_printf (b, "<form method='POST' action='#' >\n"
     "<input type='hidden' name='%s' id='%s' />", REQUEST, REQUEST);
-  config_getTabs (EditXml, "Config", b);
-  dbuf_printf (b, "<div style=\"height: 100px\"></form>\n");
+  r = xml_root (ConfigXml)->key;
+  config_path (EditXml, path, r, "", 0);
+  config_build (EditXml, r, path, b);
+  dbuf_printf (b, "</form><div style=\"height: 100px\"></div>\n");
 #ifdef UNITTEST
   dbuf_printf (b, "</div></body></html>");
 #endif
+  debug ("returning configuration HTML\n");
   return (b);
 }
 
 /***************** POST processing *********************************/
 
 /*
- * get the filename value and return submit type...
- * 0 = load, 1 = save, 2 = export, 3 = update -1 = error
+ * get a value for a given key
+ */
+char *config_getValue (char *data, char *key, char *value)
+{
+  char *ch, *amp, p[MAX_PATH];
+
+  *value = 0;
+  urlencode (p, key);
+  strcat (p, "=");
+  if ((ch = strstr (data, p)) == NULL)
+    return (value);
+  ch += strlen (p);
+  if ((amp = strchr (ch, '&')) == NULL)
+    amp = ch + strlen (ch);
+  strncpy (value, ch, amp - ch);
+  value[amp - ch] = 0;
+  return (urldecode (value));
+}
+
+/*
+ * get the next value, key pair and return new location
+ */
+char *config_nextValue (char *data, char *key, char *value)
+{
+  char *v, *amp;
+
+  *value = *key = 0;
+  if (data == NULL)
+    return (NULL);
+  if ((v = strchr (data, '=')) == NULL)
+    return (NULL);
+  strncpy (key, data, v - data);
+  key[v - data] = 0;
+  urldecode (key);
+  if ((amp = strchr (++v, '&')) == NULL)
+    amp = v + strlen (v);
+  strncpy (value, v, amp - v);
+  value[amp - v] = 0;
+  urldecode (value);
+  return (*amp ? amp + 1 : amp);
+}
+
+/*
+ * Get the filename value and return submit type...
+ * We have a hidden input for our submit buttons filled in by
+ * javascript that has a name:path for the value.  Use this to
+ * evaluate how to hand the submit.
+ *
+ * 0=load, 1=save, 2=export, 3=update -1=error
  */
 int config_getPosted (char *data)
 {
   int action;
-  char *ch, 
-       *amp, 
-       path[MAX_PATH];
+  char key[MAX_PATH],
+       value[MAX_PATH];
   char *submit[] =
   {
     LOAD, SAVE, EXPORT, UPDATE
   };
 
-  if ((ch = strstr (data, REQUEST)) == NULL)
+  			/* get hidding input request value	*/
+  if (*config_getValue (data, REQUEST, value) == 0)
   {
     error ("Missing %s parameter from POST\n", REQUEST);
     return (-1);
   }
-  ch += strlen (REQUEST) + 1;
-  debug ("request value=%.20s\n", ch);
-  /* first determine what action we are taking */
+  debug ("request value=%s\n", value);
+  			/* determine what action we are taking */
   for (action = 3; action >= 0; action--)
   {
-    if (strstarts (ch, submit[action]))
+    if (strstarts (value, submit[action]))
       break;
   }
   if (action < 0)
@@ -710,172 +1025,98 @@ int config_getPosted (char *data)
     error ("POST missing request value\n");
     return (-1);
   }
-  sprintf (path, "%s=", CONFIG);
-  if ((ch = strstr (data, path)) == NULL)
+  			/* then note config file name		*/
+  if (*config_getValue (data, CONFIG, value) == 0)
   {
     error ("POST missing configuration file name\n");
     return (-1);
   }
-  ch += strlen (CONFIG) + 1;
-  if ((amp = strchr (ch, '&')) == NULL)
-  {
-    strcpy (path, ch);
-  }
-  else
-  {
-    strncpy (path, ch, amp - ch);
-    path [amp - ch] = 0;
-  }
-  if (*path == 0)
-  {
-    error ("Empty %s parameter\n", CONFIG);
-    return (-1);
-  }
-  pathf (EditConfig, "%s", urldecode (path));
+  pathf (EditConfig, "%s", value);
   debug ("action=%d EditConfig=%s\n", action, EditConfig);
   return (action);
 }
 
 /*
- * a simply struct to keep track of tags
- */
-typedef struct configtag
-{
-  struct configtag *next;
-  char tag[1];
-} CONFIGTAG;
-
-CONFIGTAG *config_addtag (CONFIGTAG *list, char *tag)
-{
-  CONFIGTAG *t;
-
-  t = (CONFIGTAG *) malloc (sizeof (CONFIGTAG) + strlen (tag));
-  strcpy (t->tag, tag);
-  t->next = list;
-  return (t);
-}
-
-void config_deltags (CONFIGTAG *list)
-{
-  CONFIGTAG *t;
-  while (list != NULL)
-  {
-    t = list;
-    list = t->next;
-    debug ("deleting tag %s\n", t->tag);
-    xml_delete (EditXml, t->tag);
-    free (t);
-  }
-}
-
-/*
- * process the post request
+ * Process the post request
+ * called from the console when a configuration is submitted from edit
  */
 DBUF *config_setConfig (XML *xml, char *req)
 {
   int l, action;
-  char *r, *eq, *amp;
-  CONFIGTAG *dtags = NULL;
-  char route[80],
-       path[MAX_PATH],
-       value[128];
+  char *r,
+       route[MAX_PATH],
+       key[MAX_PATH],
+       value[MAX_PATH];
   DBUF *console_doGet ();
 
+  if ((EditXml == NULL) || (ConfigXml == NULL))
+    return (console_doGet (xml, req));
   /*
    * skip past headers
    */
-  if ((r = req) == NULL)
+  if (req == NULL)
   {
     error ("NULL console POST request\n");
     return (NULL);
   }
   debug ("POST skipping headers...\n");
-  while (*r)
-  {
-    if (*r++ != '\n')
-      continue;
-    if (*r == '\r')
-      r++;
-    if (*r == '\n')
-      break;
-  }
-  if (*r++ != '\n')
+  if ((r = strstr (req, "\n\r\n")) == NULL)
   {
     error ("Malformed request %s\n", req);
     return (NULL);
   }
+  r += 3;
   /*
    * determine what action to take
    */
   debug ("getting config name and submit action...\n");
   if ((action = config_getPosted (r)) < 1)
   {
+#ifdef DEBUG
+    if (action < 0)
+      debug ("request:\n%s\n", r);
+#endif
     if (action == 0)			/* Load...		*/
       EditXml = xml_free (EditXml);
-    return (console_doGet (xml, req));
+    return (console_doGet (xml, req));	/* and refresh		*/
   }
 
   debug ("updating configuration...\n");
   if (EditXml == NULL)
     EditXml = xml_alloc ();
   *route = 0;				/* no route seen yet	*/
-  while (1)
+  /*
+   * Loop through all the post arguments, parsing as we go.
+   * The various "input" names in the form are actually paths
+   * into our data xml, so that the post data looks like...
+   * xml_path=value&xml_path=value&... with urlencoding.
+   */
+  while ((r = config_nextValue (r, key, value)) != NULL)
   {
-    if ((eq = strchr (r, '=')) == NULL)	/* no more post args	*/
-      break;
-    strncpy (path, r, l = eq++ -r);	/* note the (path) name	*/
-    path[l] = 0;
-    if ((amp = strchr (r, '&')) == NULL)
-    {					/* get the value	*/
-      strcpy (value, eq);
-    }
-    else
-    {
-      strncpy (value, eq, amp - eq);
-      value[amp - eq] = 0;
-    }
-    urldecode (path);
     /*
-     * If the value is empty and this is a name, or a repeated field
-     * then note it for later deletion.
-     */
-    if (*value == 0)
-    { 
-      l = strlen (path);
-      if (strcmp (path + l - 6, "].Name") == 0)
-      {
-	path[l - 5] = 0;
-	dtags = config_addtag (dtags, path);
-	path[l - 5] = 'N';
-      }
-      else if (path[l -1] == ']')
-	dtags = config_addtag (dtags, path);
-    }
-    /*
-     * if the path is into our configuration
+     * if the key is into our configuration
      * then set the new value
      */
-    if (strstarts (path, "Phineas."))
+    if (strstarts (key, xml_root (EditXml)->key))
     {
-      xml_set_text (EditXml, path, urldecode (value));
+      debug ("setting %s=%s\n", key, value);
+      xml_set_text (EditXml, key, value);
     }
-    else 
-    {
-      if ((strcmp (path, REQUEST) == 0) && *value)
+    else 			/* check "hidden" request	*/
+    {				/* for route CPA export		*/
+      if ((strcmp (key, REQUEST) == 0) && *value)
       {
-	urldecode (value);
-	if (strstarts (value, EXPORT))	/* note export route	*/
+	if (strstarts (value, EXPORT))
 	{
           strcpy (route, strchr (value, ':') + 1);
 	  debug ("route reference=%s\n", route);
 	}
       }
     }
-    if (amp == NULL)			/* next post arg	*/
-      break;
-    r = amp + 1;
   }
-  config_deltags (dtags);		/* delete empty tags	*/
+  r = xml_root (ConfigXml)->key;
+  config_path (EditXml, value, r, "", 0);
+  config_clean (EditXml, r, value);
   if (action == 1)			/* save configuration	*/
   {
     debug ("format and save to %s\n", EditConfig);
@@ -894,6 +1135,8 @@ DBUF *config_setConfig (XML *xml, char *req)
   					/* just update		*/
   return (console_doGet (xml, req));
 }
+
+/******************** testing crud ******************************/
 
 #ifdef UNITTEST
 

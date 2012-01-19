@@ -1,0 +1,2 @@
+Switched non-ebxml responses to keep-alive and looped connection processing for better Console response.
+

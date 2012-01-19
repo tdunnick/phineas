@@ -1,5 +1,5 @@
 /*
- * filter.h
+ * basicauth.h
  *
  * Copyright 2011-2012 Thomas L Dunnick
  *
@@ -20,28 +20,25 @@
  * creating data processing extensions for PHINEAS senders and receivers.
  */
 
-#ifndef __FILTER__
-#define __FILTER__
+#ifndef __BASICAUTH__
+#define __BASICAUTH__
 
 #include "dbuf.h"
+#include "xml.h"
 
 /*
- * Read file fname using filter cmd to buffer in
+ * Check basic authentication.  Return zero if authenticated.
+ * Return -1 if failed authentication.
+ * Return 1 if authentication not attempted.
  */
-int filter_read (char *cmd, char *fname, DBUF *in);
-
+int basicauth_check (XML *xml, char *path, char *req);
 /*
- * write file fname using filter cmd from buffer out
+ * Return an authorization required response
  */
-int filter_write (char *cmd, char *fname, DBUF *out);
-
+DBUF *basicauth_response (char *realm);
 /*
- * filter read/write fully buffered
+ * Build Basic authentication header in a buffer
  */
-int filter_buf (char *cmd, DBUF *in, DBUF *out);
-/*
- * filter using file system
- */
-int filter_file (char *cmd, char *iname, char *oname)
+char *basicauth_request (char *b, char *uid, char *passwd);
 
-#endif /* __FILTER__ */
+#endif

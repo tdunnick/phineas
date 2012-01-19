@@ -1,0 +1,3 @@
+Improved configuration in console and externalized configuration layout to config.xml.  
+Added favicon support.
+

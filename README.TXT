@@ -16,7 +16,7 @@ binarys themselves.
 Files of immediate interest are the .BAT files that compile, build,
 and optionally run PHINEAS artifacts.  In particular you will need
 to modify "build.bat" for the installation paths of the components 
-mentioned above.
+mentioned above.  Release notes are found in the notes directory.
 
 PHINEAS now includes a script for building NSIS installation packages.
 See http://nsis.sourceforge.net for more information.
@@ -26,6 +26,7 @@ Current build artifacts (in bin/) include:
 phineass.exe - a stand alone service tray sender
 phineasr.exe - a stand alone service tray receiver
 phineas.exe - a stand alone service tray tranceiver
+phineasd.exe - a stand MS service (daemon)
 xmlb.exe - an XML beautifier
 cpa.exe - a CPA generator
 chelp.exe - configuration help generator
@@ -38,13 +39,13 @@ in order to run test.bat.  It includes an embedded configuration.
 
 Be aware this is currently an 'alpha' version of the software.  While
 functional, it is not yet "ready for prime time".  Until such a time
-that current bugs can be worked and a complete testing harness can
+that current bugs can be fixed and a complete testing harness can
 be created I would not recommend using this code for production systems.
 There are still many bugs and issues to resolve.
 
 Links of interest...
 
-https://mywebspace.wisc.edu/tdunnick/web/phineas.html
+https://mywebspace.wisc.edu/tdunnick/web/phineas/index.html
 http://code.google.com/p/phinms-shareware/
 https://github.com/
 http://bellard.org/tcc/

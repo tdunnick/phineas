@@ -1,7 +1,7 @@
 /*
  * ebxml_receiver.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include "task.c"
 #include "fileq.c"
 #include "b64.c"
+#include "basicauth.c"
 #include "crypt.c"
 #include "find.c"
 #include "fpoller.c"
@@ -50,6 +51,7 @@
 #include "util.h"
 #include "log.h"
 #include "mime.h"
+#include "basicauth.h"
 #include "crypt.h"
 #include "ebxml.h"
 
@@ -397,6 +399,17 @@ char *ebxml_process_req (XML *xml, char *buf)
   r = NULL;
 
   info ("Begin processing ebXML request...\n");
+  /*
+   * Check Authorization if needed.  To keep it simple, we'll
+   * use a single "realm" for all the service maps. This behavior 
+   * can be modified to a per map basis, albeit with quite a bit
+   * of extra work.
+   */
+  if (basicauth_check (xml, "Phineas.Receiver.BasicAuth", buf))
+  {
+    DBUF *b = basicauth_response ("Phineas Receiver");
+    return (dbuf_extract (b));
+  }
   debug ("request:%s\n", buf);
   if ((msg = mime_parse (buf)) == NULL)
   {
@@ -579,7 +592,7 @@ done:
     xml_free (payload);
   if (msg != NULL)
     mime_free (msg);
-  info ("ebXML reply: %s\n", ch);
+  debug ("ebXML reply: %s\n", ch);
   info ("ebXML request processing completed\n");
   return (ch);
 }

@@ -1,0 +1,12 @@
+Added Release notes.
+Modified position of help bubbles to eliminate "thrashing" of MouseOver/MouseOut javascript events.
+Updated help to reflect recent changes.
+Updated logging/debuging for ebxml.
+Use argv[0] to identify Windows service name.
+Added javascript function to clear Yetti cookies on submits and restarts.
+Added Basic Authentication support for console, sender, and receiver.
+Rewrote console configuration GUI.
+Add /favicon.ico recognition to console requests.
+Fixed "Status:" HTTP response code in server.
+Check HTTP response code in ebXML sender.
+Fixed (re) startup bug in service daemon.

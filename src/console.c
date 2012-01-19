@@ -1,7 +1,7 @@
 /*
  * console.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@
 #include "util.h"
 #include "xml.h"
 #include "queue.h"
+#include "basicauth.h"
 
 #ifndef debug
 #define debug(fmt,...)
@@ -255,9 +256,46 @@ char *MimeTypes[][2] =
 #define RC_WARNING "ffff99"
 
 /*
+ * move tags from one header to our page
+ */
+int console_headtag (DBUF *page, char *tag, char *head, int l)
+{
+  int p;
+  char *st, *en, buf[MAX_PATH];
+
+  debug ("checking for <%s> in <head>\n", tag);
+  if ((st = strnstr (dbuf_getbuf (page), "<head>", l)) == NULL)
+  {
+    error ("<head> tag not found\n");
+    return (0);
+  }
+  p = st - dbuf_getbuf (page) + 6;
+  st = head;
+  while ((st = strnstr (st, tag, l - (st - head))) != NULL)
+  {
+    st++;
+    if (*(st-2) != '<')
+      continue;
+    if (((en = strnstr (st, tag, l - (st - head))) == NULL) ||
+      strncmp ("</", en - 2, 2))
+    {
+      error ("missing </%s> tag\n", tag);
+      return (-1);
+    }
+    en += strlen (tag) + 2;
+    st -= 2;
+    debug ("moving %.*s to head\n", en - st, st);
+    dbuf_insert (page, p, st, en - st);
+    p += en - st;
+    st = en;
+  }
+  return (0);
+}
+
+/*
  * get an html (fragment)
  */
-DBUF *console_getHTML (char *root, char *fname)
+DBUF *console_getHTML (DBUF *page, char *root, char *fname)
 {
   int l;
   DBUF *b;
@@ -272,8 +310,11 @@ DBUF *console_getHTML (char *root, char *fname)
   debug ("checking for body\n");
   if ((st = strnstr (data, "<body>", l)) == NULL)
     return (dbuf_setbuf (NULL, data, l));
+  console_headtag (page, "style", data, l - (st - data));
+  console_headtag (page, "script", data, l - (st - data));
   if ((en = strnstr (st, "</body>", l - (st - data))) == NULL)
   {
+    error ("Missing </body> tag in %s\n", fname);
     free (data);
     return (NULL);
   }
@@ -319,7 +360,7 @@ DBUF *console_textfile (char *fname)
 
 /*
  * load the requested page and return it along with any additional
- * header information needed.
+ * header information needed. Modified to recognize /favicon.ico
  */
 
 DBUF *console_file (XML *xml, char *uri)
@@ -329,7 +370,10 @@ DBUF *console_file (XML *xml, char *uri)
   DBUF *b;
   char *ch, path[MAX_PATH];
 
-  uri += strlen (xml_get_text (xml, "Phineas.Console.Url"));
+  if (strcmp (uri, "/favicon.ico"))
+    uri += strlen (xml_get_text (xml, "Phineas.Console.Url"));
+  else
+    uri = "/images/favicon.ico";
   if ((ch = strchr (uri, '?')) == NULL)
     ch = uri + strlen (uri);
   pathf (path, "%s%.*s", xml_get_text (xml, "Phineas.Console.Root"),
@@ -773,7 +817,7 @@ DBUF *console_doGet (XML *xml, char *req)
   rowid = top = 0;
   if (console_hasParm (parm, "help"))
   {
-    rowdetail = console_getHTML (
+    rowdetail = console_getHTML (page,
       xml_get_text (xml, "Phineas.Console.Root"), "help.html");
   }
   else if (console_hasParm (parm, "log"))
@@ -837,7 +881,8 @@ DBUF *console_doPost (XML *xml, char *req)
 
 DBUF *console_response (XML *xml, char *req)
 {
-  debug ("console response\n");
+  if (basicauth_check (xml, "Phineas.Console.BasicAuth", req))
+    return (basicauth_response ("Phineas Console"));
   if (strstarts (req, "POST "))
     return (console_doPost (xml, req));
   else

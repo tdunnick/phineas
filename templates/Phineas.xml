@@ -68,6 +68,11 @@
     <Root>console</Root>
     <!-- configuration edit parameters -->
     <Config>console/config.xml</Config>
+    <!-- authentication for console users -->
+    <BasicAuth>
+      <UserID>admin</UserID>
+      <Password>changeit</Password>
+    </BasicAuth>
   </Console>
   <!--
     Phineas Queues are shared by all apps.  Each one minimally has
@@ -176,6 +181,7 @@
     <!--Routes indicated EbXML end points for the sender-->
     <RouteInfo>
       <Route>
+	<!-- a sample route which just loops back to itself -->
         <Name>loopback</Name>
         <PartyId></PartyId>
         <Cpa>loopback</Cpa>
@@ -192,7 +198,9 @@
           <Id/>
           <Password/>
           <Unc/>
-        </Authentication>
+	</Authentication>
+	<!-- default queue (for pings) -->
+	<Queue>SendQ</Queue>
       </Route>
     </RouteInfo>
     <!--
@@ -232,6 +240,13 @@
   <Receiver>
     <!-- the url the receiver responds to -->
     <Url>/phineas/receiver/receivefile</Url>
+    <!-- set when using basic authentication - note that even empty
+      tags trigger basic authentication checks!
+    <BasicAuth>
+      <UserID></UserID>
+      <Password></Password>
+    </BasicAuth>
+    -->
     <!--
       ebXML Service maps determine how incoming requests get handled
     -->

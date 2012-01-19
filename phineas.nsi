@@ -47,7 +47,7 @@ VIAddVersionKey "ProductName" "Phineas"
 VIAddVersionKey "Comments" "Extensible PHINMS Compatible Transport"
 VIAddVersionKey "CompanyName" ""
 VIAddVersionKey "LegalTrademarks" ""
-VIAddVersionKey "LegalCopyright" "© 2011 Thomas Dunnick"
+VIAddVersionKey "LegalCopyright" "© 2011-2012 Thomas Dunnick"
 VIAddVersionKey "FileDescription" "Phineas Installer"
 VIAddVersionKey "FileVersion" ${VERSION}
 

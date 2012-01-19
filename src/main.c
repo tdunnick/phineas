@@ -1,7 +1,7 @@
 /*
  * main.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 #include "ebxml.h"
 
 #ifndef VERSION
-#define VERSION "0.3 12/16/2011"
+#define VERSION "0.4 01/16/2012"
 #endif
 
 #ifdef __SENDER__
@@ -261,6 +261,8 @@ int main_init (int argc, char **argv)
   SC_HANDLE SCManager, MyService;
   LPQUERY_SERVICE_CONFIG config;
   DWORD szneeded = 0;
+  char *prog;
+  int code;
   char buf[1024];
 
   /*
@@ -271,11 +273,11 @@ int main_init (int argc, char **argv)
     WriteToLog ("failed to open SCM\n");
     return (-1);
   }
-  if ((MyService = OpenService (SCManager, "Phineas", SERVICE_QUERY_CONFIG))
+  if ((MyService = OpenService (SCManager, argv[0], SERVICE_QUERY_CONFIG))
    == NULL)
   {
     CloseServiceHandle (SCManager);
-    WriteToLog ("failed to open handle to %s\n", "Phineas");
+    WriteToLog ("failed to open handle to %s\n", argv[0]);
     return (-1);
   }
   config = (LPQUERY_SERVICE_CONFIG) buf;
@@ -291,17 +293,16 @@ int main_init (int argc, char **argv)
   CloseServiceHandle (SCManager);
 
 
-  WriteToLog ("initializing %s %s\n", config->lpBinaryPathName,
+  WriteToLog ("starting server for %s %s\n", config->lpBinaryPathName,
       argc > 1 ? argv[1] : "");
+  prog = argv[0];
   argv[0] = config->lpBinaryPathName;
-  WriteToLog ("starting server\n");
-  if (phineas_start (argc, argv))
-  {
+  if (code = phineas_start (argc, argv))
     WriteToLog ("Startup failed!\n");
-    return (-1);
-  }
-  WriteToLog ("initialization complete\n");
-  return (0);
+  else
+    WriteToLog ("initialization complete\n");
+  argv[0] = prog;
+  return (code);
 }
 
 void main_controller (DWORD request) 

@@ -1,7 +1,7 @@
 /*
  * server.c
  *
- * Copyright 2011 Thomas L Dunnick
+ * Copyright 2011-2012 Thomas L Dunnick
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -207,15 +207,8 @@ DBUF *server_response (XML *xml, char *req)
 #endif
 #ifdef __CONSOLE__
   ch = xml_get_text (xml, "Phineas.Console.Url");
-  if (strstarts (url, ch))
+  if (strstarts (url, ch) || strstarts (url, "/favicon.ico"))
     return (console_response (xml, req));
-  if (strstarts (url, "/favicon.ico"))
-  {
-    char r[MAX_PATH];
-
-    sprintf (r, "GET %s/images/favicon.ico HTTP/1.1\r\n\r\n", ch);
-    return (console_response (xml, r));
-  }
 #endif
   if ((ch = strchr (url, '\n')) == NULL)
     ch = url + strlen (url);
@@ -234,8 +227,9 @@ int server_header (DBUF *b)
       code = 200;
   char buf[120];
 
-  /* find the end of the current header */
-  ch = dbuf_getbuf (b);
+  /* find the end of the current header and get return code */
+  if (strstarts (ch = dbuf_getbuf (b), "Status:"))
+    code = atoi (ch + 8);
   l = 0;
   while (1)
   {
@@ -251,10 +245,12 @@ int server_header (DBUF *b)
     if (ch[l] == '\n')
       break;
     if (strstarts (ch + l, "Status:"))
-      code = atoi (ch + 8);
+      code = atoi (ch + l + 8);
   }
   if (code < 300)
     status = "OK";
+  else if (code == 401)
+    status = "Authorization Required";
   else if (code < 500)
     status = "NOT FOUND";
   else
