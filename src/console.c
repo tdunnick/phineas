@@ -252,8 +252,8 @@ char *MimeTypes[][2] =
  * status colors
  */
 #define RC_OK "#99ff99"
-#define RC_FAILED "ff9999"
-#define RC_WARNING "ffff99"
+#define RC_FAILED "#ff5555"
+#define RC_WARNING "#ffff99"
 
 /*
  * move tags from one header to our page
@@ -271,23 +271,22 @@ int console_headtag (DBUF *page, char *tag, char *head, int l)
   }
   p = st - dbuf_getbuf (page) + 6;
   st = head;
-  while ((st = strnstr (st, tag, l - (st - head))) != NULL)
+  buf[0] = buf[1] = '<';
+  strcpy (buf + 2, tag);
+  while ((st = strnstr (st, buf + 1, l - (st - head))) != NULL)
   {
-    st++;
-    if (*(st-2) != '<')
-      continue;
-    if (((en = strnstr (st, tag, l - (st - head))) == NULL) ||
-      strncmp ("</", en - 2, 2))
+    buf[1] = '/';
+    if ((en = strnstr (st, buf, l - (st - head))) == NULL) 
     {
       error ("missing </%s> tag\n", tag);
       return (-1);
     }
-    en += strlen (tag) + 2;
-    st -= 2;
+    en += strlen (tag) + 4;
     debug ("moving %.*s to head\n", en - st, st);
     dbuf_insert (page, p, st, en - st);
     p += en - st;
     st = en;
+    buf[1] = '<';
   }
   return (0);
 }
@@ -415,10 +414,10 @@ char *console_getStatusColor (QUEUEROW *r)
 {
   char *ch;
 
-  ch = queue_field_get (r, "TRANSPORTERRORCODE");
+  ch = queue_field_get (r, "TRANSPORTSTATUS");
   if (ch != NULL)
   {
-    if (strcmp (ch, "none"))
+    if (strcmp (ch, "success"))
     {
       if (!strcmp (ch, "failed"))
         return (RC_FAILED);
@@ -474,7 +473,7 @@ int console_header (DBUF *b, char *path)
 /*
  * Build an HTML table with data for the indicated row
  */
-DBUF *console_queue_row (QUEUE *q, int rowid)
+DBUF *console_queue_row (QUEUE *q, int top, int rowid)
 {
   int i;
   DBUF *b;
@@ -488,11 +487,23 @@ DBUF *console_queue_row (QUEUE *q, int rowid)
   if (rowid)
     r = queue_get (q, rowid);
   else
-    r = queue_prev (q, 0);
+    r = queue_prev (q, top);
   if (r == NULL)
     return (b);
-  dbuf_printf (b, "<p><table style='font-size:12' cellpadding=0>");
-  for (i = 0; i < q->type->numfields; i++)
+  dbuf_printf (b, 
+    "<table id='qrow' cellpadding=0>"
+    "<tr><td id='rowid'>%s %d</td><td>"
+    "<a href='?queue=%s&top=%d&row=%d&delete'>"
+    "<img src=\"images/delete.gif\">Delete</a>",
+    q->type->field[0], r->rowid, q->name, top, r->rowid);
+  if (!strcmp (q->type->name, "EbXmlSndQ"))
+  {
+    dbuf_printf (b, "<a href='?queue=%s&top=%d&row=%d&resend'>"
+      "<img src=\"images/resend.gif\">ReSend</a>",
+      q->name, top, r->rowid);
+  }
+  dbuf_printf (b,  "</td></tr><tr><td colspan=2><hr/></td></tr>");
+  for (i = 1; i < q->type->numfields; i++)
   {
     if (r->field[i] == NULL)
       *buf = 0;
@@ -534,8 +545,8 @@ DBUF *console_queue (QUEUE *q, int top, int rowid)
     top = 0;
   }
   dbuf_printf (b,
-    "<h2>%s</h2><div style='width:650; overflow:auto;'>"
-    "<table border=1 style='font-size:12; white-space:nowrap;'>"
+    "<h2>%s</h2><div id='queue' >"
+    "<table>"
     "<thead><tr>\n", q->name);
   for (i = 0; i < q->type->numfields; i++)
   {
@@ -561,7 +572,7 @@ DBUF *console_queue (QUEUE *q, int top, int rowid)
         dbuf_printf (b, "<td>%s</td>", buf);
       }
       else
-        dbuf_printf (b, "<td>&nbsp</td>");
+        dbuf_printf (b, "<td>&nbsp;</td>");
     }
     dbuf_printf (b, "</tr>");
     r = queue_row_free (r);
@@ -720,9 +731,9 @@ int console_qpage (DBUF *page, DBUF *queues, DBUF *rows, DBUF *detail)
     rp = dbuf_getbuf (rows);
   if (detail != NULL)
     dp = dbuf_getbuf (detail);
-  dbuf_printf (b, "<table width='100%%'><tr>"
-    "<td width='85%%' valign='top'>%s<br>%s</td>"
-    "<td valign='top' style='border-style:groove;'>"
+  dbuf_printf (b, "<table id='qpage'><tr>"
+    "<td id='qpagel'>%s<br>%s</td>"
+    "<td id='qpager'>"
     "%s</td></tr></table>", rp, dp, qp);
   dbuf_insert (page, offset, dbuf_getbuf (b), dbuf_size (b));
   dbuf_free (b);
@@ -781,6 +792,36 @@ char *console_geturi (char *dst, char *req)
   if (parm == NULL)
     parm = ch;
   return (parm);
+}
+
+/*
+ * delete this row and return next one
+ */
+int console_deleterow (QUEUE *q, int rowid)
+{
+  QUEUEROW *r;
+  info ("Deleting row %d from %s\n", rowid, q->name);
+  r = queue_next (q, rowid);
+  queue_delete (q, rowid);
+  if (r != NULL)
+    rowid = r->rowid;
+  queue_row_free (r);
+  return (rowid);
+}
+
+/*
+ * resend this row
+ */
+int console_resendrow (QUEUE *q, int rowid)
+{
+  QUEUEROW *r;
+  info ("Resending row %d from %s\n", rowid, q->name);
+  if ((r = queue_get (q, rowid)) == NULL)
+    return (0);
+  queue_field_set (r, "PROCESSINGSTATUS", "queued");
+  queue_push (r);
+  queue_row_free (r);
+  return (rowid);
 }
 
 /*
@@ -855,10 +896,16 @@ DBUF *console_doGet (XML *xml, char *req)
     if (console_getParm (buf, parm, "top") != NULL)
       top = atoi (buf);
     debug ("top=%d row=%d\n", top, rowid);
-    queuelist = console_queue_list (xml);
     q = queue_find (queue);
+    if (console_hasParm (parm, "delete"))
+      rowid = console_deleterow (q, rowid);
+#ifdef __SENDER__
+    else if (console_hasParm (parm, "resend"))
+      console_resendrow (q, rowid);
+#endif
+    queuelist = console_queue_list (xml);
     rowlist = console_queue (q, top, rowid);
-    rowdetail = console_queue_row (q, rowid);
+    rowdetail = console_queue_row (q, top, rowid);
   }
   console_qpage (page, queuelist, rowlist, rowdetail);
   dbuf_free (queuelist);

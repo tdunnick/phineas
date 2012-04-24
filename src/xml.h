@@ -117,7 +117,9 @@ XML *xml_parse (char *buf);
 XMLNODE *xml_normalize (XML *xml);
 XMLNODE *xml_beautify (XML *xml, int indent);
 char *xml_format (XML *xml);
+int xml_write (XML *xml, FILE *fp);
 int xml_save (XML *xml, char *filename);
+XML *xml_read (FILE *fp);
 XML *xml_load (char *filename);
 
 

@@ -54,6 +54,7 @@ typedef struct queueconn
   void *conn;			/* private data			*/
   int (*close) (void *conn);
   int (*push) (QUEUEROW *row);
+  int (*del) (QUEUE *q, int rowid);
   QUEUEROW *(*pop) (QUEUE *q);
   QUEUEROW *(*get) (QUEUE *q, int rowid);
   QUEUEROW *(*nextrow) (QUEUE *q, int rowid);
@@ -112,6 +113,8 @@ QUEUEROW *queue_get (QUEUE *q, int rowid);
 QUEUEROW *queue_next (QUEUE *q, int rowid);
 /* get the previous row of a queue */
 QUEUEROW *queue_prev (QUEUE *q, int rowid);
+/* delete a queue row */
+int queue_delete (QUEUE *q, int rowid);
 
 /************************ queue row function **************************/
 /* get a fresh queue row */

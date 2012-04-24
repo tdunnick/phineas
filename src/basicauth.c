@@ -60,7 +60,12 @@ int basicauth_check (XML *xml, char *path, char *req)
   uid = strstr (req, "Authorization: Basic ");
   if (uid == NULL)
     return (1);
-  b64_decode (buf, uid + 21);
+  uid += 21;				/* limit b64 decoding		*/
+  if ((pw = strchr (uid, '\n')) != NULL)
+    *pw = 0;
+  b64_decode (buf, uid);
+  if (pw != NULL)			/* restore if limited		*/
+    *pw = '\n';
   uid = buf;
   if ((pw = strchr (uid, ':')) == NULL)
     return (1);

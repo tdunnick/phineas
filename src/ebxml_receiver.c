@@ -36,6 +36,7 @@
 #include "b64.c"
 #include "basicauth.c"
 #include "crypt.c"
+#include "xcrypt.c"
 #include "find.c"
 #include "fpoller.c"
 #include "qpoller.c"
@@ -53,6 +54,7 @@
 #include "mime.h"
 #include "basicauth.h"
 #include "crypt.h"
+#include "xcrypt.h"
 #include "ebxml.h"
 
 
@@ -133,69 +135,6 @@ int ebxml_service_map (XML *xml, char *service, char *action, char *prefix)
   }
   *prefix = 0;
   return (-1);
-}
-
-/*
- * decrypt the payload and save it to data, returning it's len
- */
-
-int ebxml_decrypt (XML *payload, char **data,
-    char *unc, char *dn, char *passwd)
-{
-  int i, len;
-  unsigned char *ch, *enc, *keyfile;
-  unsigned char rsakey[512];
-  DESKEY deskey;
-  FILE *pfp;
-  char path[MAX_PATH];
-
-  *data = NULL;
-  pathf (path, unc);
-  /*
-   * check DN against unc to insure match
-   */
-  if ((dn != NULL) && *dn)
-  {
-    // TODO
-  }
-  /*
-   * get and decrypt the DES key
-   */
-  if ((ch = xml_get_text (payload,
-    "EncryptedData.KeyInfo.EncryptedKey.CipherData.CipherValue")) == NULL)
-  {
-    error ("Couldn't get cypher key\n");
-    return (-1);
-  }
-  len = b64_decode (rsakey, ch);
-  debug ("attempting RSA decryption %d bytes using %s with %s\n",
-    len, unc, passwd);
-  if ((len = crypt_pk_decrypt (path, passwd, deskey, rsakey)) < 1)
-  {
-    error ("Couldn't decrypt DES key\n");
-    return (-1);
-  }
-  debug ("keylen=%d\n", len);
-  /*
-   * get and decrypt the payload
-   */
-  if ((ch = xml_get_text (payload,
-    "EncryptedData.CipherData.CipherValue")) == NULL)
-  {
-    error ("Couldn't get cypher payload\n");
-    return (-1);
-  }
-  len = strlen (ch);
-  debug ("base64 len=%d\n", len);
-  enc = (char *) malloc (len);
-  len = b64_decode (enc, ch);
-  *data = (char *) malloc (len);
-  debug ("base64 decoded len=%d\n", len);
-  if ((len = crypt_des3_decrypt (*data, deskey, enc, len)) < 1)
-    error ("Couldn't decrypt payload\n");
-  debug ("final decoding to %d bytes\n", len);
-  free (enc);
-  return (len);
 }
 
 /*
@@ -388,8 +327,8 @@ char *ebxml_process_req (XML *xml, char *buf)
   XML *soap, *payload;
   QUEUEROW *r;
   FILE *fp;
-  char *ch,
-       *p,
+  unsigned char *ch;
+  char *p,
        prefix[MAX_PATH],
        name[MAX_PATH];
 
@@ -519,7 +458,7 @@ char *ebxml_process_req (XML *xml, char *buf)
     /*
      * decode payload
      */
-    len = ebxml_decrypt (payload, &ch,
+    len = xcrypt_decrypt (payload, &ch,
       ebxml_get (xml, prefix, "Encryption.Unc"),
       ebxml_get (xml, prefix, "Encryption.Id"),
       ebxml_get (xml, prefix, "Encryption.Password"));

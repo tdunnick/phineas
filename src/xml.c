@@ -1451,26 +1451,68 @@ char *xml_format (XML *xml)
 }
 
 /*
- * save a document to a file
+ * write xml to a stream
  */
-int xml_save (XML *xml, char *filename)
+
+int xml_write (XML *xml, FILE *fp)
 {
-  FILE *fp;
-  DBUF *b = dbuf_alloc ();
+  DBUF *b;
 
   if (xml == NULL)
   {
     error ("NULL xml\n");
     return (-1);
-  }
+  } 
+  b = dbuf_alloc ();
   xml_declare (xml);
   xml_node_format (xml->doc, b);
-  if ((fp = fopen (filename, "w")) == NULL)
-    return (-1);
   fwrite (dbuf_getbuf(b), 1, dbuf_size (b), fp);
-  fclose (fp);
   dbuf_free (b);
   return (0);
+}
+
+/*
+ * save a document to a file
+ */
+int xml_save (XML *xml, char *filename)
+{
+  FILE *fp;
+  int ok;
+
+  if ((fp = fopen (filename, "w")) == NULL)
+    return (-1);
+  ok = xml_write (xml, fp);
+  fclose (fp);
+  if (!ok)
+    unlink (filename);
+  return (ok);
+}
+
+/*
+ * load xml from a stream
+ */
+XML *xml_read (FILE *fp)
+{
+  XML *x;
+  char *buf;
+  int bufsz = 4096, 
+      sz = 0, 
+      n;
+
+  buf = (char *) malloc (bufsz);
+  while ((n = fread (buf + sz, sizeof (char), bufsz - sz, fp)) > 0)
+  {
+    sz += n;
+    if (sz >= bufsz - 1)
+    {
+      bufsz <<= 2;
+      buf = (char *) realloc (buf, bufsz);
+    }
+  }
+  buf[sz] = 0;
+  x = xml_parse (buf);
+  free (buf);
+  return (x);
 }
 
 /*
@@ -1480,20 +1522,13 @@ XML *xml_load (char *filename)
 {
   XML *x;
   FILE *fp;
-  struct stat st;
-  char *buf;
 
   if (filename == NULL)
     return (NULL);
-  if (stat (filename, &st))
+  if ((fp = fopen (filename, "rb")) == NULL)
     return (NULL);
-  buf = (char *) malloc (st.st_size + 1);
-  fp = fopen (filename, "rb");
-  fread (buf, sizeof (char), st.st_size, fp);
+  x = xml_read (fp);
   fclose (fp);
-  buf[st.st_size] = 0;
-  x = xml_parse (buf);
-  free (buf);
   return (x);
 }
 

@@ -35,17 +35,61 @@
  */
 
 body { background:#008; }
+
+/* the navigation */
 table#nav { width: 100%; background:#008; color:white; }
-table#nav img { border:transparent; width:48; }
+table#nav img { border:transparent; width:48px; }
+
+/* configuration console */
 div#console { 
-  background:#ddd; 
+	background:#ddd; 
 	color: black; 
 	border: double; 
-	padding:15; 
+	padding:15px; 
 	overflow: hidden;
-	}
-tr.selected { font-weight: bold; }
+}
 
+/* the console page body below the navigation */
+table#qpage { width:98%; }
+/* the page has a left and right part */
+td#qpagel { 
+  vertical-align:top; 
+	width:85%; 
+	margin-right:20px; 
+}
+td#qpager { 
+	vertical-align:top; 
+	border-style:double; 
+	border-width:4px; 
+	padding:5px;
+}
+
+/* queue displays for a row */
+table#qrow { font-size:12px; }
+table#qrow img { border:transparent; width:30px; padding-left:30px; }
+td#rowid {
+	vertical-align:bottom; 
+	font-weight:bold;
+	font-size:18px;
+}
+/* queue displays for a set of rows */
+div#queue { 
+	width:680px;
+	border-width:1px; 
+	border-style:solid; 
+	overflow:auto; 
+}
+
+div#queue td { 
+	border-width:1px; 
+	border-style:solid; 
+	font-size:12px; 
+	white-space:nowrap; 
+}
+
+div#queue tr.selected { font-weight: bold; }
+
+/* console tabs */
 div.configlayout {
 	width: 99%;
 	margin:0 0 20px 0;
@@ -53,7 +97,7 @@ div.configlayout {
 }
 
 ul.configlayout {
-  width: 100%;
+	width: 100%;
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -70,7 +114,7 @@ ul.configlayout li {
 }
 
 ul.configlayout li a {
-  border: 1px solid #888;
+	border: 1px solid #888;
 	float: left;
 	display: block;
 	padding: 4px 8px;
@@ -92,26 +136,27 @@ ul.configlayout li a.active {
 }
 
 .tabs-container {
-  clear: left;
+	clear: left;
 	border: #888 1px solid;
 	border-top: 0;
 	padding: 25px 10px 0 10px;
 }
 
+/* console tip bubbles */
 .tip {
-  width: 200px; 
-  color: RED;
-  font:11px arial,sans-serif;
-  text-decoration:none;
-  text-align:left
+	width: 200px; 
+	color: RED;
+	font:11px arial,sans-serif;
+	text-decoration:none;
+	text-align:left
 }
 
 .tip span.top {
-  padding: 30px 8px 0;
-  background: url(images/tip.gif) no-repeat top
+	padding: 30px 8px 0;
+	background: url(images/tip.gif) no-repeat top
 }
 
 .tip span.bottom {
-  padding:3px 8px 15px;
-  background: url(images/tip.gif) no-repeat bottom
+	padding:3px 8px 15px;
+	background: url(images/tip.gif) no-repeat bottom
 }

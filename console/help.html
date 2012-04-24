@@ -28,7 +28,7 @@ padding-bottom: 20px;
   font:11px arial,sans-serif;
   text-decoration:none;
   text-align:left;
-	float:left;
+  float:left;
 }
 
 .helptip span.top {
@@ -45,7 +45,40 @@ padding-bottom: 20px;
 
 th {
   vertical-align: top;
-}  
+}
+
+table.utilities {
+  background-color: #e5e5f5;
+  border-style: solid;
+  margin-left: 20px;
+}
+
+table.utilities td {
+  vertical-align: top;
+  border-style: solid;
+	border-color: black;
+	border-width: 1px;
+	padding-left: 10px;
+}
+
+table.options {
+  border-style: none;
+	margin-left: 20px;
+	margin-top: 20px;
+}
+
+table.options caption {
+  font-weight: bold;
+	text-align: left;
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+}
+
+table.options td {
+  border-style: none;
+  padding-right: 20px;
+}
+  
 -->
 </style>
   </head>
@@ -79,6 +112,9 @@ th {
       </li>
       <li>
         <a href="#whatisxml">XML - What is That?</a>
+      </li>
+      <li>
+        <a href="#utilities">Utilities</a>
       </li>
       <li>
         <a href="#chart">PHINMS Comparison Chart</a>
@@ -240,8 +276,8 @@ th {
       sections below starting with <a href="#function">Phineas -
       A Functional Description</a>. They will provide a
       background for understanding what the various parts of the
-      <b>Phineas</b> configurate are used for and how they affect
-      it's function.
+      <b>Phineas</b> configuration are used for and how they
+      affect it's function.
     </p>
     <p>
       The configuration is determined by a single XML file,
@@ -271,7 +307,10 @@ th {
       to refer to the actual configuration data, and "GUI" to
       refer to the "meta configuration", computer talk for
       information that describes the configuration data and
-      operation of the Web configuration screens.
+      operation of the Web configuration screens. You might want
+      to open the Web console and configuration files while
+      studying the following descriptions to help visualize how
+      everything fits together.
     </p>
     <p>
       The GUI is controlled by a small set of XML tags that
@@ -309,8 +348,9 @@ th {
           Groups of configuration XML items that may be repeated
           are identified as a set. A set displays and acts much
           like tabs, except that the tabs are labeled and
-          organized based on a <b>&lt;Key&gt;</b>. If no key is present
-          the first <b>&lt;Input&gt;</b> is assumed to be the key.
+          organized based on a <b>&lt;Key&gt;</b>. If no key is
+          present the first <b>&lt;Input&gt;</b> is assumed to be
+          the key.
         </td>
       </tr>
       <tr>
@@ -320,8 +360,8 @@ th {
         <td>
           The input describes one configuration data item. It has
           the following (sub) tags:<br>
-          <b>&lt;Type&gt;</b> - The nature or kind of data item. 
-					Possible values are...
+          <b>&lt;Type&gt;</b> - The nature or kind of data item.
+          Possible values are...
           <div style="padding:5px 40px;">
             <b>text</b> - general text<br>
             <b>number</b> - a numeric value<br>
@@ -331,18 +371,19 @@ th {
             <b>password</b> - a password<br>
             <b>radio</b> - a set of radio buttons<br>
             <b>submit</b> - a submit button<br>
-          </div>
-					<b>&lt;Width&gt;</b> - The width of the input field.<br>
-          <b>&lt;Option&gt;</b> - items that are to be found in the
-          <b>select</b> or <b>radio</b> types above.<br>
-          <b>&lt;Ref&gt;</b> - a configuration item reference "path"
-          that identifies items to be included in a <b>select</b> or
-          <b>radio</b> types above. Note that a <b>Ref</b> and <b>Option</b> are
-          mutually exclusive. Use one or the other, but not both
-          in an input.<br>
-					<b>&lt;Repeats&gt;</b> - If the value is "true", this input
-					may be repeated, and an <b>Add</b> button will be included
-					following the last repeated input.<br>
+          </div><b>&lt;Width&gt;</b> - The optional width of the
+          input field. The default width is determined by the
+          <b>Type</b> above.<br>
+          <b>&lt;Option&gt;</b> - items that are to be found in
+          the <b>select</b> or <b>radio</b> types above.<br>
+          <b>&lt;Ref&gt;</b> - a configuration item reference
+          "path" that identifies items to be included in a
+          <b>select</b> or <b>radio</b> types above. Note that a
+          <b>Ref</b> and <b>Option</b> are mutually exclusive.
+          Use one or the other, but not both in an input.<br>
+          <b>&lt;Repeats&gt;</b> - If the value is "true", this
+          input may be repeated, and an <b>Add</b> button will be
+          included following the last repeated input.<br>
         </td>
       </tr>
       <tr>
@@ -362,7 +403,7 @@ th {
         </th>
         <td>
           GUI items are identified to the user by this Name. It
-          can be applied to a tab, and input (where it is used as
+          can be applied to a tab, an input (where it is used as
           the prompt), or a set description.
         </td>
       </tr>
@@ -371,9 +412,10 @@ th {
           &lt;Help&gt;
         </th>
         <td>
-				  <div style="float:left;">
-          Use Help to associate "bubble" help tips with GUI
-          items.</div>
+          <div style="float:left;">
+            Use a Help tag to associate "bubble" help tips with
+            GUI items.
+          </div>
           <div class="helptip">
             <span class="top">You can author your own help tip
             text like this by modifying the GUI XML file
@@ -398,7 +440,7 @@ th {
     </p>
     <center>
       <br>
-      <iframe src="chelp.html" width="95%" height="70%">Itemized
+      <iframe src="chelp.html" width="95%" height="500">Itemized
       list of configuration items</iframe>
     </center><br>
     <hr>
@@ -547,12 +589,20 @@ th {
     </p>
     <p>
       The receiver may also require the sender authenticate using
-      one of several protocols. For <b>Phineas</b> the only
-      currently supported protocol is x509 client certificate
-      based. In this protocol the receiver challenges the sender
-      who replies with a certificate of its own. All this is part
-      of standard "SSL Negotiations" and is more or less
-      transparent to the PHINMS application.
+      one of several protocols. <b>Phineas</b> currently supports
+      SSL x509 client certificate authentication and HTTP header
+      based "basic authentication". In x509 protocol the receiver
+      challenges the sender who replies with a certificate of its
+      own. All this is part of standard "SSL Negotiations" and is
+      more or less transparent to the PHINMS application. In
+      "basic authentication" the receiver requires the sender to
+      include authentication information in the HTTP headers.
+      Since this information is not encrypted, this
+      authentication method should only be used with HTTPS (SSL)
+      connections. Generally "basic authentication" is handled by
+      the HTTP server, but it may be implemented at the
+      application level (as happens to be the case with
+      <b>Phineas</b>).
     </p>
     <p>
       The second ebXML level of security operates in a similar
@@ -581,8 +631,8 @@ th {
       secured subnets, etc. The thing to remember is that
       generally speaking, each side must agree upon the type and
       nature of security in use, and include or exchange enough
-      information enable the cryptography and insure mutual trust
-      (generally in the form of certificates).
+      information to enable the cryptography and insure mutual
+      trust (generally in the form of certificates).
     </p>
     <hr>
     <div class="heading">
@@ -591,10 +641,10 @@ th {
       <a href="#contents">(return to contents)</a>
     </div>
     <p>
-      The internet is the biggest "party line" every created.
-      Just as in the early days of telephony, when you could hear
-      your neighbors conversions, so also can one now listen in
-      on internet messages. As a result when you need internet
+      The internet is the biggest "party line" ever created. Just
+      as in the early days of telephony, when you could hear your
+      neighbors conversions, so also can one now listen in on
+      internet messages. As a result when you need internet
       privacy, the only way to get it is to converse in a secret
       code (encrypt your message). Similarly, when you "call
       someone up" you may need to determine they are who you
@@ -776,6 +826,350 @@ th {
       about all that you HAVE to know to directly modify Phineas
       configurations.
     </p>
+    <hr>
+    <div class="heading">
+      <a name="utilities" class="section" id=
+      "utilities">Utilities</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+    <p>
+      <b>Phineas</b> includes a small set of utilities to help
+      configure, maintain, and support the service. They can
+      roughly be divided into two classes: scripts and binarys.
+      Note that some utilities are only useful for specific
+      installations (see descriptions below).
+    </p>
+    <p>
+      A description of the scripts follows:
+    </p>
+    <table summary="script utilities" class="utilities">
+      <tr>
+        <td>
+          <h3>
+            accessdb.vbs
+          </h3>
+        </td>
+        <td>
+          This creates a fresh empty Access dB in the queues folder
+          named "phineas.mdb". Creates a transport and receiver queue
+          as well as a file DSN (note <b>Phineas</b> does not
+          create nor require registry based DSN's for ODBC
+          connections).
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            addservice.bat
+          </h3>
+        </td>
+        <td>
+          Add <b>Phineas</b> as an MS Service. It first checks to
+          make sure it is not already registered. Then starts it.
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            delservice.bat
+          </h3>
+        </td>
+        <td>
+          This checks to see if <b>Phineas</b> is installed as an MS
+          Service. If so it stops <b>Phineas</b> and removes the service.
+          Note the MS OS requires a reboot to complete this
+          operation.
+        </td>
+      </tr>
+    </table>
+    <p>
+      For the most part the binary utilities are simply
+      "wrappers" for parts of the <b>Phineas</b> code
+      functionality that allow you to script operations
+      independent of the server. You'll find these utilities in a
+      typical installation "bin" folder. A description of the
+      binary utilities follows:
+    </p>
+    <table summary="binary utilities"  class="utilities">
+      <tr>
+        <td>
+          <h3>
+            xmlb.exe
+          </h3>
+        </td>
+        <td>
+          This is an XML beautifier. It places each tag on a
+          separate line with a default indent of 2 spaces for
+          each embedded tag.
+          <table summary="options" class="options">
+					  <caption>Options</caption>
+            <tr>
+              <td>
+                -#
+              </td>
+              <td>
+                set the indent to # spaces
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -o outfile
+              </td>
+              <td>
+                write out to <b>outfile</b> (defaults to stdout)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                infile
+              </td>
+              <td>
+                read input from <b>infile</b> (defaults to stdin)
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            xcrypt.exe
+          </h3>
+        </td>
+        <td>
+				  This utility provides a mechanism to encrypt or decrypt XML
+					encoded payload envelopes.  When a PHINMS receiver get a message
+					which is encrypted with a DN (distinguished name) that does not
+					match the certificate specified for decryption, it stores the
+					entire payload envelope to disk.  The envelope is in XML format
+					and includes information on how to select decryption keys (based
+					on the DN) and which symetric algorithm to use for decryption
+					(normally triple-DES).
+          <table summary="options" class="options">
+					  <caption>Options</caption>
+            <tr>
+              <td>
+                -e
+              </td>
+              <td>
+                encrypt (default is to decrypt)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -l log
+              </td>
+              <td>
+                write status to <b>log</b> (defaults to stdout)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -L level
+              </td>
+              <td>
+                set logging <b>level</b> (defaults to INFO)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -p password
+              </td>
+              <td>
+                use this <b>password</b> for the keyfile (if
+                encrypted)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -d dn
+              </td>
+              <td>
+                the distinguished name is <b>dn</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -o outfile
+              </td>
+              <td>
+                write results to <b>outfile</b> (defaults to
+                stdout)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -i infile
+              </td>
+              <td>
+                read data from <b>infile</b> (defaults to stdin)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                keyfile
+              </td>
+              <td>
+                get cryptography key from <b>keyfile</b>
+                (required) which can be PEM, DER, or PKCS12
+                encoded
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            cpa.exe
+          </h3>
+        </td>
+        <td>
+          Generate a sender's CPA (communication protocol
+          aggreement) file for export to a PHINMS receiver.
+          <table summary="options" class="options">
+					  <caption>Options</caption>
+            <tr>
+              <td>
+                -#
+              </td>
+              <td>
+                export the route # (first route)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                configuration
+              </td>
+              <td>
+                use this sender <b>configuration</b> file
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            chelp.exe
+          </h3>
+        </td>
+        <td>
+          Generates console configuration help, based on the
+          console configuration file. This allows you to only
+          show help for those features available in a given
+          installation.
+          <table summary="options" class="options">
+					  <caption>Options</caption>
+            <tr>
+              <td>
+                -o outfile
+              </td>
+              <td>
+                write console help to <b>outfile</b> (defaults to
+                console\chelp.html)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                infile
+              </td>
+              <td>
+                read console configuration from <b>infile</b>
+                (defaults to console\config.xml)
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <h3>
+            psetup.exe
+          </h3>
+        </td>
+        <td>
+          This will generate an installation configuration.  It normally
+					is only run from the installer.
+          <table summary="options" class="options">
+					  <caption>Options</caption>
+            <tr>
+              <td>
+                -i path
+              </td>
+              <td>
+                set the installation folder <b>path</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -o organization
+              </td>
+              <td>
+                set the <b>organization</b> name
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -P port
+              </td>
+              <td>
+                set the http(s) <b>port</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -P port
+              </td>
+              <td>
+                set the http(s) <b>port</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -p partyID
+              </td>
+              <td>
+                set the <b>partyID</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -t template
+              </td>
+              <td>
+                use this file for the configuration
+                <b>template</b>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -r
+              </td>
+              <td>
+                receiver only configuration
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -s
+              </td>
+              <td>
+                sender only configuration
+              </td>
+            </tr>
+            <tr>
+              <td>
+                outfile
+              </td>
+              <td>
+                write configuration to <b>outfile</b>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
     <hr>
     <div class="heading">
       <a name="chart" class="section" id="chart">Phineas/PHINMS
@@ -960,7 +1354,7 @@ th {
             Route Authentication
           </td>
           <td>
-            clientcert
+            basic, clientcert
           </td>
           <td>
             basic, custom, netegrity, clientcert
@@ -1059,7 +1453,7 @@ th {
             Resend
           </td>
           <td>
-            no*
+            yes
           </td>
           <td>
             yes
@@ -1070,7 +1464,7 @@ th {
             Delete
           </td>
           <td>
-            no*
+            yes
           </td>
           <td>
             yes

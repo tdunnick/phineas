@@ -138,26 +138,43 @@ char *basename (char *path)
 }
 
 /*
+ * read and return file contents from a stream
+ */
+unsigned char *readstream (FILE *fp, int *l)
+{
+  unsigned char *buf;
+  int bufsz = 4096, 
+      sz = 0, 
+      n;
+
+  buf = (char *) malloc (bufsz);
+  while ((n = fread (buf + sz, sizeof (char), bufsz - sz, fp)) > 0)
+  {
+    sz += n;
+    if (sz == bufsz)
+    {
+      bufsz <<= 2;
+      buf = (unsigned char *) realloc (buf, bufsz);
+    }
+  }
+  buf[sz] = 0;
+  *l = sz++;
+  return ((unsigned char *) realloc (buf, sz));
+}
+
+/*
  * read and return file contents
  */
 unsigned char *readfile (char *path, int *l)
 {
-  struct stat st;
-  unsigned char *ch;
   FILE *fp;
-  int len;
+  unsigned char *buf;
 
-  if (stat (path, &st))
-    return (NULL);
   if ((fp = fopen (path, "rb")) == NULL)
     return (NULL);
-  ch = (unsigned char *) malloc (st.st_size + 1);
-  len = fread (ch, 1, st.st_size, fp);
-  ch[len] = 0;
-  if (l != NULL)
-    *l = len;
+  buf = readstream (fp, l);
   fclose (fp);
-  return (ch);
+  return (buf);
 }
 
 /*

@@ -63,7 +63,7 @@ int main (int argc, char **argv)
         indent = atoi (argv[i] + 1);
       else
       {
-	fprintf (stderr, "usage: %s [-o outfile] [infile]...\n", argv[0]);
+	fprintf (stderr, "usage: %s [-#] [-o outfile] [infile]...\n", argv[0]);
 	exit (1);
       }
     }

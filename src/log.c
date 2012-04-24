@@ -35,8 +35,8 @@ LOGGER *log_open (char *name)
   if ((name == NULL) || (*name == 0))
   {
 #ifdef CMDLINE
-    name = "stdout";
-    sz = dup (fileno (stdout));
+    name = "stderr";
+    sz = dup (fileno (stderr));
     fp = fdopen (sz, "w");
 #else
     return (NULL);

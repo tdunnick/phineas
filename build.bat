@@ -11,6 +11,10 @@ IF NOT EXIST src\icon.o CALL :genicon
 REM where binarys go...
 SET BIN=%~dp0bin\
 
+REM general control over artifacts...
+REM CMDLINE command line version of this program - log to stderr
+REM UNITTEST generate a test version of this module
+
 REM the following control what gets included in the build
 REM __SENDER__ sender support
 REM __RECEIVER__ receiver support
@@ -25,7 +29,7 @@ SET DEFS=-D__SERVER__ -D__CONSOLE__ -D__FILEQ__ -D__ODBCQ__
 REM sources
 SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
   crypt.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
-  cpa.c console.c config.c server.c ^
+  xcrypt.c cpa.c console.c config.c server.c ^
   basicauth.c find.c fpoller.c qpoller.c ebxml_sender.c ^
   ebxml_receiver.c 
 
@@ -50,6 +54,7 @@ IF "%1" == "cpa" GOTO :cpa
 IF "%1" == "xmlb" GOTO :xmlb
 IF "%1" == "chelp" GOTO :chelp
 IF "%1" == "psetup" GOTO :psetup
+IF "%1" == "xcrypt" GOTO :xcrypt
 IF "%1" == "isapi" GOTO :isapi
 IF "%1" == "run" GOTO :run
 REM our default build
@@ -107,6 +112,12 @@ SET TARGET=psetup
 SET BLD=-DCMDLINE psetup.c
 GOTO :build
 
+REM build xml encryption utility
+:xcrypt
+SET TARGET=xcrypt
+SET BLD=-DCMDLINE xcrypt.c
+GOTO :build
+
 :build
 ECHO building %TARGET%
 IF EXIST %BIN%%TARGET%.exe DEL %BIN%%TARGET%.exe
@@ -133,6 +144,7 @@ CALL :xmlb
 CALL :isapi
 CALL :chelp
 CALL :psetup
+CALL :xcrypt
 GOTO :eof
 
 REM generate our icon resource using MinGW (wish tinyc had this!)

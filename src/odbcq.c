@@ -209,7 +209,7 @@ ODBCQ *odbcq_find (QUEUE *q)
    */
   id = q->type->field[0];
   o->rowid = odbcq_getint (c, "select max(%s) from %s", id, q->table);
-  if (queue_field_find (q, "TRANSPORTSTATUS") > 0)
+  if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
     o->transport = 0;
   else
     o->transport = -1;
@@ -281,7 +281,7 @@ int odbcq_transport (QUEUE *q)
     return (-1);
   k = q->type->field[0];
   rowid = odbcq_getint ((ODBCQCONN *) q->conn->conn,
-    "select min(%s) from %s where TRANSPORTSTATUS='queued' and "
+    "select min(%s) from %s where PROCESSINGSTATUS='queued' and "
     "%s>%d", k, q->table, k, m->transport);
   if (rowid > 0)
     return (m->transport = rowid);
@@ -519,6 +519,45 @@ QUEUEROW *odbcq_get (QUEUE *q, int rowid)
 }
 
 /*
+ * delete a row
+ */
+int odbcq_del (QUEUE *q, int rowid)
+{
+  ODBCQ *m;
+  ODBCQCONN *c;
+  SQLRETURN ret;
+  SQLSMALLINT col, i;
+  SQLINTEGER ind;
+  QUEUEROW *row = NULL;
+  char buf[256];
+
+  /*
+   * get the meta data
+   */
+  if ((m = odbcq_find (q)) == NULL)
+    return (-1);
+
+  /*
+   * delete the row
+   */
+  c = q->conn->conn;
+  SQLSetStmtAttr (c->stmt, SQL_ATTR_MAX_ROWS, (SQLPOINTER) 1, 0);
+  /* exec the statement */
+  sprintf (buf, "delete from %s where %s = %d",
+    q->table, q->type->field[0], rowid);
+  ret = SQLExecDirect (c->stmt, buf, SQL_NTS);
+  SQLFreeStmt (c->stmt, SQL_CLOSE);
+  if (!SQL_SUCCEEDED (ret))
+  {
+     debug ("stmt: %s\n", buf);
+     error ("delete failed: %s", 
+       odbcq_error (buf, sizeof (buf), c->stmt, SQL_HANDLE_STMT));
+     return (-1);
+   } 
+  return (0);
+}
+
+/*
  * get the next transport row, or last row if transport < 0
  */
 QUEUEROW *odbcq_pop (QUEUE *q)
@@ -637,6 +676,7 @@ int odbcq_connect (QUEUECONN *conn)
   conn->push = odbcq_push;
   conn->pop = odbcq_pop;
   conn->get = odbcq_get;
+  conn->del = odbcq_del;
   conn->nextrow = odbcq_next;
   conn->prevrow = odbcq_prev;
   info ("ODBC connected %s\n", buf);
@@ -794,7 +834,7 @@ int dump_row (QUEUEROW *r)
 
   if (r == NULL)
     return;
-  ch = queue_field_get (r, "TRANSPORTSTATUS");
+  ch = queue_field_get (r, "PROCESSINGSTATUS");
   if (ch == NULL)
     ch = "";
   debug ("Queue=%s Row=%d %s %s\n", r->queue->name, r->rowid, 

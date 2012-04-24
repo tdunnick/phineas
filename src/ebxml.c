@@ -38,15 +38,6 @@ char
   *soap_dbinf = "soap-env:Envelope.soap-env:Body."
     "eb:Manifest.MetaData.DatabaseInfo.";
 
-/*
- * Common encryption suffixes
- */
-char
-  *payload_dn = "EncryptedData.KeyInfo.EncryptedKey.KeyInfo.KeyName",
-  *payload_key = 
-    "EncryptedData.KeyInfo.EncryptedKey.CipherData.CipherValue",
-  *payload_data = "EncryptedData.CipherData.CipherValue";
-
 /************************ Shared Functions *************************/
 /*
  * Get a field from configuration with prefix

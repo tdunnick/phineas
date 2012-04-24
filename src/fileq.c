@@ -155,7 +155,7 @@ int fileq_index (FILEQ *c, int r, long p)
 int fileq_reindex (QUEUE *q, FILEQ *c)
 {
   long p;
-  int i;
+  int i, r;
   char *ch, *bp, buf[QBUFSZ];
 
   debug ("re-indexing %s...\n", c->name);
@@ -175,7 +175,7 @@ int fileq_reindex (QUEUE *q, FILEQ *c)
     for (i = 1; i < q->type->numfields; i++)
       fprintf (c->fp, "%c%s", Q_SEP, q->type->field[i]);
     fputc ('\n', c->fp);
-    if (queue_field_find (q, "TRANSPORTSTATUS") > 0)
+    if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
       c->transport = ftell (c->fp);
   }
   else
@@ -205,11 +205,15 @@ int fileq_reindex (QUEUE *q, FILEQ *c)
       bp = ch + 1;
     }
     p = ftell (c->fp);
-    if (queue_field_find (q, "TRANSPORTSTATUS") > 0)
+    if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
       c->transport = p;
     while (fgets (buf, QBUFSZ, c->fp) != NULL)
     {
-      fileq_index (c, atoi (buf), p);
+      r = atoi (buf);
+      if (!strchr (buf, Q_SEP))		/* deleted record	*/
+	fileq_index (c, r, 0L);
+      else
+        fileq_index (c, r, p);
       p = ftell (c->fp);
     }
   }
@@ -227,6 +231,8 @@ QUEUEROW *fileq_parse (QUEUE *q, char *buf)
   QUEUEROW *r;
 
   if ((i = atoi (buf)) < 1)
+    return (NULL);
+  if (strchr (p = buf, Q_SEP) == NULL)	/* delete record	*/
     return (NULL);
   // debug ("parsing row %d\n", i);
   p = buf;
@@ -264,6 +270,9 @@ char *fileq_format (QUEUEROW *row, char *buf)
   return (buf);
 }
 
+/*
+ * read a row from the file
+ */
 char *fileq_getrow (FILEQ *c, int row, char *buf)
 {
   long p;
@@ -286,6 +295,9 @@ char *fileq_getrow (FILEQ *c, int row, char *buf)
   return (buf);
 }
 
+/*
+ * add a row to the file
+ */
 int fileq_putrow (FILEQ *c, char *buf)
 {
   int r;
@@ -312,7 +324,7 @@ QUEUEROW *fileq_transport (QUEUE *q, FILEQ *c)
 
   if (fseek (c->fp, c->transport, SEEK_SET))
     return (NULL);
-  if ((f = queue_field_find (q, "TRANSPORTSTATUS")) < 0)
+  if ((f = queue_field_find (q, "PROCESSINGSTATUS")) < 0)
     return (NULL);
   while (fgets (buf, QBUFSZ, c->fp) != NULL)
   {
@@ -370,6 +382,24 @@ int fileq_push (QUEUEROW *r)
   if (r->rowid == 0)
     r->rowid = ++c->rowid;
   return (fileq_putrow (c, fileq_format (r, buf)));
+}
+
+
+/*
+ * delete a row
+ */
+int fileq_del (QUEUE *q, int rowid)
+{
+  FILEQ *c;
+  char buf[QBUFSZ];
+
+  if ((c = fileq_find (q)) == NULL)
+    return (-1);
+  sprintf (buf, "%d", rowid);
+  if (fileq_putrow (c, buf) == 0)
+    return (-1);
+  fileq_index (c, rowid, 0L);
+  return (0);
 }
 
 /*
@@ -480,6 +510,7 @@ int fileq_connect (QUEUECONN *conn)
   conn->push = fileq_push;
   conn->pop = fileq_pop;
   conn->get = fileq_get;
+  conn->del = fileq_del;
   conn->nextrow = fileq_next;
   conn->prevrow = fileq_prev;
   debug ("Connection to %s completed\n", conn->name);
@@ -604,7 +635,7 @@ int dump_row (QUEUEROW *r)
   if (r == NULL)
     return;
   debug ("Row %d %s %s\n", r->rowid, queue_field_get (r, "MESSAGEID"),
-    queue_field_get (r, "TRANSPORTSTATUS"));
+    queue_field_get (r, "PROCESSINGSTATUS"));
   free (r);
 }
 

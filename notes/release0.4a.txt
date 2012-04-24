@@ -1,0 +1,4 @@
+Increased size of server response buffer and fixed it's content length.
+Added safety for b64 decoding in basic authentication.
+Adjusted color coding of queue rows in console.
+Added Delete and Resend functions to console.

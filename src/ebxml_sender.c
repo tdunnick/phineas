@@ -41,6 +41,7 @@
 #include "b64.c"
 #include "basicauth.c"
 #include "crypt.c"
+#include "xcrypt.c"
 #include "find.c"
 #include "fpoller.c"
 #include "qpoller.c"
@@ -56,6 +57,7 @@
 #include "mime.h"
 #include "basicauth.h"
 #include "crypt.h"
+#include "xcrypt.h"
 #include "ebxml.h"
 
 
@@ -94,7 +96,7 @@ DBUF *ebxml_receive (NETCON *conn)
   if (e != 1)
   {
     if (e == 0)
-      error ("Acknowledgment header read failed or connection closed");
+      error ("Acknowledgment header read failed or connection closed\n");
     else
       error ("Timed out reading acknowledgment header\n");
     dbuf_free (b);
@@ -188,69 +190,6 @@ char *ebxml_route_info (XML *xml, int index, char *tag)
 }
 
 /*
- * Fill in an ebxml encryption envelope.
- *
- * exml - the envelope template
- * data, len - data of len to encrypt
- * unc, id, passwd - identify certificate to use
- *
- * This uses triple DES encryption for the data, and the certificates
- * asymetric public key to encrypt the DES key.
- *
- * Return non-zero if it fails
- */
-int ebxml_encrypt (XML *exml, unsigned char *data, int len,
-  char *unc, char *id, char *passwd)
-{
-  DESKEY key;
-  char *enc,
-    ekey[512], 			/* big enough for a 4096 bit RSA key	*/
-    bkey[512+256],		/* +50% for b64 encoding		*/
-    dn[DNSZ],			/* subject in the cert			*/
-    path[MAX_PATH];
-
-
-  /*
-   * first triple DES encrypt the payload and convert it to base64
-   */
-  debug ("encrypting data...\n");
-  enc = (unsigned char *) malloc (len + sizeof (key));
-  if ((len = crypt_des3_encrypt (enc, key, data, len)) < 1)
-  {
-    error ("DES3 encoding failed\n");
-    free (enc);
-    free (data);
-    return (-1);
-  }
-  data = (unsigned char *) realloc (data, (int) (1.40 *len));
-  len = b64_encode (data, enc, len, 76);
-  xml_set_text (exml, payload_data, data);
-  /*
-   * now use the certificate to encrypt the triple DES key
-   */
-  strcpy (dn, id);
-  debug ("encrypting key...\n");
-  pathf (path, unc);
-  if ((len = crypt_pk_encrypt (path, passwd, dn, ekey, key, DESKEYSZ)) < 1)
-  {
-    error ("Public key encoding failed\n");
-    free (enc);
-    free (data);
-    return (-1);
-  }
-  len = b64_encode (bkey, ekey, len, 76);
-  xml_set_text (exml, payload_key, bkey);
-  xml_set_text (exml, payload_dn, dn);
-  /*
-   * clean up
-   */
-  free (enc);
-  free (data);
-  debug ("encryption completed\n");
-  return (0);
-}
-
-/*
  * Build the mime payload container
  */
 MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
@@ -269,13 +208,13 @@ MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
   debug ("getpayload container...\n");
   organization = xml_get_text (xml, "Phineas.Organization");
   pid = ebxml_pid (xml, r, prefix);
-  sprintf (fname, "%s%s", ebxml_get (xml, prefix, "Processed"),
+  pathf (fname, "%s%s", ebxml_get (xml, prefix, "Processed"),
     queue_field_get (r, "PAYLOADFILE"));
   // TODO invoke filter if specified
   debug ("reading data from %s\n", fname);
   if ((b = readfile (fname, &l)) == NULL)
   {
-    error ("Can't read %s\n", fname);
+    error ("Can't read %s - %s\n", fname, strerror (errno));
     return (NULL);
   }
 
@@ -305,17 +244,12 @@ MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
     unc = ebxml_get (xml, prefix, "Encryption.Unc");
     pass = ebxml_get (xml, prefix, "Encryption.Password");
     id = ebxml_get (xml, prefix, "Encryption.Id");
-    exml = ebxml_template (xml, "Phineas.EncryptionTemplate");
-    if (exml == NULL)
-    {
-      error ("Can't get Encryption template\n");
-      free (b);
-      return (NULL);
-    }
+    /* 
+     * we ignore "Phineas.EncryptionTemplate"... it's built into xcrypt
+     */
     mime_setHeader (msg, MIME_CONTENT, MIME_XML, 99);
-    if (ebxml_encrypt (exml, b, l, unc, id, pass) < 0)
+    if ((exml = xcrypt_encrypt (b, l, unc, id, pass)) == NULL)
     {
-      xml_free (exml);
       mime_free (msg);
       return (NULL);
     }
@@ -520,8 +454,8 @@ int ebxml_qping (XML *xml, int route)
   queue_field_set (r, "PUBLICKEYLDAPBASEDN", "");
   queue_field_set (r, "PUBLICKEYLDAPDN", "");
   queue_field_set (r, "CERTIFICATEURL","");
-  queue_field_set (r, "PROCESSINGSTATUS", "waiting");
-  queue_field_set (r, "TRANSPORTSTATUS", "queued");
+  queue_field_set (r, "PROCESSINGSTATUS", "queued");
+  queue_field_set (r, "TRANSPORTSTATUS", "");
   queue_field_set (r, "PRIORITY", "0");
   debug ("pushing the queue\n");
   if (pl = queue_push (r) < 1)
@@ -616,8 +550,8 @@ int ebxml_fprocessor (XML *xml, char *prefix, char *fname)
   queue_field_set (r, "PUBLICKEYLDAPDN", "");
   queue_field_set (r, "CERTIFICATEURL",
     ebxml_get (xml, prefix, "Encryption.Unc"));
-  queue_field_set (r, "PROCESSINGSTATUS", "waiting");
-  queue_field_set (r, "TRANSPORTSTATUS", "queued");
+  queue_field_set (r, "PROCESSINGSTATUS", "queued");
+  queue_field_set (r, "TRANSPORTSTATUS", "");
   queue_field_set (r, "PRIORITY", "0");
   if (pl = queue_push (r) < 1)
   {
@@ -892,6 +826,7 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
    */
   if ((m = ebxml_getmessage (xml, r)) == NULL)
   {
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "bad message");
     queue_push (r);
@@ -901,6 +836,7 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
    * update the queue with message status
    */
   debug ("updating queue\n");
+  queue_field_set (r, "PROCESSINGSTATUS", "waiting");
   queue_field_set (r, "TRANSPORTSTATUS", "attempted");
   queue_push (r);
   /*
@@ -922,6 +858,7 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
   }
   if (try >= retries)
   {
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "retries exhausted");
   }

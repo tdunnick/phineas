@@ -146,32 +146,27 @@ DBUF *server_respond (int code, char *fmt, ...)
   va_list ap;
   char *ch;
   DBUF *b;
-  char buf[1024];
+  char buf[4096];
 
-  b = dbuf_alloc ();
-  va_start (ap, fmt);
-  len = vsnprintf (buf, 1024, fmt, ap);
-  va_end (ap);
   /*
-   * note our response body is limited to 1024 bytes - only small
+   * note our response body is limited to 4096 bytes - only small
    * response is needed or allowed.
    */
-  if (len > 0)
-  {
-    len += 22;
-  }
-  else
-  {
-    *buf = 0;
-    len = 22;
-  }
+  len = sprintf (buf, "<html><body>");
+  va_start (ap, fmt);
+  l = vsnprintf (buf + len, 4096-(len * 2 + 4), fmt, ap);
+  va_end (ap);
+  if (l > 0)
+    len += l;
+  len += sprintf (buf + len, "</body></html>");
   /*
    * if we are no longer running, notify the client that we are
    * closing this connection.
    */
+  b = dbuf_alloc ();
   dbuf_printf (b, "Status: %d\r\n"
     "Content-Length: %d\r\n"
-    "Connection: %s\r\n\r\n<html><body>%s</body></html>",
+    "Connection: %s\r\n\r\n%s",
     code, len, phineas_running () ? "Keep-alive" : "Close", buf);
   debug ("response:\n%s\n", dbuf_getbuf (b));
   return (b);
@@ -213,7 +208,8 @@ DBUF *server_response (XML *xml, char *req)
   if ((ch = strchr (url, '\n')) == NULL)
     ch = url + strlen (url);
   warn ("request not found for %.*s\n", ch - url, url);
-  return (server_respond (400, "404 - <bold>%s</bold> not found", url));
+  return (server_respond (400, "404 - <bold>%.*s</bold> not found", 
+    ch - url, url));
 }
 
 /*

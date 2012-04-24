@@ -411,6 +411,19 @@ int queue_push (QUEUEROW *r)
 }
 
 /*
+ * delete a row
+ */
+int queue_delete (QUEUE *q, int rowid)
+{
+  if (q == NULL)
+    return (-1);
+  wait_mutex (q);
+  rowid = q->conn->del (q, rowid);
+  end_mutex (q);
+  return (rowid);
+}
+
+/*
  * Retrieve a row
  */
 QUEUEROW *queue_get (QUEUE *q, int rowid)

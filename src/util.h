@@ -29,6 +29,7 @@ int strstarts (char *s, char *prefix);
 char *ptime (time_t *t, char *buf);
 char *ppid (char *buf);
 char *basename (char *path);
+unsigned char *readfp (FILE *fp, int *len);
 unsigned char *readfile (char *path, int *len);
 int writefile (char *path, unsigned char *buf, int len);
 char *loadpath (char *path);
