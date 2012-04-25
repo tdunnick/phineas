@@ -3,3 +3,4 @@ Added XML payload encryption utility and moved payload encryption
 to xcrypt.c.
 Fixed console bug where include header tags were lost.
 Added utility descriptions to help file.
+Fixed command line parsing bug in xcrypt.

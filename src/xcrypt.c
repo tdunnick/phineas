@@ -277,7 +277,10 @@ int main (int argc, char **argv)
 nextarg:
       switch (*++ch)
       {
-	case 'e' : encrypt = 1; goto nextarg;
+	case 'e' : 
+	  encrypt = 1; 
+	  if (ch[1]) goto nextarg;
+	  break;
 	case 'l' : 
 	  NEEDARG (p);
 	  LOGFILE = log_open (p);
