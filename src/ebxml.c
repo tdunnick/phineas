@@ -65,6 +65,10 @@ int ebxml_set (XML *xml, char *prefix, char *suffix, char *value)
   return (xml_set_text (xml, buf, value) == NULL ? -1 : 0);
 }
 
+/*
+ * Beautify and format an ebXML message.  Returns an allocated
+ * message which the caller should free.
+ */
 char *ebxml_beautify (char *buf)
 {
   char *ch;
@@ -98,7 +102,7 @@ char *ebxml_beautify (char *buf)
 }
 
 /*
- * load and return an xml template
+ * Load, allocate, and return an xml template
  */
 XML *ebxml_template (XML *xml, char *tag)
 {

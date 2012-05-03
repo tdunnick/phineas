@@ -52,6 +52,9 @@ MIME *mime_alloc ()
   return (m);
 }
 
+/*
+ * free a mime structure including all parts of a multipart
+ */
 MIME *mime_free (MIME *m)
 {
   if (m == NULL)
@@ -66,7 +69,8 @@ MIME *mime_free (MIME *m)
 }
 
 /*
- * set a header, preferably at the position given.  Return actual place.
+ * Set a header, preferably at the position given.  Return actual place.
+ * Use a big pos to force it to append.
  */
 int mime_setHeader (MIME *m, char *name, char *value, int pos)
 {
@@ -142,7 +146,7 @@ int mime_setLength (MIME *m, int len)
 }
 
 /*
- * get the value of a mime header, delimited by '\r\n'
+ * get the value location of a mime header, delimited by '\r\n'
  */
 char *mime_getHeader (MIME *m, char *name)
 {
@@ -160,13 +164,17 @@ char *mime_getHeader (MIME *m, char *name)
   return (ch);
 }
 
+/*
+ * return a pointer to the body of this message
+ */
 unsigned char *mime_getBody (MIME *m)
 {
   return (m->body);
 }
 
 /*
- * set the body to given buffer, set Content-Length, and return buffer len
+ * copy the body from a buffer, set Content-Length, and return buffer len
+ * if incoming len < 1, use the buffer string length
  */
 int mime_setBody (MIME *m, unsigned char *b, int len)
 {
@@ -179,7 +187,7 @@ int mime_setBody (MIME *m, unsigned char *b, int len)
 }
 
 /*
- * add a multipart chunk
+ * add a multipart chunk - multipart must be set
  */
 MIME *mime_setMultiPart (MIME *m, MIME *part)
 {
@@ -192,7 +200,8 @@ MIME *mime_setMultiPart (MIME *m, MIME *part)
 }
 
 /*
- * set a mulitpart mime boundary
+ * set a mulitpart mime boundary - the current time and a random
+ * number is used to set the boundary text
  */
 int mime_setBoundary (MIME *m, char *attr)
 {
@@ -204,8 +213,9 @@ int mime_setBoundary (MIME *m, char *attr)
 }
 
 /*
- * get and format a boundary if there. return it's size, -1 if too big
- * or 0 if not found
+ * Get and format a boundary if there. Return it's size, -1 if too big
+ * or 0 if not found.  If buf is not NULL, copy the boundary to it
+ * to used in searching for MIME multi-parts.
  */
 int mime_getBoundary (MIME *m, char *buf, int sz)
 {
@@ -390,7 +400,8 @@ int mime_size (MIME *m)
 }
 
 /*
- * format a mime message - this is the recursive one
+ * format a mime message - this is the recursive on, not intended
+ * for external use.
  */
 int mime_format_part (MIME *m, DBUF *b)
 {
@@ -420,6 +431,10 @@ int mime_format_part (MIME *m, DBUF *b)
   return (dbuf_size (b));
 }
 
+/*
+ * Format a MIME message to an allocated character buffer.  Caller
+ * is responsible for freeing this buffer.
+ */
 char *mime_format (MIME *m)
 {
   DBUF *b;

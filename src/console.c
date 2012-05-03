@@ -252,6 +252,8 @@ char *MimeTypes[][2] =
  * status colors
  */
 #define RC_OK "#99ff99"
+#define RC_QUEUED "#f0f0f0"
+#define RC_WAITING "#e0e0ff"
 #define RC_FAILED "#ff5555"
 #define RC_WARNING "#ffff99"
 
@@ -412,28 +414,39 @@ DBUF *console_restart ()
  */
 char *console_getStatusColor (QUEUEROW *r)
 {
-  char *ch;
+  char *pstat, *ch;
 
   ch = queue_field_get (r, "TRANSPORTSTATUS");
-  if (ch != NULL)
+  if (ch != NULL)		/* must be a sender		*/
   {
-    if (strcmp (ch, "success"))
+    pstat = queue_field_get (r, "PROCESSINGSTATUS");
+    if (!strcmp (pstat, "queued"))
+      return (RC_QUEUED);
+    if (!strcmp (pstat, "waiting"))
+      return (RC_WAITING);
+    if (!strcmp (pstat, "done"))
     {
-      if (!strcmp (ch, "failed"))
-        return (RC_FAILED);
-      return (RC_WARNING);
+      if (strcmp (ch, "success"))
+      {
+        if (!strncmp (ch, "fail", 4))
+          return (RC_FAILED);
+        return (RC_WARNING);
+      }
+      ch = queue_field_get (r, "APPLICATIONERRORCODE");
+      if (strcmp (ch, "none") && strcmp (ch, "InsertSucceeded"))
+        return (RC_WARNING);
+      return (RC_OK);
     }
-    ch = queue_field_get (r, "APPLICATIONERRORCODE");
-    if (strcmp (ch, "none"))
-      return (RC_WARNING);
   }
-  else if ((ch = queue_field_get (r, "ERRORCODE")) != NULL)
+  /* must be a receiver					*/
+  if ((ch = queue_field_get (r, "ERRORCODE")) != NULL)
   {
-    if (strcmp (ch, "success"))
+    if (strcmp (ch, "success") && strcmp (ch, "none"))
     {
-      ch = queue_field_get (r, "APPLICATIONSTATUS");
+      return (RC_FAILED);
     }
   }
+  /* who knows...					*/
   return (RC_OK);
 }
 
@@ -825,6 +838,21 @@ int console_resendrow (QUEUE *q, int rowid)
 }
 
 /*
+ * redirect a console request (for delete or resend)
+ */
+DBUF *console_redirect (char *uri, QUEUE *q, int top, int rowid)
+{
+  DBUF *d = dbuf_alloc ();
+  dbuf_printf (d, "<script type='text/javascript'>"
+    "window.location='%s?queue=%s&top=%d&row=%d'"
+    "</script><h2>Working...</h2>"
+    "<a href='%s?queue=%s&top=%d&row=%d'>Continue</a>",
+    uri, q->name, top, rowid, uri, q->name, top, rowid);
+  debug ("redirecting: %s\n", dbuf_getbuf (d));
+  return (d);
+}
+
+/*
  * respond to a GET request
  */
 DBUF *console_doGet (XML *xml, char *req)
@@ -897,15 +925,30 @@ DBUF *console_doGet (XML *xml, char *req)
       top = atoi (buf);
     debug ("top=%d row=%d\n", top, rowid);
     q = queue_find (queue);
+
+    /* 
+     * delete and resend should redirect to fix up the browser URL,
+     * otherwise, the refresh button doesn't work as expected.
+     */
+
     if (console_hasParm (parm, "delete"))
+    {
       rowid = console_deleterow (q, rowid);
+      rowdetail = console_redirect (uri, q, top, rowid);
+    }
 #ifdef __SENDER__
     else if (console_hasParm (parm, "resend"))
+    {
       console_resendrow (q, rowid);
+      rowdetail = console_redirect (uri, q, top, rowid);
+    }
 #endif
-    queuelist = console_queue_list (xml);
-    rowlist = console_queue (q, top, rowid);
-    rowdetail = console_queue_row (q, top, rowid);
+    else
+    {
+      queuelist = console_queue_list (xml);
+      rowlist = console_queue (q, top, rowid);
+      rowdetail = console_queue_row (q, top, rowid);
+    }
   }
   console_qpage (page, queuelist, rowlist, rowdetail);
   dbuf_free (queuelist);

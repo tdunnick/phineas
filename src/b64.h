@@ -25,7 +25,8 @@
  */
 int b64_encode (char *dst, unsigned char *src, int len, int lb);
 /*
- * Decode a buffer.  dst should be at least 75% the size of src.
+ * Decode a buffer.  dst should be at least 75% the size of src,
+ * and can be the same buffer as src.
  * Decoding stops on EOS, or a non-white/non-b64 encoding character.
  * Returns the decoded length not including the EOS.
  */

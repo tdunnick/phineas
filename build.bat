@@ -29,9 +29,9 @@ SET DEFS=-D__SERVER__ -D__CONSOLE__ -D__FILEQ__ -D__ODBCQ__
 REM sources
 SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
   crypt.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
-  xcrypt.c cpa.c console.c config.c server.c ^
+  xcrypt.c payload.c cpa.c console.c config.c server.c ^
   basicauth.c find.c fpoller.c qpoller.c ebxml_sender.c ^
-  ebxml_receiver.c 
+  ebxml_receiver.c applink.c
 
 SET OPTS=
 

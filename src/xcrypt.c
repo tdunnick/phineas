@@ -22,6 +22,7 @@
 #endif
 
 #ifdef CMDLINE
+#include "applink.c"
 #include "util.c"
 #include "dbuf.c"
 #include "log.c"
@@ -80,7 +81,8 @@ char *template =
  * Fill in an ebxml encryption envelope.
  *
  * data, len - data of len to encrypt
- * unc, id, passwd - identify certificate to use
+ * unc, passwd - identify certificate to use
+ * dn gets DN of certificate and should be DNSZ
  *
  * This uses triple DES encryption for the data, and the certificates
  * asymetric public key to encrypt the DES key.
@@ -88,17 +90,20 @@ char *template =
  * Return envelope or NULL if fails
  */
 XML *xcrypt_encrypt (unsigned char *data, int len,
-  char *unc, char *id, char *passwd)
+  char *unc, char *dn, char *passwd)
 {
   XML *xml;
   DESKEY key;
   char *enc,
     ekey[512], 			/* big enough for a 4096 bit RSA key	*/
     bkey[512+256],		/* +50% for b64 encoding		*/
-    dn[DNSZ],			/* subject in the cert			*/
+    dnbuf[DNSZ],		/* subject in the cert			*/
     path[MAX_PATH];
 
 
+  if ((unc == NULL) || (data == NULL) || (len < 1))
+    return (NULL);
+ 
   /*
    * first triple DES encrypt the payload and convert it to base64
    */
@@ -108,27 +113,25 @@ XML *xcrypt_encrypt (unsigned char *data, int len,
   {
     error ("DES3 encoding failed\n");
     free (enc);
-    free (data);
     return (NULL);
   }
-  data = (unsigned char *) realloc (data, (int) (1.40 *len));
+  debug ("unc=%s\n", unc);
+  data = (unsigned char *) malloc ((int) (1.40 * len));
   len = b64_encode (data, enc, len, 76);
   xml = xml_parse (template);
   xml_set_text (xml, payload_data, data);
+  free (data);
   /*
    * now use the certificate to encrypt the triple DES key
    */
-  debug ("encrypting key...\n");
-  if (id != NULL)
-    strcpy (dn, id);
-  else
-    *dn = 0;
+  if (dn == NULL)
+    dn = dnbuf;
   pathf (path, unc);
+  debug ("encrypting key for %s\n", path);
   if ((len = crypt_pk_encrypt (path, passwd, dn, ekey, key, DESKEYSZ)) < 1)
   {
     error ("Public key encoding failed\n");
     free (enc);
-    free (data);
     return (NULL);
   }
   len = b64_encode (bkey, ekey, len, 76);
@@ -138,13 +141,18 @@ XML *xcrypt_encrypt (unsigned char *data, int len,
    * clean up
    */
   free (enc);
-  free (data);
   debug ("encryption completed\n");
   return (xml);
 }
 
 /*
  * decrypt the payload and save it to data, returning it's len
+ * payload has the XML payload envelope
+ * data gets allocated the resulting decrypted payload
+ * unc and passwd used to get the decryption key
+ * dn checked against payload if given, otherwise gets filled in with 
+ * payload's DN or ignored if NULL.
+ * returns data length or 0 if fails
  */
 
 int xcrypt_decrypt (XML *payload, unsigned char **data,
@@ -157,15 +165,28 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
   FILE *pfp;
   char path[MAX_PATH];
 
+  if ((unc == NULL) || (payload == NULL))
+    return (0);
   debug ("beginning decryption...\n");
   *data = NULL;
   pathf (path, unc);
   /*
-   * check DN against unc to insure match
+   * check DN against payload to insure match, or fill in if
+   * not provided
    */
-  if ((dn != NULL) && *dn)
+  if (dn != NULL)
   {
-    // TODO
+    ch = xml_get_text (payload, payload_dn);
+    if (*dn)
+    {
+      if (strcmp (dn, ch))
+      {
+        error ("DN %s does not match payload\n", dn);
+        return (0);
+      }
+    }
+    else
+      strcpy (dn, ch);
   }
   /*
    * get and decrypt the DES key
@@ -175,7 +196,7 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
     "EncryptedData.KeyInfo.EncryptedKey.CipherData.CipherValue")) == NULL)
   {
     error ("Couldn't get cypher key\n");
-    return (-1);
+    return (0);
   }
   len = b64_decode (rsakey, ch);
   debug ("attempting RSA decryption %d bytes using %s with %s\n",
@@ -183,7 +204,7 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
   if ((len = crypt_pk_decrypt (path, passwd, deskey, rsakey)) < 1)
   {
     error ("Couldn't decrypt DES key\n");
-    return (-1);
+    return (0);
   }
   /*
    * get and decrypt the payload
@@ -193,7 +214,7 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
     "EncryptedData.CipherData.CipherValue")) == NULL)
   {
     error ("Couldn't get cypher payload\n");
-    return (-1);
+    return (0);
   }
   len = strlen (ch);
   enc = (char *) malloc (len);
@@ -239,7 +260,7 @@ int main (int argc, char **argv)
   int encrypt = 0;		// default is to decrypt
   char *keyfile = NULL;		// RSA key file or certificate
   char *password = NULL;	// password to key file
-  char *dn = NULL;		// DN to match
+  char dn[DNSZ] = "";		// DN to match
   FILE *ifp = stdin;		// input file
   FILE *ofp = stdout;		// output file
   int len;			// payload length
@@ -247,26 +268,10 @@ int main (int argc, char **argv)
   char *ch, *p;
 
   LOGFILE = log_open (NULL);
+
 #ifdef __TEST__
-  log_setlevel (LOGFILE, LOG_DEBUG);
-  debug ("setting up test environment\n");
-  chdir ("..");
-  ifp = fopen ("tmp/Phineas.enc", "rb");
-  if (ifp == NULL)
-  {
-    debug ("setting up for encryption...\n");
-    encrypt = 1;
-    keyfile = "security/phineas.pem";
-    ifp = fopen ("bin/Phineas.xml", "rb");
-    ofp = fopen ("tmp/Phineas.enc", "wb");
-    unlink ("tmp/Phineas.xml");
-  }
-  else
-  {
-    debug ("setting up for decryption...\n");
-    keyfile = "security/phineaskey.pem";
-    ofp = fopen ("tmp/Phineas.xml", "wb");
-  }
+  keyfile = "../security/phineas.pfx";
+  password = "changeit";
 #endif
 
   for (i = 1; i < argc; i++)
@@ -289,7 +294,10 @@ nextarg:
 	  NEEDARG (p);
 	  log_level (LOGFILE, p);
 	  break;
-	case 'd' : NEEDARG (dn); break;
+	case 'd' : 
+	  NEEDARG (p); 
+	  strcpy (dn, p);
+	  break;
 	case 'p' : NEEDARG (password); break;
 	case 'o' : 
 	  NEEDARG (p); 
@@ -323,7 +331,26 @@ nextarg:
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_ciphers();
-  loadpath (argv[0]);
+
+#ifdef __TEST__
+
+  log_setlevel (LOGFILE, LOG_DEBUG);
+  debug ("setting up test environment\n");
+  p = "The quick brown fox jumped over the lazy dogs!\n";
+  len = strlen (p) + 1;
+  xml = xcrypt_encrypt (p, len, keyfile, dn, password);
+  debug ("DN=%s\n", dn);
+  if (xml == NULL)
+    fatal ("failed encryption\n");
+  if ((len = xcrypt_decrypt (xml, &payload, keyfile, dn, password)) < 1)
+    fatal ("failed decryption\n");
+  if (len != strlen (p) + 1)
+    fatal ("length %d doesn't match expected %d\n", len, strlen (p) + 1);
+  if (strcmp (payload, p))
+    fatal ("payload differs: %s", payload);
+  info ("%s passed testing\n", argv[0]);
+
+#else
 
   if (encrypt)
   {
@@ -345,6 +372,9 @@ nextarg:
     len = fwrite (payload, sizeof (unsigned char), len, ofp);
     debug ("wrote %d bytes\n", len);
   }
+
+#endif
+
   if (payload != NULL)
     free (payload);
   if (xml != NULL)
@@ -353,20 +383,6 @@ nextarg:
     fclose (ofp);
   if (ifp != stdin)
     fclose (ifp);
-#ifdef __TEST__
-  debug ("cleaning up...\n");
-  ifp = fopen ("tmp/Phineas.xml", "rb");
-  if (ifp != NULL)
-  {
-    unlink ("tmp/Phineas.enc");
-    fclose (ifp);
-    info ("Please check that tmp/Phineas.xml matches bin/Phineas.xml");
-  }
-  else
-  {
-    info ("Please test again to generate tmp/Phineas.xml");
-  }
-#endif
   return (0);
 }
 

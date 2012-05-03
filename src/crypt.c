@@ -49,7 +49,7 @@
  *  };
  *  X509_NAME_get_text_by_NID(X509_NAME *name, int nid, char *buf,int len);
  *
- * Instead we'll just reverse the oneline, changing the slashes to commas.
+ * Instead we'll just reverse the one line, changing the slashes to commas.
  * PHINMS (Java?) also folds everything to uppercase on the left side
  * of the '=', in particular the emailAddress.
  */
@@ -59,8 +59,13 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
   char buf[1024], *list[8], *ch, *p;
   X509_NAME *subject;
 
+  if ((cert == NULL) || (dn == NULL))
+    return (NULL);
   if ((subject = X509_get_subject_name(cert)) == NULL)
+  {
     error ("Can't get subject\n");
+    return (NULL);
+  }
   /* get the DN from the subject */
   X509_NAME_oneline (subject, buf, len);
   i = 0;
@@ -84,9 +89,7 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
 }
 
 /*
- * Get a certificate at location unc.  If dn is set, use it to find
- * the right certificate.  Otherwise, fill it in up to len bytes with
- * the subject.
+ * Get a certificate at location unc.  
  *
  * Trys PEM, DER, and finally PKCS12 formats coded certificates.
  *
@@ -103,9 +106,11 @@ X509 *crypt_get_X509 (char *unc, char *passwd)
   X509 *cert;
   FILE *fp;
 
+  if (unc == NULL)
+    return (NULL);
   if ((fp = fopen (unc, "r")) == NULL)
   {
-    error ("Can't open certificate at %s\n", unc);
+    error ("Can't open certificate %s - %s\n", unc, strerror (errno));
     return (NULL);
   }
   /* try reading as a PEM encoded certificate */
@@ -144,6 +149,8 @@ EVP_PKEY *crypt_get_pkey (char *name, char *passwd)
   PKCS12 *p12;
   FILE *fp;
 
+  if (name == NULL)
+    return (NULL);
   if ((fp = fopen (name, "r")) == NULL)
   {
     error ("can't open key file %s\n", name);
@@ -208,7 +215,9 @@ int crypt_pk_encrypt (char *unc, char *passwd, char *dn,
 {
   X509 *cert;
 
-  cert = crypt_get_X509 (unc, passwd);
+  // TODO lookup certificate by DN... LDAP
+  if ((cert = crypt_get_X509 (unc, passwd)) == NULL)
+    return (0);
   crypt_X509_dn (cert, dn, DNSZ);
   len = crypt_X509_encrypt (cert, enc, plain, len);
   X509_free (cert);
@@ -216,7 +225,7 @@ int crypt_pk_encrypt (char *unc, char *passwd, char *dn,
 }
 
 /*
- * Private key decryption using a key file.  Return the decrypted
+ * Asymetric private key decryption using a key file.  Return the decrypted
  * length.
  */
 int crypt_pk_decrypt (char *keyname, char *passwd, char *plain, char *enc)
@@ -337,17 +346,18 @@ int main (int argrc, char **argv)
   X509 *cert;
   DESKEY key;
 
+  chdir ("..");
   SSLeay_add_all_algorithms();
   cert = crypt_get_X509 ("security/phineas.pem", NULL);
   if (cert == NULL)
     exit (1);
   debug ("DN: %s\n", crypt_X509_dn (cert, plain , 1024));
   X509_free (cert);
-  cert = crypt_get_X509 ("certs/sslcert.pfx", "123456");
+  cert = crypt_get_X509 ("security/sslcert.pfx", "123456");
   if (cert == NULL)
     exit (1);
   debug ("DN: %s\n", crypt_X509_dn (cert, plain , 1024));
-  cert = crypt_get_X509 ("certs/sslcert.pfx", "123457");
+  cert = crypt_get_X509 ("security/sslcert.pfx", "123457");
   if (cert != NULL)
   {
     error ("certs/sslcert.pfx shouldn't have opened!\n");
@@ -370,7 +380,7 @@ int main (int argrc, char **argv)
   debug ("read %d\n", l);
   ch = (char *) realloc (ch, l + DESKEYSZ);
   len = crypt_des3_encrypt (ch, key, ch, l);
-  debug ("encrypted len %d... %.5s\n", len, ch);
+  debug ("encrypted len %d...\n", len);
   len = crypt_des3_decrypt (ch, key, ch, len);
   debug ("decrypt len %d/%d\n%.*s", len, l, len, ch);
   free (ch);

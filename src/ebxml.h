@@ -29,12 +29,9 @@
 extern char
    *soap_hdr,
    *soap_bdy,
-   *soap_manifest ,
+   *soap_manifest,
    *soap_dbinf,
-   *soap_ack,
-   *payload_dn,
-   *payload_key,
-   *payload_data;
+   *soap_ack;
 
 /*
  * Get a field from configuration with prefix
@@ -52,7 +49,8 @@ int ebxml_set (XML *xml, char *prefix, char *suffix, char *value);
 DBUF *ebxml_receive (NETCON *conn);
 
 /*
- * beautify a message
+ * Beautify and format an ebXML message.  Returns an allocated
+ * message which the caller should free.
  */
 char *ebxml_beautify (char *buf);
 
@@ -86,7 +84,7 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r);
 char *ebxml_process_req (XML *xml, char *buf);
 
 /*
- * load and return an xml template
+ * Load, allocate, and return an xml template
  */
 XML *ebxml_template (XML *xml, char *tag);
 

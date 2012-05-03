@@ -415,6 +415,9 @@ int odbcq_push (QUEUEROW *r)
       }
     }
     sz += sprintf (buf + sz, " where %s=%d", field[0], r->rowid);
+    if ((r->rowid <= o->transport) && 
+      !strcmp ("queued", queue_field_get (r, "PROCESSINGSTATUS")))
+	o->transport = r->rowid -1;
   }
   else					/* insert		*/
   {

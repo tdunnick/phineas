@@ -28,6 +28,7 @@
 #include "unittest.h"
 #include "dbuf.c"
 #include "util.c"
+#include "b64.c"
 #include "xml.c"
 #include "cpa.c"
 #define debug _DEBUG_
@@ -35,6 +36,7 @@
 #endif
 
 #include "log.h"
+#include "b64.h"
 #include "basicauth.h"
 
 #ifndef debug
@@ -83,7 +85,7 @@ int basicauth_check (XML *xml, char *path, char *req)
 }
 
 /*
- * Send an authorization required response
+ * Allocate and return an authorization required response
  */
 DBUF *basicauth_response (char *realm)
 {
@@ -101,7 +103,9 @@ DBUF *basicauth_response (char *realm)
 }
 
 /*
- * Add Basic authentication to the request buffer
+ * Create a basic authentication HTTP header in a buffer
+ * b is the buffer location
+ * uid and password are the authentication credentials
  */
 char *basicauth_request (char *b, char *uid, char *passwd)
 {
@@ -109,7 +113,7 @@ char *basicauth_request (char *b, char *uid, char *passwd)
 
   ch = buf + sprintf (buf, "%s:%s", uid, passwd) + 1;
   sprintf (b, "Authorization: Basic ");
-  b64_encode (b + 21, buf);
+  b64_encode (b + 21, buf, strlen (buf), 0);
   return (b);
 }
 

@@ -1477,15 +1477,15 @@ int xml_write (XML *xml, FILE *fp)
 int xml_save (XML *xml, char *filename)
 {
   FILE *fp;
-  int ok;
+  int failed;
 
   if ((fp = fopen (filename, "w")) == NULL)
     return (-1);
-  ok = xml_write (xml, fp);
+  failed = xml_write (xml, fp);
   fclose (fp);
-  if (!ok)
+  if (failed)
     unlink (filename);
-  return (ok);
+  return (failed);
 }
 
 /*

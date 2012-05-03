@@ -105,12 +105,8 @@ Section "Phineas Core (required)"
   File "OpenSSL.txt"  
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\psetup.exe"
-  SearchPath $0 "ssleay32.dll"
-  IfErrors 0 +2
-  File "C:\PHP\ssleay32.dll"
-  SearchPath $0 "libeay32.dll"
-  IfErrors 0 +2
-  File "C:\PHP\libeay32.dll"
+  File "bin\ssleay32.dll"
+  File "bin\libeay32.dll"
   SetOutPath "$INSTDIR\Phineas\console"
   File "console\"
   SetOutPath "$INSTDIR\Phineas\console\images"
@@ -196,6 +192,16 @@ SectionEnd
 Section /o "Access dB generator"
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\accessdb.vbs"
+SectionEnd
+
+Section /o "XML envelope encryptor"
+  SetOutPath "$INSTDIR\Phineas\bin"
+  File "bin\xcrypt.exe"
+SectionEnd
+
+Section /o "Phineas configuration tool"
+  SetOutPath "$INSTDIR\Phineas\bin"
+  File "bin\psetup.exe"
 SectionEnd
 
 SectionGroupEnd

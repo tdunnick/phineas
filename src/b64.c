@@ -39,8 +39,9 @@ const char b64_tab[] =
 #define B64_QUOTE '*'		/* we'll ignore this...			*/
 
 /*
- * Encode to dst.
- * For Mime messages lb (line break) should be 76
+ * Encode a buffer. dst should be at least 137% the size of src.
+ * If lb > 0, encoding has line breaks every lb characters.
+ * Returns the encoded length not including the EOS.
  */
 int b64_encode (char *dst, unsigned char *src, int len, int lb)
 {
@@ -83,9 +84,15 @@ int b64_encode (char *dst, unsigned char *src, int len, int lb)
 }
 
 /*
+ * Decode a buffer.  dst should be at least 75% the size of src,
+ * and can be the same buffer as src.
+ * Decoding stops on EOS, or a non-white/non-b64 encoding character.
+ * Returns the decoded length not including the EOS.
+ * 
  * Decoding is not optimized, but not used all that much so just
  * a simple implementation suffices.  Optimization would have to 
  * assume character set and codings (e.g. lookup table).
+ * Note dst and src can be the same buffer.
  */
 int b64_decode (unsigned char *dst, char *src)
 {

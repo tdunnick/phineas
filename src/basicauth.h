@@ -33,11 +33,13 @@
  */
 int basicauth_check (XML *xml, char *path, char *req);
 /*
- * Return an authorization required response
+ * Allocate and return an authorization required response
  */
 DBUF *basicauth_response (char *realm);
 /*
- * Build Basic authentication header in a buffer
+ * Create a basic authentication HTTP header in a buffer
+ * b is the buffer location
+ * uid and password are the authentication credentials
  */
 char *basicauth_request (char *b, char *uid, char *passwd);
 

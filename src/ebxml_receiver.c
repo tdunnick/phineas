@@ -41,11 +41,10 @@
 #include "fpoller.c"
 #include "qpoller.c"
 #include "net.c"
+#include "payload.c"
 #include "ebxml.c"
 #define UNITTEST
 #define debug _DEBUG_
-#else
-#include "ebxml.h"
 #endif
 
 #include <stdio.h>
@@ -55,6 +54,7 @@
 #include "basicauth.h"
 #include "crypt.h"
 #include "xcrypt.h"
+#include "payload.h"
 #include "ebxml.h"
 
 
@@ -138,7 +138,8 @@ int ebxml_service_map (XML *xml, char *service, char *action, char *prefix)
 }
 
 /*
- * construct a reply message
+ * allocate and construct an ebXML reply message
+ * caller should free the reply
  */
 char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
   char *status, char *error, char *appdata)
@@ -322,20 +323,19 @@ int ebxml_request_row (QUEUEROW *r, XML *soap)
  */
 char *ebxml_process_req (XML *xml, char *buf)
 {
-  int len;
-  MIME *msg, *part;
-  XML *soap, *payload;
-  QUEUEROW *r;
+  int len;			/* payload length		*/
+  MIME *msg = NULL, 		/* the request message		*/
+       *part = NULL;		/* one part of the message	*/
+  XML *soap = NULL;		/* the ebxml soap envelope	*/
+  QUEUEROW *r = NULL;		/* our audit table		*/
   FILE *fp;
   unsigned char *ch;
-  char *p,
-       prefix[MAX_PATH],
-       name[MAX_PATH];
-
-  msg = NULL;
-  soap = NULL;
-  payload = NULL;
-  r = NULL;
+  char *unc,			/* decryption informatin	*/
+       *pw,
+       dn[DNSZ],
+       prefix[MAX_PATH],	/* identifies service/action	*/
+       name[MAX_PATH],		/* payload file name		*/
+       path[MAX_PATH];		/* payload local disk path	*/
 
   info ("Begin processing ebXML request...\n");
   /*
@@ -378,7 +378,7 @@ char *ebxml_process_req (XML *xml, char *buf)
     goto done;
   }
   /*
-   * find the service map and initialize a queue entry
+   * find the service map (prefix) and initialize a queue entry
    */
   if (ebxml_service_map (xml, ebxml_get (soap, soap_hdr, "eb:Service"),
     ch, prefix) < 0)
@@ -393,7 +393,9 @@ char *ebxml_process_req (XML *xml, char *buf)
   if (r == NULL)
   {
     error ("queue not found for %s\n", ch);
-    return (NULL);
+    ch = ebxml_reply (xml, soap, NULL, "InsertFailed", 
+      "Queue not found", "none");
+    goto done;
   }
   ebxml_request_row (r, soap);
   /*
@@ -406,105 +408,42 @@ char *ebxml_process_req (XML *xml, char *buf)
       "Missing Payload Envelope", "none");
     goto done;
   }
+
   /*
    * encryption envelope
-   * first get the file name from the disposition...
    */
-  if ((ch = mime_getHeader (part, MIME_DISPOSITION)) != NULL)
-    ch = strchr (ch, '"');
-  if (ch != NULL)
-  {
-    p = ebxml_get (xml, prefix, "Directory");
-    pathf (name, "%s%s", p, ch + 1);
-    ch = name + strlen (p);
-    *strchr (ch, '"') = 0;
-    if (r != NULL)
-    {
-      queue_field_set (r, "PAYLOADNAME", ch);
-      queue_field_set (r, "LOCALFILENAME", name);
-    }
-  }
-  else
-  {
-    error ("No payload DISPOSITION\n");
-    ch = ebxml_reply (xml, soap, r, "InsertFailed",
-      "Missing Payload DISPOSITION", "none");
-    goto done;
-  }
+  unc = ebxml_get (xml, prefix, "Encryption.Unc");
+  pw = ebxml_get (xml, prefix, "Encryption.Password");
+  strcpy (dn, ebxml_get (xml, prefix, "Encryption.Id"));
+
   /*
-   * next decrypt the data... assume it is not
+   * get the payload, it's name, and DN
    */
-  queue_field_set (r, "ENCRYPTION", "no");
-  if ((ch = mime_getHeader (part, MIME_CONTENT)) == NULL)
+  if ((len = payload_process (part, &ch, name, unc, dn, pw)) < 1)
   {
-    /*
-     * use payload as is (assume text)
-     */
-    ch = (char *) malloc (len = mime_getLength (part));
-    strcpy (ch, mime_getBody (part));
+    error ("Failed processing payload - %s\n", ch);
+    ch = ebxml_reply (xml, soap, r, "InsertFailed", ch, "none");
+    goto done;
   }
-  else if (strstr (ch, MIME_XML) != NULL)
-  {
-    /*
-     * encryption envelope attached
-     */
-    if ((payload = xml_parse (mime_getBody (part))) == NULL)
-    {
-      error ("Failed to parse PAYLOAD envelope\n");
-      ch = ebxml_reply (xml, soap, r, "InsertFailed",
-        "Malformed Payload", "none");
-      goto done;
-    }
-    /*
-     * decode payload
-     */
-    len = xcrypt_decrypt (payload, &ch,
-      ebxml_get (xml, prefix, "Encryption.Unc"),
-      ebxml_get (xml, prefix, "Encryption.Id"),
-      ebxml_get (xml, prefix, "Encryption.Password"));
-    queue_field_set (r, "ENCRYPTION", "yes");
-    info ("ebXML payload decryption successful\n");
-  }
-  else if (strstr (ch, MIME_OCTET) != NULL)
-  {
-    if (((ch = mime_getHeader (part, MIME_ENCODING)) != NULL)
-      && (strstarts (ch, "base64\r\n")))
-    {
-      /*
-       * base64 decode payload
-       */
-      ch = (char *) malloc (mime_getLength (part));
-      len = b64_decode (ch, mime_getBody (part));
-    }
-    else
-    {
-      error ("Unknown encoding '%s' for payload\n", ch);
-      ch = ebxml_reply (xml, soap, r, "InsertFailed",
-        "Unknown Payload Encoding", "none");
-      goto done;
-    }
-  }
+
+  /*
+   * prepare to write it to disk
+   */
+  pathf (path, "%s%s",  ebxml_get (xml, prefix, "Directory"), name);
+  queue_field_set (r, "PAYLOADNAME", name);
+  queue_field_set (r, "LOCALFILENAME", path);
+  if (mime_getHeader (part, MIME_CONTENT) == NULL)
+    queue_field_set (r, "ENCRYPTION", "no");
   else
-  {
-    error ("Unsupported payload Content-Type: %s\n", ch);
-    ch = ebxml_reply (xml, soap, r, "InsertFailed",
-      "Unsuppported Payload Content Type", "none");
-    goto done;
-  }
-  if ((len < 1) || (ch == NULL))
-  {
-    ch = ebxml_reply (xml, soap, r, "InsertFailed",
-      "Can't decrypt payload", "none");
-    goto done;
-  }
+    queue_field_set (r, "ENCRYPTION", "yes");
   /*
    * TODO save payload to disk using filter if given
    */
-  info ("Writing ebXML payload to %s\n", name);
-  if ((fp = fopen (name, "wb")) == NULL)
+  info ("Writing ebXML payload to %s\n", path);
+  if ((fp = fopen (path, "wb")) == NULL)
   {
-    free (ch);
     error ("Can't open %s for write\n", name);
+    free (ch);
     ch = ebxml_reply (xml, soap, r, "InsertFailed",
       "Can not save file", "none");
     goto done;
@@ -512,6 +451,7 @@ char *ebxml_process_req (XML *xml, char *buf)
   fwrite (ch, 1, len, fp);
   fclose (fp);
   free (ch);
+
   /*
    * construct a reply and insert a queue entry
    */
@@ -527,8 +467,6 @@ done:
   }
   if (soap != NULL)
     xml_free (soap);
-  if (payload != NULL)
-    xml_free (payload);
   if (msg != NULL)
     mime_free (msg);
   debug ("ebXML reply: %s\n", ch);

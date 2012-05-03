@@ -46,6 +46,7 @@
 #include "fpoller.c"
 #include "qpoller.c"
 #include "net.c"
+#include "payload.c"
 #include "ebxml.c"
 #define UNITTEST
 #define debug _DEBUG_
@@ -58,6 +59,7 @@
 #include "basicauth.h"
 #include "crypt.h"
 #include "xcrypt.h"
+#include "payload.h"
 #include "ebxml.h"
 
 
@@ -197,9 +199,12 @@ MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
   int l;
   XML *exml;
   MIME *msg;
-  char *ch,
-       *pid,
+  char *pid,
        *b,			/* buffer for payload		*/
+       *type,
+       *unc = NULL,		/* encryption info		*/
+       *pw = NULL,
+       dn[DNSZ],
        *organization,
        prefix[MAX_PATH],
        buf[MAX_PATH],
@@ -218,50 +223,18 @@ MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
     return (NULL);
   }
 
-  msg = mime_alloc ();
-  ch = ebxml_get (xml, prefix, "Encryption.Type");
-  sprintf (buf, "<%s@%s>", basename (fname),
-    xml_get_text (xml, "Phineas.Organization"));
-  mime_setHeader (msg, MIME_CONTENTID, buf, 0);
-  if ((ch == NULL) || (*ch == 0))	/* not encrypted		*/
+  organization = xml_get_text (xml, "Phineas.Organization");
+  type = ebxml_get (xml, prefix, "Encryption.Type");
+  if ((type != NULL) && *type)	/* encrypted			*/
   {
-    debug ("no encryption... plain payload\n");
-    mime_setHeader (msg, MIME_CONTENT, MIME_OCTET, 99);
-    mime_setHeader (msg, MIME_ENCODING, MIME_BASE64, 99);
-    /*
-     * base64 encode the payload
-     */
-    ch = b;
-    b = (char *) malloc ((int) (1.4 * l));
-    l = b64_encode (b, ch, l ,76);
-    free (ch);
-  }
-  else					/* encrypted			*/
-  {
-    char *unc, *pass, *id;
-
-    debug ("creating payload encryption xml...\n");
     unc = ebxml_get (xml, prefix, "Encryption.Unc");
-    pass = ebxml_get (xml, prefix, "Encryption.Password");
-    id = ebxml_get (xml, prefix, "Encryption.Id");
-    /* 
-     * we ignore "Phineas.EncryptionTemplate"... it's built into xcrypt
-     */
-    mime_setHeader (msg, MIME_CONTENT, MIME_XML, 99);
-    if ((exml = xcrypt_encrypt (b, l, unc, id, pass)) == NULL)
-    {
-      mime_free (msg);
-      return (NULL);
-    }
-    b = xml_format (exml);
-    l = strlen (b);
-    xml_free (exml);
-    debug ("Sender soap envelope:\n%s\n", b);
+    pw = ebxml_get (xml, prefix, "Encryption.Password");
+    strcpy (dn, ebxml_get (xml, prefix, "Encryption.Id"));
   }
-  sprintf (buf, "attachment; name=\"%s\"", basename (fname));
-  mime_setHeader (msg, MIME_DISPOSITION, buf, 99);
-  mime_setBody (msg, b, l);
+  msg = payload_create (b, l, fname, organization, unc, dn, pw);
   free (b);
+  if (msg == NULL)
+    error ("Can't create payload container for %s\n", fname);
   return (msg);
 }
 
@@ -701,61 +674,125 @@ int ebxml_parse_reply (char *reply, QUEUEROW *r)
 }
 
 /*
+ * check a reply for a redirect, and if found set the new host, port,
+ * and path to the redirected URL
+ */
+int ebxml_redirect (char *reply, char *host, int *port, char *path)
+{
+  char *ch;
+  int v;
+
+  /* get the response code 300-399 are redirects		*/
+  if ((ch = strchr (reply, ' ')) == NULL)
+    return (0);
+  v = atoi (ch);
+  if ((v < 300) || (v > 399))
+    return (0);
+  /* the location specifies a new URL				*/
+  if ((ch = strstr (reply, "Location:")) == NULL)
+    return (0);
+  /* assume port 80 and parse the URL				*/
+  ch += 10;
+  *port = 80;
+  if (!strncmp (ch, "https:", 6))
+  {
+    ch++;
+    *port = 443;
+  }
+  /* parse out the host and optional port			*/
+  ch += 7;
+  while ((*host = *ch++) != '/')
+  {
+    if (*host == ':')
+    {
+      *port = atoi (ch);
+      while (*++ch != '/');
+      break;
+    }
+    host++;
+  }
+  *host = 0;
+  /* finally parse out the path					*/
+  while ((*path = *ch++) >= ' ') path++;
+  *path = 0;
+  return (1);
+}
+
+/*
  * send a message
  */
 int ebxml_send (XML*xml, QUEUEROW *r, MIME *msg)
 {
   DBUF *b;
   NETCON *conn;
-  char *host;
+  char host[MAX_PATH];
+  char path[MAX_PATH];
   int port, route;
   SSL_CTX *ctx;
   DBUF *b;
-  char *ch, buf[MAX_PATH];
+  char *content, buf[MAX_PATH];
+
+  /* format up the message					*/
+  if ((content = mime_format (msg)) == NULL)
+  {
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
+    queue_field_set (r, "TRANSPORTSTATUS", "failed");
+    queue_field_set (r, "TRANSPORTERRORCODE", "failed formatting message");
+    return (0);
+  }
 
   /*
-   * get connection info from the r
+   * get connection info from the record route
    */
   route = ebxml_route_index (xml, queue_field_get (r, "ROUTEINFO"));
   ctx = ebxml_route_ctx (xml, route);
-  host = ebxml_route_info (xml, route, "Host");
+  strcpy (host, ebxml_route_info (xml, route, "Host"));
   port = atoi (ebxml_route_info (xml, route, "Port"));
+  strcpy (path, ebxml_route_info (xml, route, "Path"));
+
+sendmsg:
+
   debug ("opening connection socket on port %d\n", port);
   if ((conn = net_open (host, port, 0, ctx)) == NULL)
   {
     error ("failed opening connection to %s:%d\n", host, port);
     if (ctx != NULL)
       SSL_CTX_free (ctx);
+    free (content);
     return (-1);
   }
-  if ((ch = mime_format (msg)) == NULL)
-  {
-    net_close (conn);
-    if (ctx != NULL)
-      SSL_CTX_free (ctx);
-    queue_field_set (r, "PROCESSINGSTATUS", "done");
-    queue_field_set (r, "TRANSPORTSTATUS", "failed");
-    queue_field_set (r, "TRANSPORTERRORCODE", "failed formatting message");
-    return (0);
-  }
   queue_field_set (r, "MESSAGESENTTIME", ptime (NULL, buf));
-  sprintf (buf, "POST %s HTTP/1.1\r\n",
-    ebxml_route_info (xml, route, "Path"));
+  sprintf (buf, "POST %s HTTP/1.1\r\n", path);
   // ch = ebxml_beautify (ch);
   debug ("sending message...\n");
   net_write (conn, buf, strlen (buf));
-  net_write (conn, ch, strlen (ch));
+  net_write (conn, content, strlen (content));
   debug ("reading response...\n");
   b = ebxml_receive (conn);
   debug ("closing socket...\n");
   net_close (conn);
-  if (ctx != NULL)
-    SSL_CTX_free (ctx);
   if (b == NULL)
+  {
+    if (ctx != NULL)
+      SSL_CTX_free (ctx);
+    free (content);
     return (-1);
+  }
   debug ("reply was %d bytes\n%.*s\n", dbuf_size (b),
     dbuf_size (b), dbuf_getbuf (b));
 
+  /*
+   * handle redirects...
+   * note this assumes the same SSL context should be used
+   */
+  if (ebxml_redirect (dbuf_getbuf (b), host, &port, path))
+  {
+    dbuf_free (b);
+    goto sendmsg;
+  }
+
+  if (ctx != NULL)
+    SSL_CTX_free (ctx);
   if (ebxml_parse_reply (dbuf_getbuf (b), r))
   {
     queue_field_set (r, "PROCESSINGSTATUS", "done");
@@ -763,6 +800,7 @@ int ebxml_send (XML*xml, QUEUEROW *r, MIME *msg)
     queue_field_set (r, "TRANSPORTERRORCODE", "garbled reply");
   }
   dbuf_free (b);
+  free (content);
   return (0);
 }
 
@@ -826,6 +864,8 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
    */
   if ((m = ebxml_getmessage (xml, r)) == NULL)
   {
+    char buf[24];
+    queue_field_set (r, "MESSAGECREATIONTIME", ptime (NULL, buf));
     queue_field_set (r, "PROCESSINGSTATUS", "done");
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "bad message");
@@ -919,7 +959,7 @@ int main (int argc, char **argv)
     */
     else if ((m = ebxml_getmessage (xml, r)) == NULL)
       error ("can't get message\n");
-    else if (( ch = mime_format (m)) == NULL)
+    else if ((ch = mime_format (m)) == NULL)
       error ("Can't format soap containter\n");
     else
       debug ("message MIME\n%s\n", ch);

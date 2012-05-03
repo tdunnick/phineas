@@ -1,0 +1,14 @@
+Add checking to crypt.c for NULL pointers, and fixed related bugs.
+Add applink.c to appease newer OpenSSL DLL's
+Add OpenSSL DLL's to binary zip.
+Factor out MIME payload container processing to payload.c.
+Added DN checking to payload decryption.
+Improve UNITTEST in xcrypt.c.
+Fix base 64 bug in basicauth.c.
+Fix odbcq.c to adjust pop for resends,
+Update console.c to redirect browser with new URL's for delete and  resend so that refresh works as desired.
+Manage HTTP redirects in the sender.
+Closed various memory leaks in sender.
+Updated internal (source) documentation.
+
+

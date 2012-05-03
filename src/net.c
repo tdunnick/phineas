@@ -445,6 +445,34 @@ NETCON *net_close (NETCON *conn)
   return (NULL);
 }
 
+#ifdef IPV6
+/*
+ * TODO IPV6 support...
+ * example... get our host name
+ */
+char HostName[1024] = "";
+char *net_gethostname ()
+{
+  char buf[1024];
+  struct addrinfo hints, *info;
+  int result;
+
+  if (!*HostName)
+  {
+    gethostname (buf, 1023);
+    memset (&hints, 0, sizeof (hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
+  
+    if ((result = getaddrinfo (buf, "http", &hints, &info)) == 0)
+      strcpy (HostName, info->ai_canonname);
+  }
+  return (HostName);
+}
+
+#endif
+
 #ifdef UNITTEST
 
 int main (int argc, char **argv)
