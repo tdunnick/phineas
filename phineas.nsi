@@ -2,6 +2,7 @@
 ;--------------------------------
 !include nsDialogs.nsh
 !include LogicLib.nsh
+!include FileFunc.nsh
 
 ; The name of the installer
 Name "Phineas"
@@ -105,7 +106,15 @@ Section "Phineas Core (required)"
   File "OpenSSL.txt"  
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\psetup.exe"
+  SearchPath $0 "ssleay32.dll"
+  IfErrors 0 +4
+  ${GetFileVersion} $0 $1
+  StrCmp $1 "0.9.8.7" +2
   File "bin\ssleay32.dll"
+  SearchPath $0 "libeay32.dll"
+  IfErrors 0 +4
+  ${GetFileVersion} $0 $1
+  StrCmp $1 "0.9.8.7" +2
   File "bin\libeay32.dll"
   SetOutPath "$INSTDIR\Phineas\console"
   File "console\"

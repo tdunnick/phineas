@@ -102,7 +102,10 @@ XML *xcrypt_encrypt (unsigned char *data, int len,
 
 
   if ((unc == NULL) || (data == NULL) || (len < 1))
+  {
+    debug ("missing unc or data for len=%d\n", len);
     return (NULL);
+  }
  
   /*
    * first triple DES encrypt the payload and convert it to base64
@@ -229,6 +232,25 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
 
 #ifdef CMDLINE
 
+int dbuftest ()
+{
+  int n;
+  DBUF *b;
+
+  b = dbuf_alloc ();
+  if (dbuf_size (b) != 0)
+    fatal ("initial DBUF size is wrong!\n");
+  n = dbuf_printf (b, "The %s brown fox jumped over %d lazy dogs\n",
+    "quick", 27);
+  if (n != 45)
+    fatal ("expected at least 48 chars but got %d\n", n);
+  if (n != dbuf_size (b))
+    fatal ("size=%d but got %d\n", dbuf_size (b), n);
+  if (strcmp (dbuf_getbuf (b), 
+      "The quick brown fox jumped over 27 lazy dogs\n"))
+    fatal ("string mis-match: %s", dbuf_getbuf (b));
+}
+
 usagerr (char *msg)
 {
   fprintf (stderr, "ERROR: %s\nusage: xcrypt options\n"
@@ -270,6 +292,8 @@ int main (int argc, char **argv)
   LOGFILE = log_open (NULL);
 
 #ifdef __TEST__
+  log_setlevel (LOGFILE, LOG_DEBUG);
+  dbuftest ();
   keyfile = "../security/phineas.pfx";
   password = "changeit";
 #endif
@@ -360,7 +384,9 @@ nextarg:
     xml = xcrypt_encrypt (payload, len, keyfile, dn, password);
     if (xml == NULL)
       fatal ("failed encryption\n");
-    xml_write (xml, ofp);
+    if ((len = xml_write (xml, ofp)) < 1)
+      fatal ("failed writing output\n");
+    debug ("wrote %d bytes\n", len);
   }
   else
   {

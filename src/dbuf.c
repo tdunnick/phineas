@@ -103,27 +103,32 @@ int dbuf_delete (DBUF *b, int offset, int len)
 
 /* formatted append to buffer returning offset in buffer
  *
- * note documentation for vsnprintf suggests it is supposed to return
- * amount that WOULD BE used for too small a buffer... here it seems
- * to return -1 (sigh).
+ * since windows doesn't conform to the "standard" for return values
+ * from (v)snprintf, we have to add some extra code checks...
  */
 int dbuf_printf (DBUF *b, char *fmt, ...)
 {
-  int used, sz;
+  int avail, sz;
   va_list ap;
 
   SAFETY ((b == NULL) || (fmt == NULL));
-  sz = b->sz;
-  va_start (ap, fmt);
-  used = vsprintf (NULL, fmt, ap);
-  va_end (ap);
-  if (used <= 0)
-    return (-1);
-  dbuf_expand (b, used + 1);
-  b->sz += used;
-  va_start (ap, fmt);
-  vsprintf (b->buf + sz, fmt, ap);
-  va_end (ap);
+  if (*fmt == 0)
+    return (0);
+  avail = b->maxsz - b->sz - 1;
+  while (1)
+  {
+    va_start (ap, fmt);
+    sz = vsnprintf (b->buf + b->sz, b->maxsz - b->sz, fmt, ap);
+    va_end (ap);
+    if ((sz >= 0) && (sz < b->maxsz - b->sz))
+      break;
+    sz = b->maxsz << 1;
+    b->buf = (char *) realloc (b->buf, sz);
+    SAFETY (b->buf == NULL);
+    memset (b->buf + b->maxsz, 0, sz - b->maxsz);
+    b->maxsz = sz;
+  }
+  b->sz += sz;
   return (sz);
 }
 

@@ -142,7 +142,7 @@ DBUF *server_receive (NETCON *conn)
  */
 DBUF *server_respond (int code, char *fmt, ...)
 {
-  int l, len;
+  int l, len, avail;
   va_list ap;
   char *ch;
   DBUF *b;
@@ -153,10 +153,11 @@ DBUF *server_respond (int code, char *fmt, ...)
    * response is needed or allowed.
    */
   len = sprintf (buf, "<html><body>");
+  avail = 4096 - (len * 2 + 4);
   va_start (ap, fmt);
-  l = vsnprintf (buf + len, 4096-(len * 2 + 4), fmt, ap);
+  l = vsnprintf (buf + len, avail, fmt, ap);
   va_end (ap);
-  if (l > 0)
+  if ((l > 0) && (l < avail))
     len += l;
   len += sprintf (buf + len, "</body></html>");
   /*

@@ -43,6 +43,7 @@
  * internal declarations
  */
 
+char *xml_pathkey (XML *xml, char *path, char *key, int *index);
 XMLNODE *xml_node_alloc (int, char *);
 XMLNODE *xml_node_free (XMLNODE *node);
 XMLNODE *xml_node_copy (XMLNODE *node);
@@ -779,7 +780,10 @@ int xml_node_format (XMLNODE *node, DBUF *b)
 	n = -1;
     }
     if (n < 0)
+    {
+      debug ("format Error return!\n");
       return (-1);
+    }
     node = node->next;
   }
   return (dbuf_size (b));
@@ -824,38 +828,54 @@ XMLNODE *xml_root (XML *xml)
 }
 
 /*
+ * parse next key and index from path
+ * return next parse point
+ */
+char *xml_pathkey (XML *xml, char *path, char *key, int *index)
+{
+  int l;
+  char *ip, *pp;
+
+  *key = *index = l = 0;
+  if ((xml == NULL) || (path == NULL) || (key == NULL) || (index == NULL))
+    return (NULL);
+  l = xml->path_sep;
+  for (pp = path; *pp && (*pp != l); pp++);
+  l = xml->indx_sep;
+  for (ip = path; *ip && (*ip != l); ip++);
+  if (ip < pp)
+    *index = atoi (ip + 1);
+  else 
+    ip = pp;
+  if (l = ip - path)
+  {
+    strncpy (key, path, l);
+    key[l] = 0;
+  }
+  if (*pp)
+    pp++;
+  return (pp);
+}
+
+/*
  * return the node and set parent matching this name path
  */
 XMLNODE *xml_find_parent (XML *xml, char *path, XMLNODE **parent)
 {
   XMLNODE *n;
-  int c = 0;
-  char *pp, *ip;
+  int i, c = 0;
+  char key[MAX_PATH];
 
-  if (xml == NULL)
+  if ((xml == NULL) || (path == NULL))
     return (NULL);
   n = xml->doc;
   *parent = NULL;
   while (n != NULL)
   {
-    pp = strchr (path, xml->path_sep);
-    ip = strchr (path, xml->indx_sep);
-    if ((ip == NULL) || ((pp != NULL) && (ip > pp)))
-      ip = pp;
-    if (ip != NULL)
-    {
-      c = *ip;
-      *ip = 0;
-      n = xml_node_find (n, path, ip == pp ? 0 : atoi (ip + 1));
-      *ip = c;
-      if (pp != NULL)
-        path = pp + 1;
-    }
-    else
-    {
-      n = xml_node_find (n, path, 0);
-    }
-    if ((pp == NULL) || (pp[1] == 0))
+    path = xml_pathkey (xml, path, key, &i);
+    if (*key != 0)
+      n = xml_node_find (n, key, i);
+    if (*path == 0)
       return (n);
     if (n != NULL)
     {
@@ -884,48 +904,36 @@ XMLNODE *xml_find (XML *xml, char *path)
 XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent)
 {
   XMLNODE *n, **p;
-  int c = 0, index;
-  char *pp, *ip;
+  int c = 0, i;
+  char key[MAX_PATH];
 
+  if ((xml == NULL) || (path == NULL))
+    return (NULL);
   p = &xml->doc;
   if (parent != NULL)
     *parent = NULL;
+  n = NULL;
   while (1)
   {
-    pp = strchr (path, xml->path_sep);
-    ip = strchr (path, xml->indx_sep);
-    if ((ip == NULL) || ((pp != NULL) && (ip > pp)))
-      ip = pp;
-    if (ip != NULL)
-    {
-      c = *ip;
-      *ip = 0;
-      index = atoi (ip + 1);
-    }
-    else
-    {
-      index = 0;
-    }
-    while ((n = xml_node_find (*p, path, index)) == NULL)
+    path = xml_pathkey (xml, path, key, &i);
+    if (*key == 0)
+      break;
+    while ((n = xml_node_find (*p, key, i)) == NULL)
     {
       if ((p == &xml->doc) && (xml_root (xml) != NULL))
       {
         debug ("trying to force new root!\n");
         return (NULL);
       }
-      n = xml_node_alloc (XML_ELEMENT, path);
+      n = xml_node_alloc (XML_ELEMENT, key);
       *p = xml_node_insert (*p, NULL, n);
     }
-    if (ip != NULL)
-      *ip = c;
-    if (pp == NULL)
-      break;
-    path = pp + 1;
-    if (parent != NULL)
+    if (*path && (parent != NULL))
       *parent = n;
     p = (XMLNODE **) &n->value;
   } 
-  debug ("forced parent node '%s' for '%s'\n", (*p)->key, n->key);
+  debug ("forced node '%s' parent='%s'\n", n->key,
+    ((parent == NULL) || (*parent == NULL)) ? "NULL" : (*parent)->key); 
   return (n);
 }
 
@@ -1238,7 +1246,9 @@ int xml_pathadd (XML *xml, char *path, int index, char *key)
       xml->indx_sep, index);
   else
     l = snprintf (path, MAX_PATH - len, "%c%s", xml->path_sep, key);
-  return (l > 2 ? len + l : -1);
+  if ((l < 1) || (l >= MAX_PATH - len))
+    return (-1);
+  return (len + l);
 }
 
 /*
@@ -1452,11 +1462,13 @@ char *xml_format (XML *xml)
 
 /*
  * write xml to a stream
+ * return number of bytes written
  */
 
 int xml_write (XML *xml, FILE *fp)
 {
   DBUF *b;
+  int n;
 
   if (xml == NULL)
   {
@@ -1465,27 +1477,29 @@ int xml_write (XML *xml, FILE *fp)
   } 
   b = dbuf_alloc ();
   xml_declare (xml);
-  xml_node_format (xml->doc, b);
-  fwrite (dbuf_getbuf(b), 1, dbuf_size (b), fp);
+  n = xml_node_format (xml->doc, b);
+  if (fwrite (dbuf_getbuf(b), sizeof (char), n, fp) != n)
+    n = -1;
   dbuf_free (b);
-  return (0);
+  return (n);
 }
 
 /*
  * save a document to a file
+ * return 0 if successful
  */
 int xml_save (XML *xml, char *filename)
 {
   FILE *fp;
-  int failed;
+  int sz;
 
   if ((fp = fopen (filename, "w")) == NULL)
     return (-1);
-  failed = xml_write (xml, fp);
+  sz = xml_write (xml, fp);
   fclose (fp);
-  if (failed)
+  if (sz < 1)
     unlink (filename);
-  return (failed);
+  return (sz < 1);
 }
 
 /*
@@ -1637,6 +1651,7 @@ scratch:
   xml_add (x, "foo.bar[1].crap", "<junk>second junk</junk>", 1);
   debug ("added all crap\n");
   ch = xml_get (x, "foo.bar.stuff[2]");
+  debug ("got %s\n", ch);
   if (strcmp (ch, "third stuff"))
     printf ("failed lookup - got '%s'\n", ch);
   ch2 = xml_get_text (x, "foo.bar.stuff[2]");

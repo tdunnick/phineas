@@ -285,7 +285,7 @@ char *pathf (char *dst, char *fmt, ...)
   va_start (ap, fmt);
   l = vsnprintf (dst, MAX_PATH, fmt, ap);
   va_end (ap);
-  if ((l < 0) || (fixpath (dst) < 0))
+  if ((l < 0) || (l >= MAX_PATH) || (fixpath (dst) < 0))
     return (NULL);
   return (dst);
 }

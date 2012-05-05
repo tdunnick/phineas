@@ -103,8 +103,10 @@ char *odbcq_error (char *dst, int sz, SQLHANDLE handle, SQLSMALLINT type)
       &native, text, sizeof(text), &l);
     if (SQL_SUCCEEDED (ret))
     {
-      len += snprintf (dst + len, sz - len,
+      l = snprintf (dst + len, sz - len,
 	"\t%s:%ld:%ld:%s\n", state, i, native, text);
+      if ((l >= 0) && (l < sz - len))
+	len += l;
     }
     else 
     {

@@ -1,0 +1,1 @@
+Fixed bugs due to Windows 7 not implementing the standard return value for (v)snprintf, and added path parsing function to xml.c.

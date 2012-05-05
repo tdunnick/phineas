@@ -56,18 +56,21 @@
 char *crypt_X509_dn (X509 *cert, char *dn, int len)
 {
   int i;
-  char buf[1024], *list[8], *ch, *p;
+  char buf[DNSZ], *list[20], *ch, *p;
   X509_NAME *subject;
 
   if ((cert == NULL) || (dn == NULL))
+  {
+    debug ("cert or dn is NULL\n");
     return (NULL);
+  }
   if ((subject = X509_get_subject_name(cert)) == NULL)
   {
     error ("Can't get subject\n");
     return (NULL);
   }
   /* get the DN from the subject */
-  X509_NAME_oneline (subject, buf, len);
+  X509_NAME_oneline (subject, buf, DNSZ);
   i = 0;
   for (ch = buf; ch != NULL; ch = strchr (ch, '/'))
   {
@@ -75,7 +78,13 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
     for (p = ch; *p && (*p != '='); p++)
       *p = toupper (*p);
     list[i++] = ch;
+    if (i == 20)
+    {
+      error ("More than 20 items in certificate subject\n");
+      break;
+    }
   }
+  debug ("found %d subject items\n", i);
   strcpy (ch = dn, list[--i]);
   while (i--)
   {
@@ -85,6 +94,7 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
     strcpy (ch, ", ");
     strcpy (ch + 2, list[i]);
   }
+  debug ("DN=%s\n", dn);
   return (dn);
 }
 
@@ -113,16 +123,19 @@ X509 *crypt_get_X509 (char *unc, char *passwd)
     error ("Can't open certificate %s - %s\n", unc, strerror (errno));
     return (NULL);
   }
+  debug ("trying PEM certificate\n");
   /* try reading as a PEM encoded certificate */
   if ((cert = PEM_read_X509 (fp, NULL, NULL, passwd)) == NULL)
   {
     /* if that failed try reading as a DER encoded certificate */
     rewind (fp);
+    debug ("trying DER certificate\n");
     cert = d2i_X509_fp (fp, NULL);
     /* if that failed try reading as a PKCS12 store */
     if (cert == NULL)
     {
       rewind (fp);
+      debug ("trying PKCS12 certificate\n");
       if ((p12 = d2i_PKCS12_fp (fp, NULL)) != NULL)
       {
         PKCS12_parse (p12, passwd, NULL, &cert, NULL);
@@ -156,15 +169,18 @@ EVP_PKEY *crypt_get_pkey (char *name, char *passwd)
     error ("can't open key file %s\n", name);
     return (NULL);
   }
+  debug ("trying PEM key\n");
   if ((key = PEM_read_PrivateKey (fp, NULL, NULL, passwd)) == NULL)
   {
     /* if that failed try reading as a DER encoded key */
     rewind (fp);
+    debug ("trying DER key\n");
     key = d2i_PrivateKey_fp (fp, NULL);
     /* if that failed try reading as a PKCS12 store */
     if (key == NULL)
     {
       rewind (fp);
+      debug ("trying PKCS12 key\n");
       if ((p12 = d2i_PKCS12_fp (fp, NULL)) != NULL)
       {
         if (!PKCS12_parse (p12, passwd, &key, NULL, NULL))

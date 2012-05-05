@@ -28,7 +28,7 @@
 #include "ebxml.h"
 
 #ifndef VERSION
-#define VERSION "0.5a 05/02/2012"
+#define VERSION "0.5b 05/06/2012"
 #endif
 
 #ifdef __SENDER__
