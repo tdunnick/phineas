@@ -26,9 +26,10 @@
 #include "fpoller.h"
 #include "qpoller.h"
 #include "ebxml.h"
+#include "xcrypt.h"
 
 #ifndef VERSION
-#define VERSION "0.5b 05/06/2012"
+#define VERSION "0.5c 05/20/2012"
 #endif
 
 #ifdef __SENDER__
@@ -45,7 +46,7 @@ char Software[] = "PHINEAS " VERSION;
 
 #define SLEEP_TIME 1000
 
-#ifndef CMDLINE
+#ifndef COMMAND
 char ClassName[20];
 #define THIS_CLASSNAME ClassName
 #define THIS_TITLE Software
@@ -62,6 +63,54 @@ char LogName[MAX_PATH];
 char ConfigName[MAX_PATH];
 XML *Config;
 TASKQ *Taskq = NULL;
+
+/* used for configuration encryption				*/
+char *ConfigCert =  NULL;
+char *ConfigPass =  NULL;
+int ConfigAlgorithm = TRIPLEDES;
+
+/*
+ * load a configuration, decrypting it if credentials found
+ */
+XML *phineas_load (char *path)
+{
+  XML *xml;
+  
+  xml = xml_load (path);
+  if (xml_find (xml, "Phineas") == NULL)
+  {
+    unsigned char *p;
+    xcrypt_decrypt (xml, &p, ConfigCert, NULL, ConfigPass);
+    xml_free (xml);
+    xml = xml_parse (p);
+    free (p);
+  }
+  return (xml);
+}
+
+/*
+ * save a configuration, encrypting it if credentials found
+ */
+int phineas_save (XML *xml, char *path)
+{
+  int r;
+  XML *x;
+
+  x = xml;
+  if ((ConfigCert != NULL) || (ConfigPass != NULL))
+  {
+    unsigned char *p;
+
+    p = xml_format (xml);
+    x = xcrypt_encrypt (p, strlen (p) + 1, ConfigCert, NULL, 
+      ConfigPass, AES256);
+    free (p);
+  }
+  r = xml_save (x, path);
+  if (x != xml)
+    xml_free (x);
+  return (r);
+}
 
 /*
  * return true if server is running or starting
@@ -106,13 +155,29 @@ int phineas_fatal (char *fmt, ...)
   vsprintf (buf + 13, fmt, ap); 
   va_end (ap);
   phineas_stop ();
-#ifdef CMDLINE
-    fputs (buf, stderr);
+#ifdef COMMAND
+  fputs (buf, stderr);
 #else
- MessageBox (NULL, buf, Software, MB_OK);
- SendMessage (FindWindow (THIS_CLASSNAME, THIS_TITLE), WM_CLOSE, 0, 0 );
+  MessageBox (NULL, buf, Software, MB_OK);
+  SendMessage (FindWindow (THIS_CLASSNAME, THIS_TITLE), WM_CLOSE, 0, 0 );
 #endif
   return (-1);
+}
+
+/*
+ * complain about the command line use
+ */
+phineas_usage (char *msg)
+{
+  return (phineas_fatal ("usage error at '%s'\n"
+    "options are...\n"
+    "\t-des3       triple DES encryption for configuration\n"
+    "\t-aes123     128 bit AES encryption for configuration\n"
+    "\t-aes192     192 bit AES encryption for configuration\n"
+    "\t-aes256     256 bit AES encryption for configuration\n"
+    "\t-p <passwd> <passwd> for for configuration encryption\n"
+    "\t-c <cert>   <cert> (keyfile) for configuration encryption\n"
+    "\t<config>    <config> is the configuration file\n", msg));
 }
 
 /*
@@ -131,7 +196,36 @@ int phineas_start (int argc, char **argv)
   *ConfigName = 0;
   for (i = 1; i < argc; i++)
   {
-    if (argv[i][0] != '-')
+    if (argv[i][0] == '-') switch (argv[i][1])
+    {
+      case 'p' :	/* password				*/
+	if (++i < argc)
+	{
+          ConfigPass = realloc (ConfigPass, strlen (argv[i]));
+          strcpy (ConfigPass, argv[i] + 1);
+	  break;
+	}
+      case 'c' :	/* certificate				*/
+	if (++i < argc)
+	{
+          ConfigCert = realloc (ConfigCert, strlen (argv[i]));
+          strcpy (ConfigCert, argv[i] + 1);
+	  break;
+	}
+      default :		
+	if (strcmp (argv[i], "-des3") == 0)
+	  ConfigAlgorithm = TRIPLEDES;
+	else if (strcmp (argv[i], "-aes128") == 0)
+	  ConfigAlgorithm = AES128;
+	else if (strcmp (argv[i], "-aes192") == 0)
+	  ConfigAlgorithm = AES192;
+	else if (strcmp (argv[i], "-aes256") == 0)
+	  ConfigAlgorithm = AES256;
+	else
+	  return (phineas_usage (argv[i]));
+	break;
+    }
+    else 
     {
       strcpy (ConfigName, argv[i]);
     }
@@ -140,7 +234,7 @@ int phineas_start (int argc, char **argv)
   {
     pathf (ConfigName, "Phineas.xml");
   }
-  if ((Config = xml_load (ConfigName)) == NULL)
+  if ((Config = phineas_load (ConfigName)) == NULL)
   {
     return (phineas_fatal ("Can't load configuration file %s", 
 	ConfigName));
@@ -415,7 +509,7 @@ void main ()
 
 #endif /* SERVICE */
 
-#ifdef CMDLINE
+#ifdef COMMAND
 
 /*
  * signal handler for exiting the server
@@ -626,7 +720,7 @@ int w_start ()
     cmd = w_getarg (buf, cmd);
     if (*buf == 0)
       break;
-    argv[argc] = dbuf_getbuf (b);
+    argv[argc] = dbuf_getbuf (b) + dbuf_size (b);
     dbuf_write (b, buf, strlen (buf) + 1);
   }
   e = phineas_start (argc, argv);
@@ -961,4 +1055,4 @@ HICON w_loadFileIcon (char *fname, int h, int w)
   return LoadImage (NULL, fname, IMAGE_ICON, h, w, LR_LOADFROMFILE);
 }
 #endif /* !SERVICE */
-#endif /* !CMDLINE */
+#endif /* !COMMAND */

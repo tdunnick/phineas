@@ -170,6 +170,7 @@ unsigned char *readfile (char *path, int *l)
   FILE *fp;
   unsigned char *buf;
 
+  *l = 0;
   if ((fp = fopen (path, "rb")) == NULL)
     return (NULL);
   buf = readstream (fp, l);
@@ -311,6 +312,20 @@ int tohex (int c)
   if (c < 10)
     return (c + '0');
   return (c - 10 + 'A');
+}
+
+/*
+ * docode hex characters to a binary buffer
+ * return binary length
+ */
+int hex_decode (unsigned char *dst, char *src)
+{
+  unsigned char *p;
+
+  p = dst;
+  while (isxdigit (src[0]) && isxdigit (src[1]))
+    *p++ = gethex (*src++) << 4 | gethex (*src++);
+  return (p - dst);
 }
 
 /*

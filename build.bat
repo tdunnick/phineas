@@ -49,6 +49,7 @@ REM build targets
 IF "%1" == "sender" GOTO :sender
 IF "%1" == "receiver" GOTO :receiver
 IF "%1" == "phineas" GOTO :phineas
+IF "%1" == "command" GOTO :command
 IF "%1" == "service" GOTO :service
 IF "%1" == "cpa" GOTO :cpa
 IF "%1" == "xmlb" GOTO :xmlb
@@ -57,6 +58,7 @@ IF "%1" == "psetup" GOTO :psetup
 IF "%1" == "xcrypt" GOTO :xcrypt
 IF "%1" == "isapi" GOTO :isapi
 IF "%1" == "run" GOTO :run
+IF "%1" == "clean" GOTO :clean
 REM our default build
 IF "%1" == "all" GOTO :all
 IF "%TARGET%." == "." ECHO Unknown target %1
@@ -78,6 +80,13 @@ REM build a tranceiver
 :phineas
 SET TARGET=phineas
 SET BLD=-D__RECEIVER__ -D__SENDER__ %DEFS% %SRC% ^
+  main.c icon.o
+GOTO :build
+
+REM build a tranceiver (command line)
+:command
+SET TARGET=phineasc
+SET BLD=-DCOMMAND -D__RECEIVER__ -D__SENDER__ %DEFS% %SRC% ^
   main.c icon.o
 GOTO :build
 
@@ -132,12 +141,17 @@ REM build an ISAPI dll
 :isapi
 GOTO :eof
 
+REM clean out bin
+:clean
+DEL bin\*.def > nul 2>&1
+FOR %%f IN (bin\*.xml.*) DO IF NOT %%f==bin\Phineas.xml DEL %%f
+GOTO :eof
+
 REM build all artifacts
 :all
 CALL :genicon
-CALL :sender
-CALL :receiver
 CALL :phineas
+CALL :command
 CALL :service
 CALL :cpa
 CALL :xmlb
@@ -145,6 +159,7 @@ CALL :isapi
 CALL :chelp
 CALL :psetup
 CALL :xcrypt
+CALL :clean
 GOTO :eof
 
 REM generate our icon resource using MinGW (wish tinyc had this!)

@@ -25,6 +25,7 @@
 #define UNITTEST
 #define debug _DEBUG_
 #else
+#include "util.h"
 #include "log.h"
 #endif
 #include "crypt.h"
@@ -35,6 +36,11 @@
 
 /*
  * Get a distinguished name from an X509 subject.
+ *
+ * cert X509 certificate
+ * dn buffer for name
+ * len buffer size
+ * returns pointer to the dn
  *
  * We could do this explicitly...
  *  char *sn_list[] =
@@ -52,6 +58,9 @@
  * Instead we'll just reverse the one line, changing the slashes to commas.
  * PHINMS (Java?) also folds everything to uppercase on the left side
  * of the '=', in particular the emailAddress.
+ *
+ * Note we limit the total number of subject items to 20 (there should 
+ * only be 8!) and limit the total size of the dn to DNSZ.
  */
 char *crypt_X509_dn (X509 *cert, char *dn, int len)
 {
@@ -101,6 +110,10 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
 /*
  * Get a certificate at location unc.  
  *
+ * unc path to certificate
+ * passwd password to read if needed
+ * return X509 certificate or NULL if fails
+ *
  * Trys PEM, DER, and finally PKCS12 formats coded certificates.
  *
  * PEM_read_X509 (fp, x, cb, u)
@@ -109,7 +122,6 @@ char *crypt_X509_dn (X509 *cert, char *dn, int len)
  * cb = call back for password
  * u = void * - the password or phrase
  */
-
 X509 *crypt_get_X509 (char *unc, char *passwd)
 {
   PKCS12 *p12;
@@ -154,6 +166,11 @@ X509 *crypt_get_X509 (char *unc, char *passwd)
 
 /*
  * Get the private at the location specified.
+ *
+ * name name of the certificate file
+ * passwd needed to decrypt if necessary
+ * return the private key.
+ *
  * Trys PEM, DER, and finally PKCS12 formats coded certificates.
  */
 EVP_PKEY *crypt_get_pkey (char *name, char *passwd)
@@ -200,6 +217,11 @@ EVP_PKEY *crypt_get_pkey (char *name, char *passwd)
 
 /*
  * Asymetric encryption using PEM X509 certificate public key.
+ *
+ * cert X509 certificate with public key
+ * enc buffer for encrypted data
+ * plain buffer for plain data
+ * len of plain data
  * Return the encrypted length.
  */
 int crypt_X509_encrypt (X509 *cert, char *enc, char *plain, int len)
@@ -222,9 +244,14 @@ int crypt_X509_encrypt (X509 *cert, char *enc, char *plain, int len)
 
 /*
  * Public key encryption from a certificate location.  The certificate
- * is located at unc. If dn is given, use it to find the cert.  Otherwise
- * fill it in with the subject (DN) of the certificate (it should have 
- * DNSZ len).  Return the encrypted length.
+ *
+ * unc location of certificate
+ * passwd password used to access certificate if encrypted
+ * dn DNSZ buffer for distinguished name found on the certificate
+ * enc buffer for encrypted data
+ * plain buffer for plain data
+ * len length of plain data
+ * returns length of encrypted data.
  */
 int crypt_pk_encrypt (char *unc, char *passwd, char *dn,
   char *enc, char *plain, int len)
@@ -241,8 +268,13 @@ int crypt_pk_encrypt (char *unc, char *passwd, char *dn,
 }
 
 /*
- * Asymetric private key decryption using a key file.  Return the decrypted
- * length.
+ * Asymetric private key decryption using a key file.  
+ *
+ * keyname name of private key file
+ * passwd password for private key file
+ * plain buffer for decrypted data
+ * enc buffer for encrypted data
+ * returns length of plain data
  */
 int crypt_pk_decrypt (char *keyname, char *passwd, char *plain, char *enc)
 {
@@ -257,110 +289,317 @@ int crypt_pk_decrypt (char *keyname, char *passwd, char *plain, char *enc)
 }
 
 /*
- * generate key for DES3 cypher
+ * returns EVP encryption cipher
+ * how one of the encryption algorithms in crypt.h
  */
-DESKEY crypt_des3_keygen (DESKEY key)
+const EVP_CIPHER *crypt_cipher (int how)
 {
-  DES_cblock *k;
-  int i;
-
-  k = (DES_cblock *) key;
-  for (i = 0; i < 3; i++)
+  typedef const EVP_CIPHER *(*CIPHERP)(void);
+  CIPHERP c[] =
   {
-    DES_random_key (k);
-    k++;
+     NULL, 
+     EVP_des_ede3_cbc, 
+     EVP_aes_128_cbc, 
+     EVP_aes_192_cbc, 
+     EVP_aes_256_cbc
+  };
+
+  if ((how < FIRSTCIPHER) || (how > LASTCIPHER))
+    return (NULL);
+  return ((c[how])());
+}
+
+/* 
+ * returns size of encryption key
+ * how one of the encryption algorithms in crypt.h
+ */
+int crypt_keylen (int how)
+{
+  int keylen[] = { 0, 24, 16, 24, 32 };
+  if ((how < FIRSTCIPHER) || (how > LASTCIPHER))
+    return (0);
+  return (keylen[how]);
+}
+
+/*
+ * returns size of encryption block
+ * how one of the encryption algorithms in crypt.h
+ */
+int crypt_blocksz (int how)
+{
+  if ((how < FIRSTCIPHER) || (how > LASTCIPHER))
+    return (0);
+  if (how == TRIPLEDES)
+    return (8);
+  return (16);
+}
+
+/*
+ * initialize randomizer if needed
+ */
+void crypt_random ()
+{
+  time_t t;
+  if (!RAND_status ())
+  {
+    debug ("seeding RAND_\n");
+    time (&t);
+    RAND_seed (ctime (&t), 26);
   }
-  return (key);
 }
 
 /*
- * Encrypt len bytes in plain to enc assigning key.  enc and plain may
- * point to the same buffer, but must be len + 2 * sizeof (DES_cblock)
- * in size.  Return the encrypted length.
- *
- * Note the salt is pre-pended to plain and should be removed on decryption.
- * Also padding is added to the end to enforce blocking requirements
- * of the cypher.  The character used is the pad length.
+ * generate an initial vector
+ * iv is vector destination
+ * how one of the encryption algorithms in crypt.h
+ * return vector size
  */
-
-int crypt_des3_encrypt (unsigned char *enc, DESKEY key,
-    unsigned char *plain, int len)
+int crypt_iv (unsigned char *iv, int how)
 {
-  int i;
-  DES_cblock *k, salt;
-  DES_key_schedule ks[3];
-  unsigned char *p;
+  int len;
 
-  DES_random_key (&salt);
-  crypt_des3_keygen (key);
-  k = (DES_cblock *) key;
-  for (i = 0; i < 3; i++)
-    DES_set_key_checked (k + i, ks + i);
-  p = (unsigned char *) malloc (len + sizeof (DES_cblock) * 2);
-  /*
-   * add salt to the front
-   */
-  memcpy (p, &salt, sizeof (DES_cblock));
-  memcpy (p + sizeof (DES_cblock), plain, len);
-  len += sizeof (DES_cblock);
-  /*
-   * pad it to block size
-   */
-  i = sizeof (DES_cblock) - len % sizeof (DES_cblock);
-  memset (p + len, i, i);
-  len += i;
-  /*
-   * encrypt it
-   */
-  DES_ede3_cbc_encrypt(p, enc, len, 
-    ks, ks + 1, ks + 2, &salt, DES_ENCRYPT);
-  free (p);
+  if (len = crypt_blocksz (how))
+  {
+    crypt_random ();
+    RAND_bytes (iv, len);
+  }
   return (len);
 }
 
 /*
- * Decrypt len bytes in enc to plain using key. enc and plain may be
- * the same buffer.  Return the decrypted length.
- *
- * Note the salt was pre-pended to plain and removed on decryption,
- * as is the end block padding.
+ * sets parity for a DES key 
  */
-
-int crypt_des3_decrypt (unsigned char *plain, DESKEY key,
-    unsigned char *enc, int len)
+void crypt_parity (unsigned char *key)
 {
-  int i, sz;
-  unsigned char *ep;
-  DES_cblock *k, salt;
-  DES_key_schedule ks[3];
-  unsigned char *p;
+  int k, b, p;
 
-  memset (&salt, 0, sizeof (DES_cblock));
-  k = (DES_cblock *) key;
-  for (i = 0; i < 3; i++)
-    DES_set_key_checked (k + i, ks + i);
-  ep = enc;
-  DES_ede3_cbc_encrypt (ep, ep, len, ks, ks + 1, ks + 2, 
-    &salt, DES_DECRYPT) - sizeof (DES_cblock);
-  len -= sizeof (DES_cblock);
-  /*
-   * remove salt and padding
-   */
-  memmove (plain, enc + sizeof (DES_cblock), len);
-  len -= plain[len-1];
+  for (k = 0; k < 24; k++)
+  {
+    p = 1;				/* assume odd parity		*/
+    for (b = 0x80; b > 1; b >>= 1)
+    {
+      if (key[k] & b)
+        p = !p;
+    }
+    if (p)
+      key[k] |= 1;
+    else
+      key[k] &= 0xfe;			/* reset parity bit		*/
+  }
+}
+
+/*
+ * generate a cyptographic key
+ *
+ * key 32 byte buffer for encryption key 
+ * how one of the encryption algorithms in crypt.h
+ * returns key length
+ */
+int crypt_key (unsigned char *key, int how)
+{
+  int klen;
+
+  if ((klen = crypt_keylen (how)) == 0)
+    return (0);
+
+  crypt_random ();
+  RAND_bytes (key, klen);
+  if (how == TRIPLEDES)			/* set key parity bits		*/
+    crypt_parity (key);
+  return (klen);
+}
+
+/*
+ * generate a password based key for encryption use
+ *
+ * key generated key
+ * pw password
+ * salt 8 byte buffer for perturbing the key - may be NULL
+ * how one of the encryption algorithms in crypt.h
+ * returns key length
+ */
+int crypt_pbkey (unsigned char *key, char *pw, char *salt, int how)
+{
+  int len;
+  const EVP_CIPHER *type;
+  unsigned char iv[32];		/* we throw this away		*/
+
+  if ((type = crypt_cipher (how)) == NULL)
+    return (0);
+  len =  EVP_BytesToKey (type, EVP_sha1(), salt, pw, strlen (pw),
+      5, key, iv);
+  if (how == TRIPLEDES)
+    crypt_parity (key);
   return (len);
+}
+
+/*
+ * read binary, hex, or base 64 encoded symetric key from a file
+ *
+ * key 32 byte buffer for encryption key 
+ * unc path to file
+ * return it's length or 0 if not valid key
+ *
+ * First try hex encoded, then base 64, and finally binary.  Test
+ * for whether we have a key by looking at the derived key length
+ * to see if it "fits" one of our algorithms. We have to fudge a bit
+ * on the parse in order to accomodate extraneous trailing stuff
+ * like CR/LF pairs. This is of course not fool proof, but hopefully 
+ * good enough.
+ */
+#define ISKEY(len) ((len==16)||(len==24)||(len==32))
+
+int crypt_fkey (unsigned char *key, char *unc)
+{
+  unsigned char *ch;
+  int l, len;
+
+  if ((key == NULL) || (unc == NULL))
+    return (0);
+  ch = readfile (unc, &len);
+  debug ("read %d from %s\n", len, unc);
+  if (len > SKEYSZ * 3)		/* that is just too much crap	*/
+    return (0);
+  l = hex_decode (key, ch);	/* try hex			*/
+  if (!ISKEY (l))
+  {
+    l = b64_decode (key, ch);	/* then base 64			*/
+    if (!ISKEY (l))
+    {
+      if (ISKEY (len))		/* binary must be perfect size	*/
+	memcpy (key, ch, l = len);
+      else
+	l = 0;
+    }
+  }
+  free (ch);
+  return (l);
+}
+
+/*
+ * general purpose EVP based crypto function
+ *
+ * dst destination data (may be same a src)
+ * src source data
+ * key encryption key
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * encrypt encrypts when true, decrypts when false
+ * returns length of dst buffer
+ */
+int crypt_copy (unsigned char *dst, unsigned char *src,
+    unsigned char *key, int len, int how, int encrypt)
+{
+  EVP_CIPHER_CTX ctx;
+  const EVP_CIPHER *cipher;
+  unsigned char *s, *d, iv[16];
+  int l, blocksz;
+
+  if ((cipher = crypt_cipher (how)) == NULL)
+    return (0);
+
+  blocksz = crypt_blocksz (how);
+  s = (unsigned char *) malloc (len + blocksz * 2);
+  if (encrypt)
+  {
+    crypt_iv (iv, how);
+    memcpy (s, iv, blocksz);
+    memcpy (s + blocksz, src, len);
+    len += blocksz;
+    d = dst;
+  }
+  else
+  {
+    d = s;
+    s = src;
+  }
+
+  debug ("initializing cipher\n");
+  EVP_CIPHER_CTX_init (&ctx);
+  EVP_CipherInit (&ctx, cipher, key, iv, encrypt);
+  debug ("running cipher\n");
+  EVP_CipherUpdate (&ctx, d, &l, s, len);
+  len = l;
+  EVP_CipherFinal (&ctx, d + len, &l);
+  len += l;
+  debug ("cleaning up final len=%d\n", len);
+  EVP_CIPHER_CTX_cleanup (&ctx);
+  if (!encrypt) 		/* remove the iv		*/
+  {
+    len -= blocksz;
+    memcpy (dst, d + blocksz, len);
+    s = d;
+  }
+  free (s);
+  return (len);
+}
+
+/*
+ * general purpose EVP based encryption
+ *
+ * enc encrypted data (may be same a plain)
+ * plain data to be encrypted
+ * key encryption key generated by call
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * returns length of dst buffer
+ */
+int crypt_encrypt (unsigned char *enc, unsigned char *plain,
+    unsigned char *key, int len, int how)
+{
+  crypt_key (key, how);
+  return (crypt_copy (enc, plain, key, len, how, 1));
+}
+
+/*
+ * general purpose EVP based decryption
+ *
+ * plain decrypted data (may be same a enc)
+ * enc encrypted data
+ * key encryption key
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * returns length of decrypted data
+ */
+int crypt_decrypt (unsigned char *plain, unsigned char *enc,
+    unsigned char *key, int len, int how)
+{
+  return (crypt_copy (plain, enc, key, len, how, 0));
 }
 
 #ifdef UNITTEST
 
+testpbk2 (int how)
+{
+  char *n[] = { NULL, "des3", "aes128", "aes192", "aes256" };
+  char b1[PKEYSZ], b2[PKEYSZ];
+  char *pw = "thePassword";
+  int l1, l2;
+
+  l1 = crypt_pbkey (b1, pw, NULL, how);
+  l2 = crypt_pbkey (b2, pw, NULL, how);
+  if (l1 != l2)
+    error ("%s keys length doesn't match\n", n[how]);
+  else if (memcmp (b1, b2, l1))
+    error ("%s key values don't match\n", n[how]);
+}
+
+testpbk ()
+{
+  int i;
+
+  for (i = FIRSTCIPHER; i <= LASTCIPHER; i++)
+    testpbk2 (i);
+}
+
 int main (int argrc, char **argv)
 {
-  int l, len;
-  char *ch;
+  int type, l, len;
+  char *ch, *ch2;
   char *s = "The quick brown fox jumped over the lazy dogs";
   char enc[1024], plain[1024];
   X509 *cert;
-  DESKEY key;
+  unsigned char key[32];
 
   chdir ("..");
   SSLeay_add_all_algorithms();
@@ -391,15 +630,16 @@ int main (int argrc, char **argv)
     else
       error ("pem decryption failed\n");
   }
-  else;
-  ch = readfile ("certs/ssl_cert.pem", &l);
+  ch = readfile ("cc.bat", &l);
   debug ("read %d\n", l);
-  ch = (char *) realloc (ch, l + DESKEYSZ);
-  len = crypt_des3_encrypt (ch, key, ch, l);
+  ch = (char *) realloc (ch, l + 64);
+  type = TRIPLEDES;
+  len = crypt_encrypt (ch, ch, key, l, type);
   debug ("encrypted len %d...\n", len);
-  len = crypt_des3_decrypt (ch, key, ch, len);
+  len = crypt_decrypt (ch, ch, key, len, type);
   debug ("decrypt len %d/%d\n%.*s", len, l, len, ch);
   free (ch);
+  testpbk ();
   info ("%s unit test completed\n", argv[0]);
 }
 

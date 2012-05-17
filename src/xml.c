@@ -977,7 +977,8 @@ char *xml_get (XML *xml, char *path)
   DBUF *b;
   XMLNODE *n;
   
-  n = xml_find (xml, path);
+  if ((n = xml_find (xml, path)) == NULL)
+    return (NULL);
   b = dbuf_alloc ();
   xml_node_format (n->value, b);
   return (dbuf_extract (b));

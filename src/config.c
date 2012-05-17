@@ -114,6 +114,7 @@ void config_reset ()
     ConfigXml = xml_free (ConfigXml);
 }
 
+
 /*
  * return tag type for an input
  */
@@ -867,6 +868,7 @@ int config_setup ()
 {
   int i, n;
   char *ch, path[MAX_PATH];
+  XML *phineas_load (char *path);
 
   if (*EditConfig == 0)
     strcpy (EditConfig, ConfigName);
@@ -875,7 +877,7 @@ int config_setup ()
     return (0);
   ConfigXml = xml_free (ConfigXml);
   EditXml = xml_free (EditXml);
-  if ((EditXml = xml_load (EditConfig)) == NULL)
+  if ((EditXml = phineas_load (EditConfig)) == NULL)
   {
     error ("Can't load %s\n", EditConfig);
     return (-1);
@@ -1124,7 +1126,7 @@ DBUF *config_setConfig (XML *xml, char *req)
     if (backup (EditConfig))
       error ("Can't backup %s - %s\n", EditConfig, strerror (errno));
     else
-      xml_save (EditXml, EditConfig);
+      phineas_save (EditXml, EditConfig);
   }
   else if (action == 2) 		/* export Cpa		*/
   {

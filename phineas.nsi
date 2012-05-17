@@ -147,7 +147,7 @@ SectionEnd
 
 SectionGroup "Servers"
 
-Section "Phineas Transceiver"
+Section "Phineas GUI"
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\Phineas.exe"
   CreateShortCut "Phineas.lnk" "$INSTDIR\Phineas\bin\Phineas.exe" "" "$INSTDIR\Phineas\bin\Phineas.exe" 0 "" "" "Phineas Transceiver"
@@ -160,21 +160,13 @@ Section /o "Phineas Service"
   File "bin\delservice.bat"
 SectionEnd
 
-Section /o "Phineas Receiver"
+Section /o "Phineas Command Line"
   SetOutPath "$INSTDIR\Phineas\bin"
-  File "bin\Phineasr.exe"
-  CreateShortCut "Phineas Receiver.lnk" "$INSTDIR\Phineas\bin\Phineasr.exe" "" "$INSTDIR\Phineas\bin\Phineasr.exe" 0 "" "" "Phineas Receiver"
+  File "bin\Phineasc.exe"
+  CreateShortCut "Phineas Command Line.lnk" "$INSTDIR\Phineas\bin\Phineasc.exe" "" "$INSTDIR\Phineas\bin\Phineasc.exe" 0 "" "" "Phineas Command Line"
   IfFileExists "Phineas.lnk" +2
-  Rename "Phineas Receiver.lnk" "Phineas.lnk"
+  Rename "Phineas Command Line.lnk" "Phineas.lnk"
 
-SectionEnd
-
-Section /o "Phineas Sender"
-  SetOutPath "$INSTDIR\Phineas\bin"
-  File "bin\Phineass.exe"
-  CreateShortCut "Phineas Sender.lnk" "$INSTDIR\Phineas\bin\Phineass.exe" "" "$INSTDIR\Phineas\bin\Phineass.exe" 0 "" "" "Phineas Sender"
-  IfFileExists "Phineas.lnk" +2
-  Rename "Phineas Sender.lnk" "Phineas.lnk"
 SectionEnd
 
 SectionGroupEnd

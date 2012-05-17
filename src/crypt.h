@@ -20,46 +20,182 @@
 #include <openssl/pem.h>
 #include <openssl/des.h>
 #include <openssl/pkcs12.h>
+
 /*
- * note a DES_cblock is 8 bytes, so a DES3 key is 24
+ * supported ciphers
  */
-#define DESKEYSZ 24
-typedef unsigned char DESKEY[DESKEYSZ];
+#define TRIPLEDES 1
+#define AES128 2
+#define AES192 3
+#define AES256 4
+#define FIRSTCIPHER TRIPLEDES
+#define LASTCIPHER AES256
 
 #define DNSZ 1024	/* size of a distinguish name (subject)	*/
+#define SKEYSZ 32	/* size of a symetric key		*/
+#define PKEYSZ 512	/* size of up to 4096 bit RSA key	*/
 
 /*
- * Get the distinguished name from an X509 cert in "PHINMS" format
+ * Get a distinguished name from an X509 subject.
+ *
+ * cert X509 certificate
+ * dn buffer for name
+ * len buffer size
+ * return pointer to the dn
  */
 char *crypt_X509_dn (X509 *cert, char *dn, int len);
+
 /*
- * Read an X509 certificate from the unc
+ * Get a certificate at location unc.  
+ *
+ * unc path to certificate
+ * passwd password to read if needed
+ * return X509 certificate or NULL if fails
+ *
  */
 X509 *crypt_get_X509 (char *unc, char *passwd);
 
 /*
- * Read a private key from the unc
+ * Get the private at the location specified.
+ *
+ * name name of the certificate file
+ * passwd needed to decrypt if necessary
+ * return the private key.
+ *
+ * Trys PEM, DER, and finally PKCS12 formats coded certificates.
  */
-EVP_PKEY *crypt_get_pkey (char *unc, char *passwd);
+EVP_PKEY *crypt_get_pkey (char *name, char *passwd);
 
 /*
- * Use these for certificate related asymetric cyphers.  These
- * generally encrypt the symetric key which then encrypts the payload.
- * They return the resulting cypher length.
+ * Asymetric encryption using PEM X509 certificate public key.
+ *
+ * cert X509 certificate with public key
+ * enc buffer for encrypted data
+ * plain buffer for plain data
+ * len of plain data
+ *
+ * Return the encrypted length.
  */
-int crypt_pk_encrypt (char *unc, char *passwd, char *dn, 
+int crypt_X509_encrypt (X509 *cert, char *enc, char *plain, int len);
+
+/*
+ * Public key encryption from a certificate location.  The certificate
+ *
+ * unc location of certificate
+ * passwd password used to access certificate if encrypted
+ * dn DNSZ buffer for distinguished name found on the certificate
+ * enc buffer for encrypted data
+ * plain buffer for plain data
+ * len length of plain data
+ * returns length of encrypted data.
+ */
+int crypt_pk_encrypt (char *unc, char *passwd, char *dn,
   char *enc, char *plain, int len);
+
+/*
+ * Asymetric private key decryption using a key file.  
+ *
+ * keyname name of private key file
+ * passwd password for private key file
+ * plain buffer for decrypted data
+ * enc buffer for encrypted data
+ * returns length of plain data
+ */
 int crypt_pk_decrypt (char *keyname, char *passwd, char *plain, char *enc);
 
 /*
- * PHINMS appears to only use triple DES for the symetric cypher, so
- * we'll at least start by supporting it...
- * These return the resulting cypher length.
+ * returns EVP encryption cipher
+ * how one of the encryption algorithms in crypt.h
  */
-DESKEY crypt_des3_keygen (DESKEY key);
-int crypt_des3_encrypt (unsigned char *enc, DESKEY key,
-    unsigned char *plain, int len);
-int crypt_des3_decrypt (unsigned char *plain, DESKEY key,
-    unsigned char *enc, int len);
+const EVP_CIPHER *crypt_cipher (int how);
+
+/* 
+ * returns size of encryption key
+ * how one of the encryption algorithms in crypt.h
+ */
+int crypt_keylen (int how);
+
+/*
+ * returns size of encryption block
+ * how one of the encryption algorithms in crypt.h
+ */
+int crypt_blocksz (int how);
+
+/*
+ * generate an initial vector
+ * iv is vector destination
+ * how one of the encryption algorithms in crypt.h
+ * return vector size
+ */
+int crypt_iv (unsigned char *iv, int how);
+
+/*
+ * generate a cyptographic key and optional vector
+ *
+ * key 32 byte buffer for encryption key 
+ * how one of the encryption algorithms in crypt.h
+ * returns key length
+ */
+int crypt_key (unsigned char *key, int how);
+
+/*
+ * read binary or base 64 encoded symetric key from a file
+ *
+ * key 32 byte buffer for encryption key 
+ * unc path to file
+ * return it's length or 0 if not valid key
+ */
+int crypt_fkey (unsigned char *key, char *unc);
+
+/*
+ * generate a password based key for encryption use
+ *
+ * key generated key
+ * pw password
+ * salt 8 byte buffer for perturbing the key - may be NULL
+ * how one of the encryption algorithms in crypt.h
+ * returns key length
+ */
+int crypt_pbkey (unsigned char *key, char *pw, char *salt, int how);
+
+/*
+ * general purpose EVP based crypto function
+ *
+ * dst destination data (may be same a src)
+ * src source data
+ * key encryption key
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * encrypt encrypts when true, decrypts when false
+ * returns length of dst buffer
+ */
+
+int crypt_copy (unsigned char *dst, unsigned char *src,
+    unsigned char *key, int len, int how, int encrypt);
+/*
+ * general purpose EVP based encryption
+ *
+ * enc encrypted data (may be same a plain)
+ * plain data to be encrypted
+ * key encryption key generated by call
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * returns length of dst buffer
+ */
+int crypt_encrypt (unsigned char *enc, unsigned char *plain,
+    unsigned char *key, int len, int how);
+
+/*
+ * general purpose EVP based decryption
+ *
+ * plain decrypted data (may be same a enc)
+ * enc encrypted data
+ * key encryption key
+ * len source data length
+ * how one of the encryption algorithms in crypt.h
+ * returns length of decrypted data
+ */
+int crypt_decrypt (unsigned char *plain, unsigned char *enc,
+    unsigned char *key, int len, int how);
 
 #endif /* __CRYPT__ */

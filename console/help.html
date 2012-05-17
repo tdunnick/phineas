@@ -95,6 +95,9 @@ table.options td {
       <li>
         <a href="#intro">Introduction</a>
       </li>
+       <li>
+        <a href="#startup">Startup and Use</a>
+      </li>
       <li>
         <a href="#nav">The Console and Navigation</a>
       </li>
@@ -138,6 +141,36 @@ table.options td {
     <br>
     <hr>
     <div class="heading">
+      <a name="startup" class="section" id=
+      "startup">Startup and Use</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  <b>Phineas</b> runs in one of three modes:
+			<ul>
+			  <li><b>Command Window</b> runs in a command.com/cmd.exe 
+				DOS window.  Use CNTL-C to force an exit or restart.</li>
+				<li><b>GUI</b> runs in the service tray.  Right click the
+				service tray ICON to access configuration, log, start, stop,
+				or exit the service.</li>
+				<li><b>MS Service</b> runs as a standard MS service.</li>
+			</ul>
+			All three modes accept the same set of command arguments as follows:
+			<ul>
+			  <li><b>-des3</b> use triple DES to encrypt configuration (default)</li>
+			  <li><b>-aes123</b> use 128 bit AES to encrypt configuration</li>
+			  <li><b>-aes192</b> use 192 bit AES to encrypt configuration</li>
+			  <li><b>-aes256</b> use 256 bit AES to encrypt configuration</li>
+			  <li><b>-c file</b> uses certificate (or key) <b>file</b>
+				 to encrypt the configuration file</li>
+				<li><b>-p password</b> uses <b>password</b> to encrypt the configuration
+				file, or access the certificate <b>file</b> if given.</li>
+				<li><b>configuration</b> uses this <b>configuration</b> on startup
+				 (default <b>Phineas.xml</b>).</li>
+			</ul>
+    <br>
+    <hr>
+		<div class="heading">
       <a name="nav" class="section" id="nav">Console and
       Navigation</a><br>
       <a href="#contents">(return to contents)</a>
@@ -288,6 +321,20 @@ table.options td {
       fully or correctly if miss-configured (for example, if
       logging is specified to a folder that does not exist).
     </p>
+		<p>
+		  The configuration may be stored in XML encrypted form in order to
+			protect sensitive information.  In that case a certificate and/or
+			password is included with the <b>Phineas</b> startup command.  The
+			<b>xcrypt</b> utility may be used to encrypt/decrypt the configuration
+			for startup use.  
+		  Note that "chicken and egg" issues are always
+			present with cryptographically protected data (e.g. a 'clear text'
+			password is alway present somewhere in the system).  PHINMS obfuscates
+			this issue by using a simple substitution cipher for it's password
+			file access.  Don't be fooled.  I broke this cipher in about an hour.
+			The only way to protect application passwords is via file system
+			permissions (which simply passes the issue up stream to the OS :-).
+		</p>	
     <p>
       A configuration GUI (Graphic User Interface) is available
       from the Web console. The configuration items, order,
@@ -944,9 +991,43 @@ table.options td {
 					entire payload envelope to disk.  The envelope is in XML format
 					and includes information on how to select decryption keys (based
 					on the DN) and which symetric algorithm to use for decryption
-					(normally triple-DES).
+					(normally triple-DES).  A keyfile and/or password must be specified.
+					This utility may be used to encrypt/decrypt the <b>Phineas</b>
+					configuration file.
           <table summary="options" class="options">
 					  <caption>Options</caption>
+            <tr>
+              <td>
+                -des3
+              </td>
+              <td>
+                Triple DES encryption (default)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -aes128
+              </td>
+              <td>
+                128 bit AES encryption
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -aes192
+              </td>
+              <td>
+                192 bit AES encryption
+              </td>
+            </tr>
+            <tr>
+              <td>
+                -aes256
+              </td>
+              <td>
+               256 bit AES encryption
+              </td>
+            </tr>
             <tr>
               <td>
                 -e
@@ -976,8 +1057,7 @@ table.options td {
                 -p password
               </td>
               <td>
-                use this <b>password</b> for the keyfile (if
-                encrypted)
+                use this <b>password</b> for the keyfile or encryption
               </td>
             </tr>
             <tr>
@@ -1011,8 +1091,10 @@ table.options td {
               </td>
               <td>
                 get cryptography key from <b>keyfile</b>
-                (required) which can be PEM, DER, or PKCS12
-                encoded
+                which can be a PEM, DER, or PKCS12
+                encoded certificate, or a binary, hex, or base64
+								encoded symetric key (in which case the key must be
+								appropriate for the designated algorithm).
               </td>
             </tr>
           </table>

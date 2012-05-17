@@ -1,0 +1,10 @@
+Added support for AES encryption.
+Added configuration encryption.
+Switch to EVP_ encryption API in crypt.c.
+Continue to default to RSA/Triple DES for XML encryption.
+Allow for up to 20 (of 8 defined) subjects in certificate.
+Write full XML encryption envelope when it can't be decrypted.
+Provide for password based or file symetric key based XML encryption.
+Support for binary, hex, or base64 file based symetric keys.
+Replaced installed sender/receiver only with command line transceiver.
+Added command line options for configuration and report usage errors.

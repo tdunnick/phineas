@@ -18,13 +18,14 @@
 #ifndef __XCRYPT__
 #define __XCRYPT__
 #include "xml.h"
+#include "crypt.h"
 
 /*
  * Fill in an ebxml encryption envelope.
  *
  * data, len - data of len to encrypt
  * unc, passwd - identify certificate to use
- * dn gets DN of certificate and should be DNSZ
+ * dn gets DN of certificate and should be DNSZ or may be NULL
  *
  * This uses triple DES encryption for the data, and the certificates
  * asymetric public key to encrypt the DES key.
@@ -32,7 +33,7 @@
  * Return envelope or NULL if fails
  */
 XML *xcrypt_encrypt (unsigned char *data, int len,
-  char *unc, char *id, char *passwd);
+  char *unc, char *id, char *passwd, int how);
 /*
  * decrypt the payload and save it to data, returning it's len
  * payload has the XML payload envelope

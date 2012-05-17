@@ -39,6 +39,7 @@ char *pathf (char *dst, char *fmt, ...);
 /*
  * URL and html encoding...
  */
+int hex_decode (unsigned char *dst, char *src);
 char *urldecode (char *url);
 char *urlencode (char *dst, char *src);
 char *html_encode (char *dst, char *src);
