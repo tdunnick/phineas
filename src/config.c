@@ -377,7 +377,7 @@ int config_getInput (XML *xml, char *cpath,
 
   config_prompt (prompt, name);		/* build a prompt		*/
   					/* and get default value	*/
-  if (strstarts (path, xml_root (xml)->key))
+  if (strstarts (path, xml_root (xml)))
     value = xml_get_text (xml, path);
   else if (strcmp (prompt, CONFIG) == 0)
     value = EditConfig;
@@ -890,7 +890,7 @@ int config_setup ()
     return (-1);
   }
   /* conditionally remove chunks we don't use			*/
-  ch = xml_root (ConfigXml)->key;
+  ch = xml_root (ConfigXml);
   config_path (EditXml, path, ch, "", 0);
 #ifndef __SENDER__
   config_remove (EditXml, ch, path, "Phineas.Sender");
@@ -935,7 +935,7 @@ DBUF *config_getConfig ()
 #endif
   dbuf_printf (b, "<form method='POST' action='#' >\n"
     "<input type='hidden' name='%s' id='%s' />", REQUEST, REQUEST);
-  r = xml_root (ConfigXml)->key;
+  r = xml_root (ConfigXml);
   config_path (EditXml, path, r, "", 0);
   config_build (EditXml, r, path, b);
   dbuf_printf (b, "</form><div style=\"height: 100px\"></div>\n");
@@ -1099,7 +1099,7 @@ DBUF *config_setConfig (XML *xml, char *req)
      * if the key is into our configuration
      * then set the new value
      */
-    if (strstarts (key, xml_root (EditXml)->key))
+    if (strstarts (key, xml_root (EditXml)))
     {
       debug ("setting %s=%s\n", key, value);
       xml_set_text (EditXml, key, value);
@@ -1116,7 +1116,7 @@ DBUF *config_setConfig (XML *xml, char *req)
       }
     }
   }
-  r = xml_root (ConfigXml)->key;
+  r = xml_root (ConfigXml);
   config_path (EditXml, value, r, "", 0);
   config_clean (EditXml, r, value);
   if (action == 1)			/* save configuration	*/

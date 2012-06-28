@@ -15,6 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#define DEBUG
 
 #ifdef UNITTEST
 #define __SENDER__

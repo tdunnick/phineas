@@ -34,14 +34,14 @@
 #endif
 
 #define REASON ERR_error_string (ERR_get_error (), NULL)
-#define SSLREASON ssl_error (conn->ssl)
+#define SSLREASON(e) ssl_error (conn->ssl,e)
 
 /*
  * get ssl error message
  */
-const char *ssl_error (SSL *ssl)
+const char *ssl_error (SSL *ssl, int e)
 {
-  switch (SSL_get_error (ssl, 0))
+  switch (SSL_get_error (ssl, e))
   {
     case SSL_ERROR_NONE : return ("No error");
     case SSL_ERROR_ZERO_RETURN : return ("Connection closed");
@@ -164,6 +164,10 @@ SSL_CTX *net_ctx (char *cert, char *key, char *passwd,
     SSL_CTX_set_verify_depth (ctx, 1);
 #endif
   }
+  /*
+   * don't bother us about re-negotiations!
+   */
+  SSL_CTX_set_mode (ctx, SSL_MODE_AUTO_RETRY);
   return (ctx);
 
 fail:
@@ -277,7 +281,7 @@ NETCON *net_ssl (NETCON *conn, SSL_CTX *ctx, int is_server)
   }
   if (SSL_set_fd (conn->ssl, conn->sock) == 0)
   {
-    error ("Can't set SSL socket - %s\n", SSLREASON);
+    error ("Can't set SSL sockets\n");
     return (net_close (conn));
   }
   if (is_server)
@@ -288,7 +292,7 @@ NETCON *net_ssl (NETCON *conn, SSL_CTX *ctx, int is_server)
     if ((e = SSL_accept (conn->ssl)) != 1)
     {
       if (e)
-        error ("Can't complete SSL accept - %s\n", SSLREASON);
+        error ("Can't complete SSL accept - %s\n", SSLREASON (e));
       else
 	debug ("EOF on SSL_accept\n");
       return (net_close (conn));
@@ -298,7 +302,7 @@ NETCON *net_ssl (NETCON *conn, SSL_CTX *ctx, int is_server)
   {
     if ((e = SSL_connect (conn->ssl)) != 1)
     {
-      error ("Can't complete SSL connection - %s\n", SSLREASON);
+      error ("Can't complete SSL connection - %s\n", SSLREASON (e));
       return (net_close (conn));
     }
     /* if we wanted to force a verify check...
@@ -310,7 +314,7 @@ NETCON *net_ssl (NETCON *conn, SSL_CTX *ctx, int is_server)
      *
      * We could also check that the CN matches the hostname...
      */
-    
+    debug ("Completed SSL client negotiations\n");
   }
   return (conn);
 }
@@ -385,7 +389,7 @@ int net_read (NETCON *conn, char *buf, int sz)
 	if (e != SSL_ERROR_ZERO_RETURN)
 	{
 	  if (e != SSL_ERROR_SYSCALL) 
-	    error ("read error %d - %s\n", e, SSLREASON);
+	    error ("read error %d - %s\n", e, SSLREASON (n));
 	  else
 	    debug ("read EOF\n");
 	}

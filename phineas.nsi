@@ -107,12 +107,12 @@ Section "Phineas Core (required)"
   SetOutPath "$INSTDIR\Phineas\bin"
   File "bin\psetup.exe"
   SearchPath $0 "ssleay32.dll"
-  IfErrors 0 +4
+  IfErrors +3
   ${GetFileVersion} $0 $1
   StrCmp $1 "0.9.8.7" +2
   File "bin\ssleay32.dll"
   SearchPath $0 "libeay32.dll"
-  IfErrors 0 +4
+  IfErrors +3
   ${GetFileVersion} $0 $1
   StrCmp $1 "0.9.8.7" +2
   File "bin\libeay32.dll"

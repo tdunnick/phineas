@@ -62,7 +62,7 @@ int ebxml_set (XML *xml, char *prefix, char *suffix, char *value)
 
   strcpy (buf, prefix);
   strcat (buf, suffix);
-  return (xml_set_text (xml, buf, value) == NULL ? -1 : 0);
+  return (xml_set_text (xml, buf, value));
 }
 
 /*

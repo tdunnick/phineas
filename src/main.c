@@ -61,6 +61,7 @@ int Status = PHINEAS_STOPPED;
 
 char LogName[MAX_PATH];
 char ConfigName[MAX_PATH];
+char ConfigPName[MAX_PATH];
 XML *Config;
 TASKQ *Taskq = NULL;
 
@@ -76,8 +77,9 @@ XML *phineas_load (char *path)
 {
   XML *xml;
   
-  xml = xml_load (path);
-  if (xml_find (xml, "Phineas") == NULL)
+  if ((xml = xml_load (path)) == NULL)
+    return (NULL);
+  if (strcmp (xml_root (xml), "Phineas"))
   {
     unsigned char *p;
     xcrypt_decrypt (xml, &p, ConfigCert, NULL, ConfigPass);
@@ -110,6 +112,36 @@ int phineas_save (XML *xml, char *path)
   if (x != xml)
     xml_free (x);
   return (r);
+}
+
+/*
+ * create a censored configuration for display purposes, and return
+ * it's name.
+ */
+char *phineas_config ()
+{
+  char *buf, *p, *pe;
+
+  if (*ConfigPName == 0)
+    return (NULL);
+  xml_beautify (Config, 2);
+  buf = xml_format (Config);
+  pe = buf;
+  while ((p = strstr (pe, "<Password>")) != NULL)
+  {
+    p += 10;
+    pe = strstr (p, "</Password>");
+    if (pe == NULL)
+      break;
+    if (p != pe)
+    {
+      *p++ = '*';
+      strcpy (p, pe);
+    }
+  }
+  writefile (ConfigPName, buf, strlen (buf));
+  free (buf);
+  return (ConfigPName);
 }
 
 /*
@@ -187,13 +219,12 @@ int phineas_start (int argc, char **argv)
 {
   int i;
   char *ch;
-  XMLNODE *n;
   int fileq_connect (QUEUECONN *conn);
   extern int server_task (void *p);
 
   Status = PHINEAS_START;
   loadpath (argv[0]);
-  *ConfigName = 0;
+  *ConfigPName = *ConfigName = 0;
   for (i = 1; i < argc; i++)
   {
     if (argv[i][0] == '-') switch (argv[i][1])
@@ -239,6 +270,11 @@ int phineas_start (int argc, char **argv)
     return (phineas_fatal ("Can't load configuration file %s", 
 	ConfigName));
   }
+  strcpy (ConfigPName, ConfigName);
+  if ((ch = strrchr (ConfigPName, '.')) == NULL)
+    ch = ConfigName + strlen (ConfigPName);
+  strcpy (ch, "Configuration.xml");
+  
   /*
    * make sure our OPENSSL dll's are available...
    */
@@ -312,6 +348,8 @@ int phineas_stop ()
   config_reset ();
   info ("%s is stopped\n", Software); 
   LOGFILE = log_close (LOGFILE);
+  if (*ConfigPName)
+    unlink (ConfigPName);
   Status = PHINEAS_STOPPED;
   return (0);
 }
@@ -946,7 +984,7 @@ BOOL w_command (HWND hWnd, WORD wID, HWND hCtl)
   switch (wID) 
   {
     case ID_CONFIG:
-      w_openMessage (ConfigName);
+      w_openMessage (phineas_config ());
       break;
 
     case ID_STATUS:

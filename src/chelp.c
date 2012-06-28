@@ -375,7 +375,7 @@ int main (int argc, char **argv)
     exit (1);
   }
   b = dbuf_alloc ();
-  r = xml_root (xml)->key;
+  r = xml_root (xml);
   chelp_path (xml, prefix, r, "");
   chelp (xml, r, prefix, b);
   fp = fopen (oname, "w");

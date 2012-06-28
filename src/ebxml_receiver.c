@@ -16,6 +16,8 @@
  *  limitations under the License.
  */
 
+#define DEBUG
+
 #ifdef UNITTEST
 #define __RECEIVER__
 #endif
@@ -253,21 +255,6 @@ char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
 }
 
 /*
- * delete all the attributes from an XMLNODE subtree
- */
-void ebxml_delete_attributes (XMLNODE *n)
-{
-  while (n != NULL)
-  {
-    xml_node_free (n->attributes);
-    n->attributes = NULL;
-    if (xml_is_parent (n))
-      ebxml_delete_attributes (n->value);
-    n = n->next;
-  }
-}
-
-/*
  * format up the metadata from the soap body for entry into a queue
  */
 char *ebxml_format_arguments (XML *soap)
@@ -283,8 +270,8 @@ char *ebxml_format_arguments (XML *soap)
   ch = xml_get (soap, path);
   xml_set (metadata, "Manifest.MetaData", ch);
   free (ch);
-  debug ("Removing attributes from metada\n");
-  ebxml_delete_attributes (metadata->doc);
+  debug ("Removing attributes from metadata\n");
+  xml_clear_attributes (metadata, xml_root (metadata));
   xml_beautify (metadata, 0);
   ch = xml_format (metadata);
   xml_free (metadata);

@@ -868,8 +868,9 @@ DBUF *console_doGet (XML *xml, char *req)
        *queuelist = NULL,
        *rowlist = NULL,
        *rowdetail = NULL;
-  extern char LogName[], ConfigName[];
+  extern char LogName[];
   DBUF *config_getConfig ();
+  char *phineas_config ();
 
   if ((parm = console_geturi (uri, req)) == NULL)
     return (NULL);
@@ -895,7 +896,7 @@ DBUF *console_doGet (XML *xml, char *req)
   }
   else if (console_hasParm (parm, "config"))
   {
-    rowdetail = console_textfile (ConfigName);
+    rowdetail = console_textfile (phineas_config ());
   }
   else if (console_hasParm (parm, "configure"))
   {

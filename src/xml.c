@@ -23,110 +23,42 @@
 
 #ifdef UNITTEST
 #undef UNITTEST
-#include "unittest.h"
 #include "dbuf.c"
+#include "xmln.c"
 #define UNITTEST
-#define debug _DEBUG_
+#define debug(fmt...) printf("%s %d-",__FILE__,__LINE__),printf(fmt)
+#else
+#include "dbuf.h"
+#include "xmln.c"
 #endif
 
-#include "log.h"
-#include "dbuf.h"
 #include "xml.h"
 
 #ifndef debug
 #define debug(fmt...)
 #endif
 
-#define XBUFSZ 0x4000		/* nominal XML buffer size	*/
-
+/************************** private functions *******************/
 /*
- * internal declarations
+ * parse next key and index from path
+ * return next parse point
  */
-
 char *xml_pathkey (XML *xml, char *path, char *key, int *index);
-XMLNODE *xml_node_alloc (int, char *);
-XMLNODE *xml_node_free (XMLNODE *node);
-XMLNODE *xml_node_copy (XMLNODE *node);
-XMLNODE *xml_node_find (XMLNODE *, char *, int);
+/*
+ * return the node and set parent matching this name path
+ */
+XMLNODE *xml_find_parent (XML *xml, char *path, XMLNODE **parent);
+/*
+ * return node matching path
+ */
+XMLNODE *xml_find (XML *xml, char *path);
+/*
+ * Force an element at the given path.
+ * If it already exists, simply return it and set it's parent.  
+ * Otherwise create it.
+ */
 XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent);
-XMLNODE *xml_parse_decls (char **);
-XMLNODE *xml_parse_nodes (char **);
-XMLNODE *xml_node_normalize (XMLNODE *node);
-XMLNODE *xml_node_beautify (XMLNODE *node, int tabsz, int level);
-void xml_set_value (XMLNODE *node, char *value, int len);
 
-static char *XmlDecl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-static char *Ent_codes [] = { "lt;", "gt;", "amp;", "apos;", "quot;" };
-static char Ent_chars [] = "<>&'\"";
-
-/********************* data manipulations **************************/
-
-/*
- * convert text to xml entities
- */
-char *xml_to_entity (char *dst, char *s)
-{
-  char *d, *ent;
-
-  d = dst;
-  while (*d = *s++)
-  {
-    if ((ent = strchr (Ent_chars, *d)) != NULL)
-    {
-      *d++ = '&';
-      ent = Ent_codes[ent - Ent_chars];
-      strcpy (d, ent);
-      while (*++d);
-    }
-    else
-      d++;
-  }
-}
-
-/*
- * convert xml entities back to text
- */
-char *xml_from_entity (char *dst, char *s)
-{
-  char *d;
-  int i, l;
-  
-  while (*d == *s++)
-  {
-    if (*d == '&')
-    {
-      for (i = 0; i < sizeof (Ent_chars); i++)
-      {
-        l = strlen (Ent_codes[i]);
-	if (strncmp (++d, Ent_codes[i], l) == 0)
-	{
-	  *d = Ent_chars[i];
-	  s += l;
-	  break;
-	}
-      }
-    }
-    d++;
-  }
-  return (dst);
-}
-
-/* 
- * remove leading and trailing white space from a string
- * return the resulting string
- */
-char *xml_trim (char *value)
-{
-  char *ch;
-
-  for (ch = value + strlen (value); ch > value; ch--)
-    if (!isspace (*(ch-1))) break;
-  *ch = 0;
-  for (ch = value; isspace (*ch); ch++);
-  if (ch > value)
-    strcpy (value, ch);
-  return (value);
-}
 
 /************************* allocation ***************************/
 
@@ -137,31 +69,8 @@ XML *xml_free (XML *xml)
 {
   if (xml == NULL)
     return (NULL);
-  xml_node_free (xml->doc);
+  xmln_free (xml->doc);
   free (xml);
-  return (NULL);
-}
-
-/* 
- * free an xml (subtree) 
- */
-XMLNODE *xml_node_free (XMLNODE *node)
-{
-  XMLNODE *n;
-  while ((n = node) != NULL)
-  {
-    node = n->next;
-    free (n->key);
-    if (n->value != NULL)
-    {
-      if ((n->type == XML_TEXT) || (n->type == XML_ATTRIB))
-        free (n->value);
-      else
-        xml_node_free (n->value);
-    }
-    xml_node_free (n->attributes);
-    free (n);
-  }
   return (NULL);
 }
 
@@ -177,654 +86,18 @@ XML *xml_alloc ()
   return (xml);
 }
 
-/* 
- * allocate an xml node 
- */
-XMLNODE *xml_node_alloc (int type, char *key)
-{
-  int len, c;
-  XMLNODE *n;
-  
-  c = key[len = 0];
-  while (!isspace (c))
-  {
-    if (c == '=')
-      break;
-    if (c == '>')
-    {
-      if (key[len-1] == '/')
-        len--;
-      break;
-    }
-    c = key[++len];
-  }
-  n = (XMLNODE *) malloc (sizeof (XMLNODE));
-  n->key = (char *) malloc (len + 1);
-  n->value = NULL;
-  n->next = NULL;
-  n->attributes = NULL;
-  n->type = type;
-  if (len)
-    strncpy (n->key, key, len);
-  n->key[len] = 0;
-  // debug ("allocated node type=%c key='%s'\n", n->type, n->key);
-  return (n);
-}
-
-/********************** node manipulations ************************/
-
-/* 
- * remove leading and trailing white space from a value
- * return the resulting value length
- */
-int xml_trimvalue (XMLNODE *node)
-{
-  if (xml_is_parent (node))
-    return (-1);
-  return (strlen (xml_trim (node->value)));
-}
-
-/* 
- * set a node value 
- */
-void xml_set_value (XMLNODE *node, char *value, int len)
-{
-  char *ch;
-
-  if (len < 0)
-  {
-    error ("negative length for value\n");
-    return;
-  }
-  if ((node->type != XML_TEXT) && (node->type != XML_ATTRIB))
-  {
-    error ("not a text valued node\n");
-    return;
-  }
-    
-  if (node->value == NULL)
-    node->value = malloc (len + 1);
-  else
-    node->value = realloc (node->value, len + 1);
-  ch = node->value;
-  if (len)
-    strncpy (ch, value, len);
-  ch[len] = 0;
-  // debug ("set node type=%c value to '%s'\n", node->type, node->value);
-}
-
-/*
- * allocate a text node
- */
-XMLNODE *xml_text_alloc (char *value, int len)
-{
-  XMLNODE *n = xml_node_alloc (XML_TEXT, "");
-  if (len <= 0)
-    len = strlen (value);
-  xml_set_value (n, value, len);
-  return (n);
-}
-
-/*
- * insert a node (list) into a chain at specified place
- * if place is NULL append to the chain
- */
-XMLNODE *xml_node_insert (XMLNODE *chain, XMLNODE *place, XMLNODE *n)
-{
-  XMLNODE *e, **p = &chain;
-
-  while (*p != place)
-  {
-    if (*p == NULL)
-      return (NULL);
-    p = &(*p)->next;
-  }
-  *p = n;
-  while (n->next != NULL)
-    n = n->next;
-  n->next = place;
-  return (chain);
-}
-
-/*
- * delete a node in this chain
- */
-XMLNODE *xml_node_delete (XMLNODE *chain, XMLNODE *place)
-{
-  XMLNODE **p = &chain;
-
-  while (*p != place)
-  {
-    if (*p == NULL)
-      return (NULL);
-    p = &(*p)->next;
-  }
-  *p = place->next;
-  place->next = NULL;
-  xml_node_free (place);
-  return (chain);
-}
-
-/*
- * recursively copy a branch of the document tree
- */
-XMLNODE *xml_node_copy (XMLNODE *node)
-{
-  XMLNODE *n, **na, *a;
-
-  if (node == NULL)
-    return (NULL);
-  n = xml_node_alloc (node->type, node->key);
-  na = &n->attributes;
-  for (a = node->attributes; a != NULL; a = a->next)
-  {
-    *na = xml_node_copy (a);
-    na = &(*na)->next;
-  }
-  *na = NULL;
-  if (node->value != NULL)
-  {
-    if ((n->type == XML_TEXT) || (n->type == XML_ATTRIB))
-      xml_set_value (n, node->value, strlen (node->value));
-    else
-      n->value = xml_node_copy (node->value);
-  }
-  return (n);
-}
-
-/*
- * return number of sibling nodes
- */
-int xml_num_nodes (XMLNODE *node)
-{
-  int n = 0;
-  while (node != NULL)
-  {
-    n++;
-    node = node->next;
-  }
-  return (n);
-}
-
-/*
- * return true if this node can have child nodes for it's value
- * this could be a "branch" if true, and must be a "leaf" if not
- */
-int xml_is_parent (XMLNODE *node)
-{
-  if ((node->type != XML_ELEMENT) && (node->type != XML_COMMENT))
-    return (0);
-  return (1);
-}
-
-/*
- * return number of child nodes
- */
-int xml_num_children (XMLNODE *node)
-{
-  int cnt = 0;
-  XMLNODE *n;
-
-  if (!xml_is_parent (node))
-    return (0);
-  for (n = node->value; n != NULL; n = n->next)
-    cnt += 1 + xml_num_children (n);
-  return (cnt);
-}
-
-/*
- * return the node matching this name
- */
-XMLNODE *xml_node_find (XMLNODE *node, char *name, int index)
-{
-  int i = 0;
-
-  while (node != NULL)
-  {
-    if ((strcmp (name, node->key) == 0) && (i++ >= index))
-      return (node);
-    node = node->next;
-  }
-  return (NULL);
-}
-
-/********************* XML parsing *******************************/
-
-/*
- * parse attributes
- * ATTRIB :: SPACE ATTRIB
- *        :: TEXT '="' TEXT '"'
- *        :: NULL
- * return attribute node list
- */
-XMLNODE *xml_parse_attrib (char *buf)
-{
-  XMLNODE *n = NULL, **node;
-  char *p = buf;
-
-  node = &n;
-  while (*p && (*p != '>'))
-  {
-    if (isspace (*buf))			/* getting text node		*/
-    {
-      if (!isspace (*p))
-      {
-        debug ("setting attribute text node\n");
-        *node = xml_text_alloc (buf, p - buf);
-	node = &(*node)->next;
-	buf = p;
-      }
-    }
-    else if (*buf == '"')		/* getting value	*/
-    {
-      if (*p == '"')			/* got it		*/
-      {
-        debug ("getting attribute value\n");
-        xml_set_value (*node, buf + 1, p - buf - 1);
-	node = &(*node)->next;
-	buf = p + 1;
-      }
-    }
-    else if (*p == '=')			/* got key		*/
-    {
-      debug ("setting attribute key\n");
-      *node = xml_node_alloc (XML_ATTRIB, buf);
-      if (*(buf = ++p) != '"')
-        error ("Missing attribute opening quote\n");
-    }
-    p++;
-  }
-  if (*node != NULL)
-    error ("Missing closing quote in attribute\n");
-  debug ("finished attribute parse\n");
-  return (n);
-}
-
-/*
- * parse one xml element
- * ELEMENT  :: '<' TAG ATTRIB '>' XMLNODES '</' TAG '>'
- *          :: '<' TAG ATTRIB '/>'
- *          :: NULL
- * return element XMLNODE and update parse position
- */
-XMLNODE *xml_parse_element (char **buf)
-{
-  XMLNODE *node;
-  char *la, *ra;
-
-  debug ("parsing element\n");
-  la = *buf;
-  if ((*la != '<') || !isalpha (la[1]) || ((ra = strchr (la, '>')) == NULL))
-  {
-    debug ("not an element\n");
-    return (NULL);
-  }
-
-  node = xml_node_alloc (XML_ELEMENT, la + 1);
-  la += strlen (node->key) + 1;
-  node->attributes = xml_parse_attrib (la);
-  if (ra[-1] != '/')			/* not self closed key	*/
-  {
-    la = ra + 1;			/* gather up children	*/
-    node->value = xml_parse_nodes (&la);
-  					/* expect closing key	*/
-    if ((*la != '<') || (la[1] != '/') ||
-     ((ra = strchr (la, '>')) == NULL) ||
-     strncmp (la + 2, node->key, strlen (node->key)))
-    {
-      error ("closing key not found for %s\n", node->key);
-      xml_node_free (node);
-      return (NULL);
-    }
-  }
-  debug ("returning element\n");
-  *buf = ra + 1;
-  return (node);
-}
-
-/* parse decls
- * DECLS    :: '<' NONALPHA TEXT '>' DECLS
- *          :: COMMENT DECLS
- *          :: TEXT DECLS
- *          :: NULL
- * return list of decl nodes parsed and update parse position
- */
-XMLNODE *xml_parse_decls (char **buf)
-{
-  XMLNODE *n, **node;
-  char *la, *ra;
-
-  debug ("parsing decls\n");
-  la = *buf;
-  node = &n;
-  while ((la != NULL) && *la)
-  {
-    if (*la != '<')			/* text node		*/
-    {
-      ra = la;
-      if ((la = strchr (ra, '<')) == NULL)
-        la = ra + strlen (ra);
-      *node = xml_text_alloc (ra, la - ra);
-      debug ("parsed text\n");
-    }
-    else if ((ra = strchr (la, '>')) == NULL)
-    {
-      break;
-    }
-    else if (isalpha (la[1]) || (la[1] == '/'))
-    {
-      break;
-    }
-    else if (strncmp (la, "<!--", 4) == 0)
-    {
-      *node = xml_node_alloc (XML_COMMENT, "");
-      la += 4;
-      if ((ra = strstr (la, "-->")) == NULL)
-        error ("Missing closing comment");
-      else
-      {
-        *ra = 0;
-	(*node)->value = xml_parse_nodes (&la);
-	*ra = '-';
-	la = ra + 3;
-      }
-    }
-    else
-    {
-      *node = xml_node_alloc (la[1], la + 2);
-      for (la += 2; la < ra; la++)
-      {
-        if (isspace (*la))
-	{
-	  (*node)->attributes = xml_parse_attrib (la);
-	  break;
-	}
-      }
-      la = ra + 1;
-      debug ("parsed decl %s\n", (*node)->key);
-    }
-    node = &(*node)->next;
-  }
-  debug ("returning %sdecls\n", n == NULL ? "no " : "");
-  *node = NULL;
-  *buf = la;
-  return (n);
-}
-
-/*
- * parse a node list
- * XMLNODES    :: DECLS XMLNODES
- *          :: ELEMENT XMLNODES
- *          :: NULL
- * return head of the node list and update parse position
- */
-XMLNODE *xml_parse_nodes (char **buf)
-{
-  XMLNODE *n, **node;
-
-  debug ("parsing children\n");
-  node = &n;
-  while (((*node = xml_parse_decls (buf)) !=NULL) ||
-    ((*node = xml_parse_element (buf)) != NULL)) 
-  {
-    do
-    {
-      node = &(*node)->next;
-    } while (*node != NULL);
-  }
-  debug ("returning %schildren\n", n == NULL ? "no " : "");
-  return (n);
-}
-
-
-/*
- * coellese all the text nodes, removing those that are empty
- */
-XMLNODE *xml_node_normalize (XMLNODE *node)
-{
-  XMLNODE *n, *p, *t;
-
-  n = node;
-  while (n != NULL)
-  {
-    if (n->type == XML_TEXT)	/* past text nodes together	*/
-    {
-      while (((t = n->next) != NULL) && (t->type == XML_TEXT))
-      {
-        n->value = (char *) realloc (n->value, 
-          strlen (n->value) + strlen (t->value) + 3);
-        strcat (n->value, t->value);
-	n->next = t->next;
-	t->next = NULL;
-        xml_node_free (t);
-      }
-      if (n->value[0] == 0)	/* remove empty text node	*/
-      {
-	t = n;
-	n = n->next;
-	if (t == node)
-	  node = n;
-	else
-	  p->next = n;
-	t->next = NULL;
-	xml_node_free (t);
-	continue;
-      }
-    }
-    else
-    {
-      n->attributes = xml_node_normalize (n->attributes);
-      if (xml_num_children (n) > 0)
-      {
-        n->value = xml_node_normalize (n->value);
-      }
-    }
-    p = n;
-    n = p->next;
-  }
-  return (node);
-}
-
-/*
- * beautify a text node
- */
-int xml_text_beautify (XMLNODE *node, int indent, int level)
-{
-  int cnt, len;
-  char *ch, *nl, *t;
-
-  if ((node == NULL) || (node->type != XML_TEXT) || (node->value == NULL))
-    return (0);
-  debug ("beautify text %s\n", node->value);
-  /* 
-   * remove any leading or trailing white space 
-   * if not indenting, or nothing left, we are done
-   */
-  ch = xml_trim (node->value);
-  if ((*ch == 0) || (indent == 0))
-    return (0);
-  /*
-   * determine how many indents we'll need by counting newlines
-   */
-  cnt = 2;
-  while ((ch = strchr (ch, '\n')) != NULL)
-  {
-    cnt++;
-    ch++;
-  }
-  if (cnt == 2)
-    return (strlen (node->value));
-  /*
-   * add leading white space and newline for indents
-   */
-  t = (char *) malloc (cnt * (indent * level + 1) + strlen (node->value));
-  ch = node->value;
-  len = 0;
-  while (ch != NULL)
-  {
-    if ((nl = strchr (ch, '\n')) != NULL)
-      *nl = 0;
-    xml_trim (ch);
-    len += sprintf (t + len, "\n%*s%s", indent * level, "", ch);
-    if ((ch = nl) != NULL)
-      ch++;
-  }
-  len += sprintf (t + len, "\n%*s", indent * (level - 1), "");
-  free (node->value);
-  node->value = t;
-  return (len);
-}
-
-/* 
- * modify text nodes for pretty indenting 
- */
-XMLNODE *xml_node_beautify (XMLNODE *node, int indent, int level)
-{
-  XMLNODE *t;
-  int n;
-  int l;
-  char buf[80];
-
-
-  if (node == NULL)
-    return (NULL);
-  if (level == 0)
-    node = xml_node_normalize (node);
-  t = node;
-  /*
-   * if the only child and a text node, just trim it
-   */
-  if ((t->next == NULL) && (t->type == XML_TEXT))
-  {
-    xml_text_beautify (t, indent, level);
-    return (node);
-  }
-  if (indent)
-    l = sprintf (buf, "\n%*s", indent * level, "");
-  else
-    buf[l = 0] = 0;
-  while (t != NULL)
-  {
-    debug ("beautify %s type=%c\n", t->key, t->type);
-    if (t->type == XML_TEXT)
-    {
-      if (xml_text_beautify (t, indent, level))
-        node = xml_node_insert (node, t, xml_text_alloc (buf, l));
-      t = t->next;
-      continue;
-    }
-    node = xml_node_insert (node, t, xml_text_alloc (buf, l));
-    if ((n = xml_num_children (t)) > 0)
-    {
-      t->value = xml_node_beautify (t->value, indent, level + 1);
-      if (n > 1)
-        xml_node_insert (t->value, NULL, xml_text_alloc (buf, l));
-    }
-    t = t->next;
-  } 
-  if (level == 0)	/* re-normalize and remove leading text	*/
-  {
-    t = xml_node_normalize (node);
-    node = t->next;
-    t->next = NULL;
-    xml_node_free (t);
-  }
-  return (node);
-}
-
-/* 
- * format to text 
- */
-int xml_node_format (XMLNODE *node, DBUF *b)
-{
-  int n;
-
-  while (node != NULL)
-  {
-    n = 0;
-    switch (node->type)
-    {
-      case XML_ELEMENT :
-	dbuf_printf (b, "<%s", node->key);
-	if ((n = xml_node_format (node->attributes, b)) < 0)
-	  break;
-	if (node->value != NULL)
-	{
-	  dbuf_printf (b, ">");
-	  n = xml_node_format (node->value, b);
-	  dbuf_printf (b, "</%s>", node->key);
-	}
-	else 
-	{
-	  dbuf_printf (b, "/>");
-	}
-	break;
-      case XML_TEXT :
-        dbuf_printf (b, "%s", node->value);
-	break;
-      case XML_COMMENT :
-        dbuf_printf (b, "<!--");
-	n = xml_node_format (node->value, b);
-	dbuf_printf (b, "-->");
-	break;
-      case XML_ATTRIB :
-        dbuf_printf (b, "%s=\"%s\"", node->key, node->value);
-	break;
-      case XML_DECL :
-        dbuf_printf (b, "<%c%s", node->type, node->key);
-	n = xml_node_format (node->attributes, b);
-	dbuf_printf (b, "%c>", node->type);
-	break;
-      default :
-        error ("Unknown node '%c' at...\n%s\n", node->type, node->key);
-	n = -1;
-    }
-    if (n < 0)
-    {
-      debug ("format Error return!\n");
-      return (-1);
-    }
-    node = node->next;
-  }
-  return (dbuf_size (b));
-}
-
-/*********************** document level **************************/
-
 /*
  * add an XML declaration if needed
+ * return non-zero if problem
  */
-XMLNODE *xml_declare (XML *xml)
+int xml_declare (XML *xml)
 {
   XMLNODE *n;
   char *p;
 
   if (xml == NULL)
-    return (NULL);
-  if ((xml->doc == NULL) || 
-    (xml->doc->type != '?') ||
-    strcmp (xml->doc->key, "xml")) 
-  {
-    p = XmlDecl;
-    xml->doc = xml_node_insert (xml->doc, xml->doc, xml_parse_decls (&p));
-  }
-  return (xml->doc);
-}
-
-/*
- * return the root node
- */
-XMLNODE *xml_root (XML *xml)
-{
-  XMLNODE *n = xml->doc;
-
-  while (n != NULL)
-  {
-    if (n->type == XML_ELEMENT)
-      return (n);
-    n = n->next;
-  }
-  return (NULL);
+    return (-1);
+  return ((xml->doc = xmln_declare (xml->doc)) == NULL);
 }
 
 /*
@@ -874,7 +147,7 @@ XMLNODE *xml_find_parent (XML *xml, char *path, XMLNODE **parent)
   {
     path = xml_pathkey (xml, path, key, &i);
     if (*key != 0)
-      n = xml_node_find (n, key, i);
+      n = xmln_key (n, key, i);
     if (*path == 0)
       return (n);
     if (n != NULL)
@@ -895,7 +168,6 @@ XMLNODE *xml_find (XML *xml, char *path)
   return (xml_find_parent (xml, path, &parent));
 }
 
-
 /*
  * Force an element at the given path.
  * If it already exists, simply return it and set it's parent.  
@@ -909,7 +181,7 @@ XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent)
 
   if ((xml == NULL) || (path == NULL))
     return (NULL);
-  p = &xml->doc;
+  p = (XMLNODE **) &xml->doc;
   if (parent != NULL)
     *parent = NULL;
   n = NULL;
@@ -918,15 +190,15 @@ XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent)
     path = xml_pathkey (xml, path, key, &i);
     if (*key == 0)
       break;
-    while ((n = xml_node_find (*p, key, i)) == NULL)
+    while ((n = xmln_key (*p, key, i)) == NULL)
     {
-      if ((p == &xml->doc) && (xml_root (xml) != NULL))
+      if ((p == (XMLNODE **) &xml->doc) && (xml_root (xml) != NULL))
       {
         debug ("trying to force new root!\n");
         return (NULL);
       }
-      n = xml_node_alloc (XML_ELEMENT, key);
-      *p = xml_node_insert (*p, NULL, n);
+      n = xmln_alloc (XML_ELEMENT, key);
+      *p = xmln_insert (*p, NULL, n);
     }
     if (*path && (parent != NULL))
       *parent = n;
@@ -937,26 +209,24 @@ XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent)
   return (n);
 }
 
-
 /*
- * Retrieve first text value from a node
+ * Retrieve first text value from a node.  
+ * Returns empty strinig if path not found.
  */
 char *xml_get_text (XML *xml, char *path)
 {
   XMLNODE *n = xml_find (xml, path);
-  if ((n != NULL) && xml_is_parent (n))
+  if ((n != NULL) && xmln_isparent (n))
   {
-    for (n = (XMLNODE *) n->value; n != NULL; n = n->next)
-    {
-      if (n->type == XML_TEXT)
-       return (n->value);
-    }
+    if ((n = xmln_type (n->value, XML_TEXT, 0)) != NULL)
+     return (n->value);
   }
   return ("");
 }
 
 /*
- * Retrieve text with a printf formatted path
+ * Retrieve text with a printf formatted path.
+ * Return empty string if path not found.
  */
 char *xml_getf (XML *xml, char *fmt, ...)
 {
@@ -980,26 +250,29 @@ char *xml_get (XML *xml, char *path)
   if ((n = xml_find (xml, path)) == NULL)
     return (NULL);
   b = dbuf_alloc ();
-  xml_node_format (n->value, b);
+  xmln_format (n->value, b);
   return (dbuf_extract (b));
 }
 
 /*
  * force a text value to a node
+ * return node set.
  */
-XMLNODE *xml_set_text (XML *xml, char *path, char *text)
+int xml_set_text (XML *xml, char *path, char *text)
 {
   XMLNODE *n, *p;
-  n = xml_force (xml, path, &p);
-  xml_node_free (n->value);
-  n->value = xml_text_alloc (text, strlen (text));
-  return (n);
+  if ((n = xml_force (xml, path, &p)) == NULL)
+    return (-1);
+  xmln_free (n->value);
+  n->value = xmln_text_alloc (text, strlen (text));
+  return (0);
 }
 
 /*
  * force a text value to a node with a printf style path
+ * return node set.
  */
-XMLNODE *xml_setf (XML *xml, char *text, char *fmt, ...)
+int xml_setf (XML *xml, char *text, char *fmt, ...)
 {
   va_list ap;
   char path[MAX_PATH];
@@ -1011,17 +284,17 @@ XMLNODE *xml_setf (XML *xml, char *text, char *fmt, ...)
 }
 
 /*
- * set the value of path
+ * set the value of path, parsing the xml snippet at doc
  */
-XMLNODE *xml_set (XML *xml, char *path, char *doc)
+int xml_set (XML *xml, char *path, char *doc)
 {
   XMLNODE *p, *n;
 
   if ((n = xml_force (xml, path, &p)) == NULL)
-    return (NULL);
-  xml_node_free (n->value);
-  n->value = xml_parse_nodes (&doc);
-  return (n);
+    return (-1);
+  xmln_free (n->value);
+  n->value = xmln_parse (&doc);
+  return (0);
 }
 
 /*
@@ -1042,9 +315,9 @@ int xml_delete (XML *xml, char *path)
   if ((c = xml_find_parent (xml, path, &p)) == NULL)
     return (-1);
   if (p == NULL)
-    xml->doc = xml_node_free (xml->doc);
+    xml->doc = xmln_free (xml->doc);
   else  
-    p->value = xml_node_delete (p->value, c);
+    p->value = xmln_delete (p->value, c);
   return (0);
 }
 
@@ -1058,20 +331,49 @@ int xml_delete_attribute (XML *xml, char *path, char *attrib)
   if ((c = xml_find_parent (xml, path, &p)) == NULL)
     return (-1);
   if (attrib == NULL)
-    c->attributes = xml_node_free (c->attributes);
-  else if ((p = xml_node_find (c->attributes, attrib, 0)) == NULL)
+    c->attributes = xmln_free (c->attributes);
+  else if ((p = xmln_key (c->attributes, attrib, 0)) == NULL)
     return (-1);
   else
-    c->attributes = xml_node_delete (c->attributes, p);
+    c->attributes = xmln_delete (c->attributes, p);
+  return (0);
+}
+
+/*
+ * delete all the attributes from an XMLNODE subtree
+ */
+void xml_del_attributes (XMLNODE *n)
+{
+  while (n != NULL)
+  {
+    n->attributes = xmln_free (n->attributes);
+    if (xmln_isparent (n))
+      xml_del_attributes (n->value);
+    n = n->next;
+  }
+}
+
+/*
+ * delete all attributes from this part of the document
+ * return non-zero if problem
+ */
+int xml_clear_attributes (XML *xml, char *path)
+{
+  XMLNODE *c, *p;
+
+  if ((c = xml_find_parent (xml, path, &p)) == NULL)
+    return (-1);
+  xml_del_attributes (c);
   return (0);
 }
 
 /*
  * cut a chunk of xml from the document
  */
-XMLNODE *xml_cut (XML *xml, char *path)
+char *xml_cut (XML *xml, char *path)
 {
   XMLNODE *c, *p;
+  DBUF *b;
   
   if ((c = xml_find_parent (xml, path, &p)) == NULL)
     return (NULL);
@@ -1079,129 +381,118 @@ XMLNODE *xml_cut (XML *xml, char *path)
     xml->doc = NULL;
   else  
     p->value = NULL;
-  return (c);
+  b = dbuf_alloc ();
+  xmln_format (c, b);
+  xmln_free (c);
+  return (dbuf_extract (b));
 }
 
 /*
  * copy a chunk of xml from the document
  */
-XMLNODE *xml_copy (XML *xml, char *path)
+char *xml_copy (XML *xml, char *path)
 {
-  return (xml_node_copy (xml_find (xml, path)));
+  XMLNODE *n;
+  DBUF *b;
+  
+  if ((n = xml_find (xml, path)) == NULL)
+    return (NULL);
+  b = dbuf_alloc ();
+  xmln_format (n, b);
+  return (dbuf_extract (b));
 }
 
 /*
  * paste a chunk of xml into the document before or after path
+ * return non-zero if fails
  */
-XMLNODE *xml_paste (XML *xml, char *path, XMLNODE *n, int append)
+int xml_paste (XML *xml, char *path, char *doc, int append)
 {
-  XMLNODE *p, *c;
+  XMLNODE *p, *c, *n;
   
+  if ((n = xmln_parse (&doc)) == NULL)
+    return (-1);
   if (((c = xml_force (xml, path, &p)) == NULL) || (p == NULL))
   {
     debug ("force failed for %s\n", path);
-    return (NULL);
+    xmln_free (n);
+    return (-1);
   }
   if (append)
   {
-    n->next = c->next;
+    for (p = n; p->next != NULL; p = p->next);
+    p->next = c->next;
     c->next = n;
   }
   else
   {
-    p->value = xml_node_insert (p->value, c, n);
+    p->value = xmln_insert (p->value, c, n);
   }
-  return (n);
-}
-
-/*
- * Add an snippet into the document just before or after path
- * with the given name.  Path can NOT be the root.
- */
-XMLNODE *xml_add (XML *xml, char *path, char *doc, int append)
-{
-  XMLNODE *n;
-  
-  n = xml_parse_nodes (&doc);
-  if (xml_paste (xml, path, n, append) == NULL)
-  {
-    debug ("paste failed\n");
-    n = xml_node_free (n);
-  }
-  return (n);
+  return (0);
 }
 
 /*
  * Append a snippet into the document as a child of path.  Create
  * path if needed.
  */
-XMLNODE *xml_append (XML *xml, char *path, char *doc)
+int xml_append (XML *xml, char *path, char *doc)
 {
   XMLNODE *n, *p, *pp;
   
-  n = xml_parse_nodes (&doc);
+  if ((n = xmln_parse (&doc)) == NULL)
+    return (-1);
   if ((p = xml_force (xml, path, &pp)) == NULL)
-    return (NULL);
-  p->value = xml_node_insert (p->value, NULL, n);
-  return (n);
+  {
+    xmln_free (n);
+    return (-1);
+  }
+  p->value = xmln_insert (p->value, NULL, n);
+  return (0);
 }
 
 /*
  * Insert a snippet into the document as a child of path. Create path 
  * if needed.
  */
-XMLNODE *xml_insert (XML *xml, char *path, char *doc)
+int xml_insert (XML *xml, char *path, char *doc)
 {
   XMLNODE *n, *p, *pp;
   
-  n = xml_parse_nodes (&doc);
+  if ((n = xmln_parse (&doc)) == NULL)
+    return (-1);
   if ((p = xml_force (xml, path, &pp)) == NULL)
-    return (NULL);
-  p->value = xml_node_insert (p->value, p->value, n);
-  return (n);
+  {
+    xmln_free (n);
+    return (-1);
+  }
+  p->value = xmln_insert (p->value, p->value, n);
+  return (0);
 }
 
 /*
  * get attribute value at path
+ * return NULL if not found
  */
 char *xml_get_attribute (XML *xml, char *path, char *name)
 {
-  XMLNODE *n = xml_find (xml, path);
-  if (n == NULL)
+  XMLNODE *n;
+
+  if ((n = xml_find (xml, path)) == NULL)
     return (NULL);
-  for (n = n->attributes; n != NULL; n = n->next)
-  {
-    if ((n->type == XML_ATTRIB) && (strcmp (n->key, name) == 0))
-      return (n->value);
-  }
-  return (NULL);
+  return (xmln_get_attr (n, name));
 }
 
 /*
  * set attribute value at path
+ * if a new attribute append it to the list
  */
-XMLNODE *xml_set_attribute (XML *xml, char *path, char *name, char *value)
+int xml_set_attribute (XML *xml, char *path, char *name, char *value)
 {
   XMLNODE *a, *n;
 
   if ((n = xml_find (xml, path)) == NULL)
-    return (NULL);
-  debug ("looking for attribute %s\n", name);
-  for (a = n->attributes; a != NULL; a = a->next)
-  {
-    if ((a->type == XML_ATTRIB) && (strcmp (a->key, name) == 0))
-      break;
-  }
-  if (a == NULL)
-  {
-    debug ("creating attribute %s\n", name);
-    a = xml_text_alloc (" ", 1);
-    a->next = xml_node_alloc (XML_ATTRIB, name);
-    n->attributes = xml_node_insert (n->attributes, NULL, a);
-    a = a->next;
-  }
-  xml_set_value (a, value, strlen (value));
-  return (a);
+    return (-1);
+  return (xmln_set_attr (n, name, value) == NULL);
 }
 
 /*
@@ -1253,6 +544,19 @@ int xml_pathadd (XML *xml, char *path, int index, char *key)
 }
 
 /*
+ * return the root key tag
+ */
+char *xml_root (XML *xml)
+{
+  XMLNODE *n;
+  if (xml == NULL)
+    return (NULL);
+  if ((n = xmln_type (xml->doc, XML_ELEMENT, 0)) == NULL)
+    return (NULL);
+  return (n->key);
+}
+
+/*
  * Replace path with path of the first child.  Return the path length
  * or 0 if there are no children.
  */
@@ -1262,15 +566,10 @@ int xml_first (XML *xml, char *path)
   
   if ((n = xml_find (xml, path)) == NULL)
     return (0);
-  if (xml_num_children (n) < 1)
+  if (!xmln_haschild (n))
     return (0);
-  n = n->value;
-  // debug ("looking for first child to %s\n", path);
-  while (n->type != XML_ELEMENT)
-  {
-    if ((n = n->next) == NULL)
-      return (0);
-  }
+  if ((n = xmln_type (n->value, XML_ELEMENT, 0)) == NULL)
+    return (0);
   // debug ("child is %s\n", n->key);
   return (xml_pathadd (xml, path, 0, n->key));
 }
@@ -1286,18 +585,13 @@ int xml_last (XML *xml, char *path)
   
   if ((n = xml_find (xml, path)) == NULL)
     return (0);
-  if (xml_num_children (n) == 0)
+  if (!xmln_haschild (n))
     return (0);
   // find the last one
-  e = l = n = n->value;
-  while (l->next != NULL)
-  {
-    l = l->next;
-    if (l->type == XML_ELEMENT)
-      e = l;
-  }
-  if (e->type != XML_ELEMENT)
+  if ((n = e = xmln_type (n->value, XML_ELEMENT, 0)) == NULL)
     return (0);
+  while ((l = xmln_type (e->next, XML_ELEMENT, 0)) != NULL)
+    e = l;
   // determine it's index
   while (n != e)
   {
@@ -1320,12 +614,7 @@ int xml_next (XML *xml, char *path)
   if (((n = xml_find_parent (xml, path, &p)) == NULL) || (p == NULL))
     return (0);
   // debug ("looking for next\n");
-  while ((n = n->next) != NULL)
-  {
-    if (n->type == XML_ELEMENT)
-      break;
-  }
-  if (n == NULL)
+  if ((n = xmln_type (n->next, XML_ELEMENT, 0)) == NULL)
     return (0);
   // determine index
   // debug ("getting index\n");
@@ -1349,15 +638,15 @@ int xml_prev (XML *xml, char *path)
   
   if (((n = xml_find_parent (xml, path, &p)) == NULL) || (p == NULL))
     return (0);
-  e = NULL;
-  // determine index
-  for (t = p->value; t != n; t = t->next)
-  {
-    if (t->type == XML_ELEMENT)
-      e = t;
-  }
-  if (e == NULL)
+  if ((e = xmln_type (p->value, XML_ELEMENT, 0)) == n)
     return (0);
+  // determine index
+  while ((t = xmln_type (e->next, XML_ELEMENT, 0)) != NULL)
+  {
+    if (t == n)
+      break;
+    e = t;
+  }
   for (t = p->value; t != e; t = t->next)
   {
     if ((t->type == XML_ELEMENT) && (strcmp (t->key, e->key) == 0))
@@ -1382,26 +671,7 @@ int xml_path_opts (XML *xml, int path_sep, int indx_sep)
 
 
 /*
- * Parse XML in this buf.  Return the (sub) tree parsed and buf
- * set to where the parse ended.
- *
- * XML      :: XMLDECL DECLS ELEMENT DECLS
- * ELEMENT  :: '<' TAG ATTRIB '>' XMLNODES '</' TAG '>'
- *          :: '<' TAG ATTRIB '/>'
- *          :: NULL
- * XMLNODES    :: DECLS XMLNODES
- *          :: ELEMENT XMLNODES
- *          :: NULL
- * ATTRIB   :: TEXT '="' TEXT '"' ATTRIB
- *          :: NULL
- * DECLS    :: '<' NONALPHA TEXT '>' DECLS
- *          :: COMMENT DECLS
- *          :: TEXT DECLS
- *          :: NULL
- * COMMENT  :: '<!--' TEXT '-->'
- *          :: NULL
- * XMLDECL  :: '<?xml version="1.0" encoding="UTF-8"?>'
- *          :: NULL
+ * Parse and return XML document in this buf  
  */
 
 XML *xml_parse (char *buf)
@@ -1410,50 +680,41 @@ XML *xml_parse (char *buf)
   XMLNODE **node;
   char **p = &buf;
 
-  xml = xml_alloc ('.', '[');
-  node = &(xml->doc);
-  *node = xml_parse_decls (p);
-  while (*node != NULL) 
-    node = &(*node)->next;
-  if ((*node = xml_parse_element (p)) != NULL)
-  {
-    while (*node != NULL) 
-      node = &(*node)->next;
-    *node = xml_parse_decls (p);
-  }
-  debug ("parse complete\n");
-  if (**p)				/* incomplete parse	*/
-    return (xml_free (xml));		/* indicates failure	*/
+  xml = xml_alloc ();
+  xml->doc = xmln_parse_doc (p);
   return (xml);
 }
 
 /*
  * coellese all text nodes in the docuement
+ * return nonzero if fails
  */
-XMLNODE *xml_normalize (XML *xml)
+int xml_normalize (XML *xml)
 {
-  xml->doc = xml_node_normalize (xml->doc);
-  return (xml->doc);
+  xml->doc = xmln_normalize (xml->doc);
+  return (xml->doc == NULL);
 }
 
 /*
  * beautify all the nodes in a document
+ * indent sets number of spaces indent for each child tag
+ * return nonzero if fails
  */
-XMLNODE *xml_beautify (XML *xml, int indent)
+int xml_beautify (XML *xml, int indent)
 {
-  xml->doc = xml_node_beautify (xml->doc, indent, 0);
-  return (xml->doc);
+  xml->doc = xmln_beautify (xml->doc, indent, 0);
+  return (xml->doc == NULL);
 }
 
 /*
- * format a document
+ * format a document to text
  */
 char *xml_format (XML *xml)
 {
   DBUF *b;
 
   b = dbuf_alloc ();
-  xml_node_format (xml->doc, b);
+  xmln_format (xml->doc, b);
   /*
   if (dbuf_getbuf (&b)[dbuf_size (&b) - 1] != '\n')
     dbuf_printf (&b, "\n");
@@ -1468,21 +729,7 @@ char *xml_format (XML *xml)
 
 int xml_write (XML *xml, FILE *fp)
 {
-  DBUF *b;
-  int n;
-
-  if (xml == NULL)
-  {
-    error ("NULL xml\n");
-    return (-1);
-  } 
-  b = dbuf_alloc ();
-  xml_declare (xml);
-  n = xml_node_format (xml->doc, b);
-  if (fwrite (dbuf_getbuf(b), sizeof (char), n, fp) != n)
-    n = -1;
-  dbuf_free (b);
-  return (n);
+  return (xmln_write (xml->doc, fp));
 }
 
 /*
@@ -1491,42 +738,21 @@ int xml_write (XML *xml, FILE *fp)
  */
 int xml_save (XML *xml, char *filename)
 {
-  FILE *fp;
-  int sz;
-
-  if ((fp = fopen (filename, "w")) == NULL)
-    return (-1);
-  sz = xml_write (xml, fp);
-  fclose (fp);
-  if (sz < 1)
-    unlink (filename);
-  return (sz < 1);
+  return (xmln_save (xml->doc, filename));
 }
 
 /*
- * load xml from a stream
+ * load xml document from a stream
  */
 XML *xml_read (FILE *fp)
 {
   XML *x;
-  char *buf;
-  int bufsz = 4096, 
-      sz = 0, 
-      n;
+  XMLNODE *n;
 
-  buf = (char *) malloc (bufsz);
-  while ((n = fread (buf + sz, sizeof (char), bufsz - sz, fp)) > 0)
-  {
-    sz += n;
-    if (sz >= bufsz - 1)
-    {
-      bufsz <<= 2;
-      buf = (char *) realloc (buf, bufsz);
-    }
-  }
-  buf[sz] = 0;
-  x = xml_parse (buf);
-  free (buf);
+  if ((n = xmln_read (fp, 1)) == NULL)
+    return (NULL);
+  x = xml_alloc ();
+  x->doc = n;
   return (x);
 }
 
@@ -1536,14 +762,12 @@ XML *xml_read (FILE *fp)
 XML *xml_load (char *filename)
 {
   XML *x;
-  FILE *fp;
+  XMLNODE *n;
 
-  if (filename == NULL)
+  if ((n = xmln_load (filename, 1)) == NULL)
     return (NULL);
-  if ((fp = fopen (filename, "rb")) == NULL)
-    return (NULL);
-  x = xml_read (fp);
-  fclose (fp);
+  x = xml_alloc ();
+  x->doc = n;
   return (x);
 }
 
@@ -1583,7 +807,7 @@ dump_nodes (XMLNODE *node, char *b, int maxsz, int level)
 void display (XML *x, DBUF *b, char *msg)
 {
   dbuf_clear (b);
-  xml_node_format (x->doc, b);
+  xmln_format (x->doc, b);
   printf ("\n----- %s -----\n%s\n", msg, dbuf_getbuf(b));
 }
 
@@ -1615,6 +839,19 @@ void rdive (XML *xml, char *path, int level)
   } while (xml_prev (xml, p) > 0);
 }
 
+char *TestXML =
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+"<EncryptedData Id=\"ed1\" Type=\"http://www.w3.org/2001/04/xmlenc#Element\" "
+"xmlns=\"http://www.w3.org/2001/04/xmlenc#\">"
+"<EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#tripledes-cbc\"/>"
+"<KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
+"<EncryptedKey xmlns=\"http://www.w3.org/2001/04/xmlenc#\">"
+"<EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#rsa-1_5\"/>"
+"<KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
+"<KeyName>key</KeyName>"
+"</KeyInfo><CipherData><CipherValue/></CipherData></EncryptedKey></KeyInfo>"
+"<CipherData><CipherValue/></CipherData></EncryptedData>";
+
 int main (int argc, char **argv)
 {
   XMLNODE *n;
@@ -1627,29 +864,29 @@ int main (int argc, char **argv)
   // x = xml_alloc ();
   // goto scratch;
   /* load test */
-  x = xml_parse (PhineasConfig);
+  x = xml_parse (TestXML);
   display (x, b, "load test");
 
   /* normalization test */
-  x->doc = xml_node_normalize (x->doc);
+  x->doc = xmln_normalize (x->doc);
   display (x, b, "normalized");
 
   /* beautify test */
-  x->doc = xml_node_beautify (x->doc, 2, 0);
+  x->doc = xmln_beautify (x->doc, 2, 0);
   display (x, b, "beautified");
 
 scratch:
 
   /* build from scratch test */
   debug ("scratch build...\n");
-  x->doc = xml_node_free (x->doc);
+  x->doc = xmln_free (x->doc);
   xml_path_opts (x, '.', '[');
   xml_set (x, "foo", "<goofy>really goofy</goofy>");
   xml_set (x, "foo.bar.stuff[2]", "third stuff");
   xml_set (x, "foo.phue", "<goof>phuey</goof>");
   xml_set_attribute (x, "foo.bar.stuff[1]", "crud", "junk");
-  xml_add (x, "foo.bar[1].crap", "<junk>this is junk</junk>", 0);
-  xml_add (x, "foo.bar[1].crap", "<junk>second junk</junk>", 1);
+  xml_paste (x, "foo.bar[1].crap", "<junk>this is junk</junk>", 0);
+  xml_paste (x, "foo.bar[1].crap", "<junk>second junk</junk>", 1);
   debug ("added all crap\n");
   ch = xml_get (x, "foo.bar.stuff[2]");
   debug ("got %s\n", ch);
@@ -1673,15 +910,15 @@ scratch:
   if (strcmp (ch, "a different value"))
     printf ("attribute lookup failed\n");
   debug ("beautifying...\n");
-  x->doc = xml_node_beautify (x->doc, 2, 0);
+  x->doc = xmln_beautify (x->doc, 2, 0);
   debug ("setting declaration...\n");
   xml_declare (x);
   debug ("displaying...\n");
   display (x, b, "constructed");
   debug ("diving...\n");
-  dive (x, xml_root (x)->key, 0);
+  dive (x, xml_root (x), 0);
   debug ("reverse diving...\n");
-  rdive (x, xml_root (x)->key, 0);
+  rdive (x, xml_root (x), 0);
   xml_free (x);
 }
 

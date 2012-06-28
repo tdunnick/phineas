@@ -1,0 +1,4 @@
+Reworked XML, split out and hide XMLNODE functions to xmln.c and restrict
+xml.c to pure string parameters and returns.  Enable auto-renegotiations
+for SSL connections and enable debugging code in sender and receiver for
+user trouble shooting.
