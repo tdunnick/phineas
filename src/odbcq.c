@@ -25,34 +25,29 @@
  */
 
 #ifdef UNITTEST
+#include "unittest.h"
 #define __ODBCQ__
 #endif
 
 #ifdef __ODBCQ__
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <windows.h>
+
 #ifdef _GUID_DEFINED
 #undef _GUID_DEFINED
 #endif
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "xml.c"
-#include "dbuf.c"
-#include "queue.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
-#include "log.h"
-#endif
-
 #include <sql.h>
 #include <sqlext.h>
+#include "log.h"
 #include "util.h"
 #include "queue.h"
+
+#ifndef debug
+#define debug(fmt...)
+#endif
 
 /*
  * ODBC connection information
@@ -120,7 +115,7 @@ char *odbcq_error (char *dst, int sz, SQLHANDLE handle, SQLSMALLINT type)
 	  break;
 	case SQL_NO_DATA :
 	  if (i == 1)
-	    snprintf (dst + len, sz - len, "\tno error data found!\n");
+	    snprintf (dst + len, sz - len, "\tno data found!\n");
 	  break;
 	default :
 	  snprintf (dst + len, sz - len, "\tunknown ret=%d\n", ret);
@@ -211,7 +206,7 @@ ODBCQ *odbcq_find (QUEUE *q)
    */
   id = q->type->field[0];
   o->rowid = odbcq_getint (c, "select max(%s) from %s", id, q->table);
-  if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
+  if (istransportQ (q))
     o->transport = 0;
   else
     o->transport = -1;
@@ -460,10 +455,11 @@ int odbcq_push (QUEUEROW *r)
   return (r->rowid);
 }
 
+
 /*
- * get a specific row
+ * get a specific row with optional warning
  */
-QUEUEROW *odbcq_get (QUEUE *q, int rowid)
+QUEUEROW *odbcq_wget (QUEUE *q, int rowid, int warn)
 {
   ODBCQ *m;
   ODBCQCONN *c;
@@ -514,13 +510,21 @@ QUEUEROW *odbcq_get (QUEUE *q, int rowid)
       }
     }
   }
-  if (row == NULL)
+  if ((row == NULL) && warn)
   {
     warn ("failed reading %s row %d: %s", q->name, rowid,
       odbcq_error (buf, sizeof (buf), c->stmt, SQL_HANDLE_STMT));
   }
   SQLFreeStmt (c->stmt, SQL_CLOSE);
   return (row);
+}
+
+/*
+ * get a specific row
+ */
+QUEUEROW *odbcq_get (QUEUE *q, int rowid)
+{
+  return (odbcq_wget (q, rowid, 1));
 }
 
 /*
@@ -589,7 +593,7 @@ QUEUEROW *odbcq_next (QUEUE *q, int rowid)
   debug ("next row after %d up to %d\n", rowid, lastrow);
   while (rowid++ < lastrow)
   {
-    if ((r = odbcq_get (q, rowid)) != NULL)
+    if ((r = odbcq_wget (q, rowid, 0)) != NULL)
       return (r);
   }
   return (NULL);
@@ -607,7 +611,7 @@ QUEUEROW *odbcq_prev (QUEUE *q, int rowid)
   debug ("prev row to %d\n", rowid);
   while (--rowid > 0)
   {
-    if ((r = odbcq_get (q, rowid)) != NULL)
+    if ((r = odbcq_wget (q, rowid, 0)) != NULL)
       return (r);
   }
   return (NULL);
@@ -690,6 +694,14 @@ int odbcq_connect (QUEUECONN *conn)
 
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "unittest.h"
+#include "util.c"
+#include "xml.c"
+#include "xmln.c"
+#include "dbuf.c"
+#include "queue.c"
 
 void row_set (QUEUEROW *r, char *name, char *fmt, ...)
 {
@@ -780,8 +792,8 @@ QUEUEROW *rand_trans (QUEUEROW *r)
   row_set (r, "PUBLICKEYLDAPBASEDN", "DN=%s", fromdn);
   row_set (r, "PUBLICKEYLDAPDN", "");
   row_set (r, "CERTIFICATEURL", "URL=%s",fromdn);
-  row_set (r, "PROCESSINGSTATUS", "%s", statusa[ecode]);
-  row_set (r, "TRANSPORTSTATUS", "%s", status[ecode]);
+  row_set (r, "PROCESSINGSTATUS", "%s", status[ecode]);
+  row_set (r, "TRANSPORTSTATUS", "%s", statusa[ecode]);
   row_set (r, "TRANSPORTERRORCODE", "%d", ecode);
   row_set (r, "APPLICATIONSTATUS", "%s", status[ecode]);
   row_set (r, "APPLICATIONERRORCODE", "%d", ecode);
@@ -909,6 +921,8 @@ int main (int argc, char **argv)
   debug ("Closing...\n");
   queue_shutdown ();
   debug ("Done!\n");
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

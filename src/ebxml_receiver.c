@@ -16,48 +16,25 @@
  *  limitations under the License.
  */
 
-#define DEBUG
-
 #ifdef UNITTEST
+#include "unittest.h"
 #define __RECEIVER__
 #endif
 
 #ifdef __RECEIVER__
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "log.c"
-#include "xml.c"
-#include "mime.c"
-#include "queue.c"
-#include "task.c"
-#include "fileq.c"
-#include "b64.c"
-#include "basicauth.c"
-#include "crypt.c"
-#include "xcrypt.c"
-#include "find.c"
-#include "fpoller.c"
-#include "qpoller.c"
-#include "net.c"
-#include "payload.c"
-#include "ebxml.c"
-#define UNITTEST
-#define debug _DEBUG_
-#endif
-
 #include <stdio.h>
+
 #include "util.h"
 #include "log.h"
 #include "mime.h"
 #include "basicauth.h"
+#include "cfg.h"
 #include "crypt.h"
 #include "xcrypt.h"
 #include "payload.h"
 #include "ebxml.h"
+#include "filter.h"
 
 
 #ifndef debug
@@ -121,21 +98,19 @@ char *ebxml_duplicate (XML *soap)
 /*
  * return the map index for this service/action pair
  */
-int ebxml_service_map (XML *xml, char *service, char *action, char *prefix)
+int ebxml_service_map (XML *xml, char *service, char *action)
 {
   int i;
 
   debug ("getting service map for %s/%s\n", service, action);
-  for (i = 0; i < xml_count (xml, "Phineas.Receiver.MapInfo.Map"); i++)
+  for (i = 0; i < xml_count (xml, XSERVICE); i++)
   {
-    sprintf (prefix, "%s[%i].", "Phineas.Receiver.MapInfo.Map", i);
-    if (strcmp (service, ebxml_get (xml, prefix, "Service")) ||
-	strcmp (action, ebxml_get (xml, prefix, "Action")))
+    if (strcmp (service, cfg_service (xml, i, "Service")) ||
+	strcmp (action, cfg_service (xml, i, "Action")))
       continue;
-    debug ("matched prefix %s\n", prefix);
+    debug ("matched prefix %s[%d]\n", XSERVICE, i);
     return (i);
   }
-  *prefix = 0;
   return (-1);
 }
 
@@ -161,47 +136,41 @@ char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
   today[24] = 0;
 
 
-  organization = xml_get_text (xml, "Phineas.Organization");
+  organization = cfg_org (xml);
   ppid (pid);
   debug ("pid=%s\n", pid);
   /*
    * build the soap container...
    */
-  txml = ebxml_template (xml, "Phineas.AckTemplate");
-  // txml = ebxml_template (xml, "Phineas.SoapTemplate");
+  txml = ebxml_template (xml, XACK);
   if (txml == NULL)
   {
     error ("can't get soap template\n");
     return (NULL);
   }
-  ebxml_set (txml, soap_hdr, "eb:To.eb:PartyId",
-    ebxml_get (soap, soap_hdr, "eb:From.eb:PartyId"));
-  ebxml_set (txml, soap_hdr, "eb:From.eb:PartyId",
-    ebxml_get (soap, soap_hdr, "eb:To.eb:PartyId"));
-  ebxml_set (txml, soap_hdr, "eb:CPAId",
-    ebxml_get (soap, soap_hdr, "eb:CPAId"));
-  ebxml_set (txml, soap_hdr, "eb:ConversationId",
-    ebxml_get (soap, soap_hdr, "eb:ConversationId"));
-  if (strcmp (ebxml_get (soap, soap_hdr, "eb:Action"), "Ping") == 0)
+
+  xml_set_text (txml, SOAPTOPARTY, xml_get_text (soap, SOAPFROMPARTY));
+  xml_set_text (txml, SOAPFROMPARTY, xml_get_text (soap, SOAPTOPARTY));
+  xml_set_text (txml, SOAPCPAID, xml_get_text (soap, SOAPCPAID));
+  xml_set_text (txml, SOAPCONVERSEID, xml_get_text (soap, SOAPCONVERSEID));
+
+  if (strcmp (xml_get_text (soap, SOAPACTION), "Ping") == 0)
     ch = "Pong";
   else if (strcmp (error, "none"))
     ch = "MessageError";
   else
     ch = "Acknowledgment";
-  ebxml_set (txml, soap_hdr, "eb:Action", ch);
+  xml_set_text (txml,  SOAPACTION, ch);
   sprintf (buf, "%s@%s", pid, organization);
-  ebxml_set (txml, soap_hdr, "eb:MessageData.eb:MessageId", buf);
-  ebxml_set (txml, soap_hdr, "eb:MessageData.eb:Timestamp",
-    ptime (NULL, buf));
-  ebxml_set (txml, soap_ack, "eb:Timestamp", ptime (NULL, buf));
-  queue_field_set (r, "RECEIVEDTIME", ptime (NULL, buf));
+  xml_set_text (txml, SOAPMESSAGEID, buf);
+  xml_set_text (txml, SOAPDATATIME, ptime (NULL, buf));
+  xml_set_text (txml, SOAPACKTIME, buf);
+
+  queue_field_set (r, "RECEIVEDTIME", buf);
   queue_field_set (r, "LASTUPDATETIME", buf);
-  ebxml_set (txml, soap_hdr, "eb:MessageData.eb:RefToMessageId",
-      "statusResponse@cdc.gov");
-  ebxml_set (txml, soap_hdr, "eb:MessageData.eb:RefToMessageId[1]",
-    ebxml_get (soap, soap_hdr, "eb:MessageData.eb:MessageId"));
-  ebxml_set (txml, soap_ack, "eb:RefToMessageId",
-    ebxml_get (soap, soap_hdr, "eb:MessageData.eb:MessageId"));
+  xml_set_text (txml, SOAPREFID, "statusResponse@cdc.gov");
+  xml_set_text (txml, SOAPREFID "[1]", xml_get_text (soap, SOAPMESSAGEID)); 
+  xml_set_text (txml, SOAPACKREF, xml_get_text (soap, SOAPMESSAGEID));
 
   smsg = mime_alloc ();
   mime_setHeader (smsg, MIME_CONTENTID, "<ebxml-envelope@cdc.gov>", 0);
@@ -214,7 +183,7 @@ char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
    * build the response container...
    * we could do this using a template, but it is trivial...
    */
-  if (strcmp (ebxml_get (soap, soap_hdr, "eb:Action"), "Ping"))
+  if (strcmp (xml_get_text (soap, SOAPACTION), "Ping"))
   {
     b = dbuf_alloc ();
     dbuf_printf (b, "<response><msh_response><status>%s</status>"
@@ -265,13 +234,13 @@ char *ebxml_format_arguments (XML *soap)
 
   debug ("Construction metadata for ack\n");
   metadata = xml_alloc ();
-  strcpy (path, soap_manifest);
-  strcat (path, "MetaData");
-  ch = xml_get (soap, path);
+  //strcpy (path, soap_manifest);
+  //strcat (path, "MetaData");
+  ch = xml_get (soap, SOAPMETA);
   xml_set (metadata, "Manifest.MetaData", ch);
   free (ch);
   debug ("Removing attributes from metadata\n");
-  xml_clear_attributes (metadata, xml_root (metadata));
+  xml_clear_attributes (metadata, "Manifest");
   xml_beautify (metadata, 0);
   ch = xml_format (metadata);
   xml_free (metadata);
@@ -286,21 +255,15 @@ int ebxml_request_row (QUEUEROW *r, XML *soap)
 {
   char *ch;
 
-  queue_field_set (r, "MESSAGEID",
-    ebxml_get (soap, soap_dbinf, "MessageId"));
-  queue_field_set (r, "SERVICE",
-    ebxml_get (soap, soap_hdr, "eb:Service"));
-  queue_field_set (r, "ACTION",
-    ebxml_get (soap, soap_hdr, "eb:Action"));
+  queue_field_set (r, "MESSAGEID", xml_get_text (soap, SOAPDBMESSID));
+  queue_field_set (r, "SERVICE", xml_get_text (soap, SOAPSERVICE));
+  queue_field_set (r, "ACTION", xml_get_text (soap, SOAPACTION));
   queue_field_set (r, "ARGUMENTS", ch = ebxml_format_arguments (soap));
   free (ch);
-  queue_field_set (r, "FROMPARTYID",
-    ebxml_get (soap, soap_hdr, "eb:From.eb:PartyId"));
-  queue_field_set (r, "MESSAGERECIPIENT",
-    ebxml_get (soap, soap_dbinf, "MessageRecipient"));
+  queue_field_set (r, "FROMPARTYID", xml_get_text (soap, SOAPFROMPARTY));
+  queue_field_set (r, "MESSAGERECIPIENT", xml_get_text (soap, SOAPDBRECP));
   queue_field_set (r, "PROCESSINGSTATUS", "received");
-  queue_field_set (r, "PROCESSID",
-    ebxml_get (soap, soap_hdr, "eb:ConversationId"));
+  queue_field_set (r, "PROCESSID", xml_get_text (soap, SOAPCONVERSEID));
   return (0);
 }
 
@@ -310,7 +273,8 @@ int ebxml_request_row (QUEUEROW *r, XML *soap)
  */
 char *ebxml_process_req (XML *xml, char *buf)
 {
-  int len;			/* payload length		*/
+  int len,			/* payload length		*/
+      service;			/* index to service map		*/
   MIME *msg = NULL, 		/* the request message		*/
        *part = NULL;		/* one part of the message	*/
   XML *soap = NULL;		/* the ebxml soap envelope	*/
@@ -320,7 +284,6 @@ char *ebxml_process_req (XML *xml, char *buf)
   char *unc,			/* decryption informatin	*/
        *pw,
        dn[DNSZ],
-       prefix[MAX_PATH],	/* identifies service/action	*/
        name[MAX_PATH],		/* payload file name		*/
        path[MAX_PATH];		/* payload local disk path	*/
 
@@ -331,7 +294,7 @@ char *ebxml_process_req (XML *xml, char *buf)
    * can be modified to a per map basis, albeit with quite a bit
    * of extra work.
    */
-  if (basicauth_check (xml, "Phineas.Receiver.BasicAuth", buf))
+  if (basicauth_check (xml, XBASICAUTH, buf))
   {
     DBUF *b = basicauth_response ("Phineas Receiver");
     return (dbuf_extract (b));
@@ -358,25 +321,26 @@ char *ebxml_process_req (XML *xml, char *buf)
   /*
    * check for ping
    */
-  ch = ebxml_get (soap, soap_hdr, "eb:Action");
+  ch = xml_get_text (soap, SOAPACTION);
   if (strcmp (ch, "Ping") == 0)
   {
     ch = ebxml_reply (xml, soap, NULL, "success", "none", "none");
     goto done;
   }
   /*
-   * find the service map (prefix) and initialize a queue entry
+   * find the service map index and initialize a queue entry
    */
-  if (ebxml_service_map (xml, ebxml_get (soap, soap_hdr, "eb:Service"),
-    ch, prefix) < 0)
+  if ((service = 
+      ebxml_service_map (xml, xml_get_text (soap, SOAPSERVICE), ch)) < 0)
   {
     error ("Unknown service/action %s/%s\n",
-	ebxml_get (soap, soap_hdr, "eb:Service"), ch);
+	xml_get_text (soap, SOAPSERVICE), ch);
     ch = ebxml_reply (xml, soap, NULL, "InsertFailed",
       "Unknown Service/Action", "none");
     goto done;
   }
-  r = queue_row_alloc (queue_find (ch = ebxml_get (xml, prefix, "Queue")));
+  ch = cfg_service (xml, service, "Queue");
+  r = queue_row_alloc (queue_find (ch));
   if (r == NULL)
   {
     error ("queue not found for %s\n", ch);
@@ -399,9 +363,9 @@ char *ebxml_process_req (XML *xml, char *buf)
   /*
    * encryption envelope
    */
-  unc = ebxml_get (xml, prefix, "Encryption.Unc");
-  pw = ebxml_get (xml, prefix, "Encryption.Password");
-  strcpy (dn, ebxml_get (xml, prefix, "Encryption.Id"));
+  unc = cfg_service (xml, service, "Encryption.Unc");
+  pw = cfg_service (xml, service, "Encryption.Password");
+  strcpy (dn, cfg_service (xml, service, "Encryption.Id"));
 
   /*
    * get the payload, it's name, and DN
@@ -416,7 +380,7 @@ char *ebxml_process_req (XML *xml, char *buf)
   /*
    * prepare to write it to disk
    */
-  pathf (path, "%s%s",  ebxml_get (xml, prefix, "Directory"), name);
+  ppathf (path, cfg_service (xml, service, "Directory"), "%s", name);
   queue_field_set (r, "PAYLOADNAME", name);
   queue_field_set (r, "LOCALFILENAME", path);
   if (mime_getHeader (part, MIME_CONTENT) == NULL)
@@ -424,20 +388,44 @@ char *ebxml_process_req (XML *xml, char *buf)
   else
     queue_field_set (r, "ENCRYPTION", "yes");
   /*
-   * TODO save payload to disk using filter if given
+   * save payload to disk using filter if given
    */
-  info ("Writing ebXML payload to %s\n", path);
-  if ((fp = fopen (path, "wb")) == NULL)
+  pw = cfg_service (xml, service, "Filter");
+  if (*pw)
   {
-    error ("Can't open %s for write\n", name);
-    free (ch);
-    ch = ebxml_reply (xml, soap, r, "InsertFailed",
-      "Can not save file", "none");
-    goto done;
+    char *emsg;
+    DBUF *wbuf = dbuf_setbuf (NULL, ch, len);
+
+    debug ("filter write %s with %s\n", path, pw);
+    len = filter_run (pw, NULL, wbuf, path, NULL, &emsg, cfg_timeout (xml));
+    if (*emsg)
+      warn ("filter %s returned %s\n", pw, emsg);
+    free (emsg);
+    dbuf_free (wbuf);
+    if (len)
+    {
+      error ("Can't filter to %s\n", name);
+      dbuf_free (wbuf);
+      ch = ebxml_reply (xml, soap, r, "InsertFailed",
+        "Can not process file", "none");
+      goto done;
+    }
   }
-  fwrite (ch, 1, len, fp);
-  fclose (fp);
-  free (ch);
+  else
+  {
+    info ("Writing ebXML payload to %s\n", path);
+    if ((fp = fopen (path, "wb")) == NULL)
+    {
+      error ("Can't open %s for write\n", name);
+      free (ch);
+      ch = ebxml_reply (xml, soap, r, "InsertFailed",
+        "Can not save file", "none");
+      goto done;
+    }
+    fwrite (ch, 1, len, fp);
+    fclose (fp);
+    free (ch);
+  }
 
   /*
    * construct a reply and insert a queue entry
@@ -462,6 +450,29 @@ done:
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "dbuf.c"
+#include "log.c"
+#include "xmln.c"
+#include "xml.c"
+#include "mime.c"
+#include "queue.c"
+#include "task.c"
+#include "fileq.c"
+#include "b64.c"
+#include "basicauth.c"
+#include "cfg.c"
+#include "crypt.c"
+#include "xcrypt.c"
+#include "find.c"
+#include "fpoller.c"
+#include "qpoller.c"
+#include "net.c"
+#include "payload.c"
+#include "ebxml.c"
+#include "filter.c"
 
 int ran = 0;
 int phineas_running  ()
@@ -480,7 +491,7 @@ int main (int argc, char **argv)
   SSL_library_init();
   OpenSSL_add_all_ciphers();
   xml = xml_parse (PhineasConfig);
-  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
+  loadpath (cfg_installdir (xml));
   queue_init (xml);
 
   debug ("Reading test request\n");
@@ -492,8 +503,8 @@ int main (int argc, char **argv)
   }
   queue_shutdown ();
   xml_free (xml);
-  info ("%s unit test completed\n", argv[0]);
-  exit (0);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

@@ -24,24 +24,46 @@
 #include "net.h"
 
 /*
- * useful tags for accessing ebXML data
+ * useful xpath tags for accessing ebXML data
+ * first common prefixes...
  */
-extern char
-   *soap_hdr,
-   *soap_bdy,
-   *soap_manifest,
-   *soap_dbinf,
-   *soap_ack;
+#define SOAPACK "soap-env:Envelope.soap-env:Header.eb:Acknowledgment."
+#define SOAPHD "soap-env:Envelope.soap-env:Header."
+#define SOAPHDR SOAPHD "eb:MessageHeader."
+#define SOAPBODY "soap-env:Envelope.soap-env:Body."
+#define SOAPDB SOAPBODY "eb:Manifest.MetaData.DatabaseInfo."
+#define SOAPMANIFEST SOAPBODY "eb:Manifest."
 
 /*
- * Get a field from configuration with prefix
+ * specific header data
  */
-char *ebxml_get (XML *xml, char *prefix, char *name);
-
+#define SOAPTOPARTY SOAPHDR "eb:To.eb:PartyId"
+#define SOAPFROMPARTY SOAPHDR "eb:From.eb:PartyId"
+#define SOAPCPAID SOAPHDR "eb:CPAId"
+#define SOAPCONVERSEID SOAPHDR "eb:ConversationId"
+#define SOAPACTION SOAPHDR "eb:Action"
+#define SOAPSERVICE SOAPHDR "eb:Service"
+#define SOAPMESSAGEID SOAPHDR "eb:MessageData.eb:MessageId"
+#define SOAPDATATIME SOAPHDR "eb:MessageData.eb:Timestamp"
+#define SOAPREFID SOAPHDR "eb:MessageData.eb:RefToMessageId"
+#define SOAPERROR SOAPHD "eb:ErrorList.eb:Error"
 /*
- * Set a field from a configuration with prefix
+ * ack data
  */
-int ebxml_set (XML *xml, char *prefix, char *suffix, char *value);
+#define SOAPACKTIME SOAPACK "eb:Timestamp"
+#define SOAPACKREF SOAPACK "eb:RefToMessageId"
+/*
+ * dbinfo data
+ */
+#define SOAPDBMESSID SOAPDB "MessageId"
+#define SOAPDBRECP SOAPDB "MessageRecipient"
+#define SOAPDBRECID SOAPDB "RecordId"
+#define SOAPDBARGS SOAPDB "Arguments"
+/*
+ * manifest data
+ */
+#define SOAPMREF SOAPMANIFEST "eb:Reference"
+#define SOAPMETA SOAPMANIFEST "MetaData"
 
 /*
  * receive a reply and put it in this buffer

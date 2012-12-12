@@ -223,6 +223,7 @@
         <Action>defaultaction</Action>
         <Arguments></Arguments>
         <Recipient></Recipient>
+	<Filter></Filter>
 	<!-- application specific encryption... -->
         <Encryption>
           <Type></Type>
@@ -258,6 +259,7 @@
 	<Service>defaultservice</Service>
 	<Action>defaultaction</Action>
 	<Arguments></Arguments>
+	<Filter></Filter>
         <Encryption>
 	  <Type>clientcert</Type>
           <Id/>

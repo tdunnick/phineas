@@ -16,28 +16,16 @@
  *  limitations under the License.
  */
 #ifdef UNITTEST
-#define __FILEQ__
+#define __FILEQ__	/* needed for registration in queue.c	*/
+#include "unittest.h"
 #endif
 
-#ifdef __FILEQ__
+#ifdef __FILEQ__	/* only if we are using file queues!	*/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "xml.c"
-#include "dbuf.c"
-#include "queue.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
 #include "log.h"
-#endif
-
 #include "util.h"
 #include "dbuf.h"
 #include "queue.h"
@@ -113,7 +101,7 @@ FILEQ *fileq_find (QUEUE *q)
     if (strcmp (q->name, c->name) == 0)
       return (c);
   }
-  pathf (path, "%s%s.txt", q->conn->conn, q->table);
+  ppathf (path, q->conn->conn, "%s.txt", q->table);
   if ((fp = fopen (path, "a+")) == NULL)
   {
     error ("Can't open fileq %s\n", path);
@@ -162,6 +150,7 @@ int fileq_reindex (QUEUE *q, FILEQ *c)
   if (c->fp == NULL)
     return (-1);
   rewind (c->fp);
+  c->transport = 0L;
   c->rowid = 0;
   c->offset = 1;
   /*
@@ -175,7 +164,7 @@ int fileq_reindex (QUEUE *q, FILEQ *c)
     for (i = 1; i < q->type->numfields; i++)
       fprintf (c->fp, "%c%s", Q_SEP, q->type->field[i]);
     fputc ('\n', c->fp);
-    if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
+    if (istransportQ (q))
       c->transport = ftell (c->fp);
   }
   else
@@ -205,7 +194,7 @@ int fileq_reindex (QUEUE *q, FILEQ *c)
       bp = ch + 1;
     }
     p = ftell (c->fp);
-    if (queue_field_find (q, "PROCESSINGSTATUS") > 0)
+    if (istransportQ (q))
       c->transport = p;
     while (fgets (buf, QBUFSZ, c->fp) != NULL)
     {
@@ -322,6 +311,7 @@ QUEUEROW *fileq_transport (QUEUE *q, FILEQ *c)
   long p;
   char *ch, buf[QBUFSZ];
 
+  debug ("getting next transport row at %ld\n", c->transport);
   if (fseek (c->fp, c->transport, SEEK_SET))
     return (NULL);
   if ((f = queue_field_find (q, "PROCESSINGSTATUS")) < 0)
@@ -337,7 +327,7 @@ QUEUEROW *fileq_transport (QUEUE *q, FILEQ *c)
 	break;
       ch++;
     }
-    // debug ("i=%d/%d ch=%.8s\n", i, f, ch == NULL ? "NULL" : ch);
+    debug ("i=%d/%d ch=%.8s\n", i, f, ch == NULL ? "NULL" : ch);
     if ((ch != NULL) && strstarts (ch, "queued"))
     {
       r = atoi (buf);			/* check if current	*/
@@ -467,10 +457,12 @@ QUEUEROW *fileq_prev (QUEUE *q, int rowid)
   {
     return (NULL);
   }
+  debug ("getting prev to %d\n", rowid);
   while (--rowid >= c->offset)
   {
     if (c->row[rowid - c->offset])
     {
+      debug ("found at %d\n", rowid);
       return (fileq_parse (q, fileq_getrow (c, rowid, buf)));
     }
   }
@@ -518,6 +510,14 @@ int fileq_connect (QUEUECONN *conn)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "xml.c"
+#include "dbuf.c"
+#include "queue.c"
+#include "xml.c"
+#include "xmln.c"
 
 char TestRow[] =
 "99\tmessage ID\tpayload name\tlocal name\tservice\taction\t"
@@ -584,7 +584,7 @@ char *rand_trans (int rowid, char *buf)
       rowid,rand(),pname,pname,rand(),service[rand()%3],action[rand()%4],
       args[rand()%4],fromdn,pbuf2,rand()%1?"yes":"no",
       "","",fromdn,"",fromdn,
-      statusa[ecode],status[ecode],ecode,
+      status[ecode],statusa[ecode],ecode,
       status[ecode],ecode,emsg[ecode],
       pbuf, pbuf2, rand(),
       args[rand()%4],pname,pname,fromdn,"",rand()%4
@@ -597,7 +597,7 @@ int init_queue (QUEUE *q, char *(*fn)(), int numrows, char *buf)
   int i, f, n, v, l;
   FILE *fp;
 
-  pathf (buf, "%s%s.txt", q->conn->conn, q->table);
+  ppathf (buf, q->conn->conn, "%s.txt", q->table);
   fp = fopen (buf, "w");
   fprintf (fp, "%s", q->type->field[0]);
   for (i = 1; i < q->type->numfields; i++)
@@ -733,7 +733,8 @@ int main (int argc, char **argv)
     dump_row (r);
   debug ("Closing...\n");
   queue_shutdown ();
-  info ("%s unit test completed!\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

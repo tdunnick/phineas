@@ -24,6 +24,10 @@
 #include <windows.h>
 #include "util.h"
 
+#ifndef debug
+#define debug(fmt...)
+#endif
+
 /*
  * some useful extra string functions
  */
@@ -192,6 +196,14 @@ int writefile (char *path, unsigned char *buf, int sz)
   return (sz);
 }
 
+/*
+ * return true if path is a directory - path should NOT end with slash
+ */
+int isdirpath (char *path)
+{
+  struct stat st;
+  return ((stat (path, &st) == 0) && S_ISDIR (st.st_mode));
+}
 
 /*
  * set a loadpath - underlying directory must exist!
@@ -201,12 +213,11 @@ char LoadPath[MAX_PATH] = "";		/* where we loaded from		*/
 char *loadpath (char *prog)
 {
   char *ch;
-  struct stat st;
 
   if (prog != NULL)
   {
     _fullpath (LoadPath, prog, MAX_PATH);
-    while (stat (LoadPath, &st) || S_ISREG (st.st_mode))
+    while (!isdirpath (LoadPath))
     {
       if ((ch = strrchr (LoadPath, DIRSEP)) == NULL)
       {
@@ -288,6 +299,33 @@ char *pathf (char *dst, char *fmt, ...)
   va_end (ap);
   if ((l < 0) || (l >= MAX_PATH) || (fixpath (dst) < 0))
     return (NULL);
+  return (dst);
+}
+
+/*
+ * format a path for use with a possible directory prefix.  Add
+ * the DIRSEP if prefix is a directory.
+ */
+char *ppathf (char *dst, char *prefix, char *fmt, ...)
+{
+  int l, l2;
+  char *ch;
+  va_list ap;
+
+  strcpy (dst, prefix);
+  if (fixpath (dst) < 0)
+    return (NULL);
+  if (isdirpath (dst))
+    strcat (dst, "\\");
+  l = strlen (dst);
+  va_start (ap, fmt);
+  l2 = vsnprintf (dst + l, MAX_PATH - l, fmt, ap);
+  va_end (ap);
+  if ((l2 < 0) || (l + l2 >= MAX_PATH))
+    return (NULL);
+  ch = dst + l;
+  while ((ch = strchr (ch, '/')) != NULL)
+    *ch = DIRSEP;
   return (dst);
 }
 
@@ -558,15 +596,26 @@ int match (char *pat, char *s, char *rep)
 
 #ifdef UNITTEST
 #include "unittest.h"
-#define debug _DEBUG_
 
 int main (int argc, char **argv)
 {
   char b[PTIMESZ];
 
-  debug ("ptime() %s\n", ptime (NULL, b));
-  info ("%s unit test completed\n", argv[0]);
-  exit (0);
+  info ("ptime() %s\n", ptime (NULL, b));
+  if (isdirpath ("/foobar"))
+    error ("/foobar is not a directory\n");
+  if (isdirpath ("/Program Files/"))
+    error ("/Program Files/ not valid directory path (ending slash)\n");
+  if (!isdirpath ("/Program Files"))
+    error ("/Program Files is a directory\n");
+  if (!isdirpath ("."))
+    error (". is a directory\n");
+  if (!isdirpath (".."))
+    error (".. is a directory\n");
+  if (isdirpath ("./"))
+    error ("./ not valid directory path (ending slash)\n");
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif

@@ -15,19 +15,15 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include <stdio.h>
 #include <string.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
-#include "util.h"
 #include "log.h"
-#endif
+#include "util.h"
 #include "crypt.h"
 
 #ifndef debug
@@ -568,6 +564,10 @@ int crypt_decrypt (unsigned char *plain, unsigned char *enc,
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "b64.c"
 
 testpbk2 (int how)
 {
@@ -618,7 +618,8 @@ int main (int argrc, char **argv)
     error ("certs/sslcert.pfx shouldn't have opened!\n");
     X509_free (cert);
   }
-  X509_free (cert);
+  info ("Intentional read ERROR for security/sslcert.pfx!\n");
+  Errors--;
   len = crypt_pk_encrypt ("security/phineaskey.pem", "", plain, 
     enc, s, strlen (s) + 1);
   debug ("DN: %s\n", plain);
@@ -640,7 +641,8 @@ int main (int argrc, char **argv)
   debug ("decrypt len %d/%d\n%.*s", len, l, len, ch);
   free (ch);
   testpbk ();
-  info ("%s unit test completed\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

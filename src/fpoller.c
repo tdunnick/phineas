@@ -16,30 +16,19 @@
  *  limitations under the License.
  */
 #ifdef UNITTEST
+#include "unittest.h"
 #define __SENDER__
 #endif
 
 #ifdef __SENDER__
 
 #include <stdio.h>
+#include <stdlib.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "xml.c"
-#include "queue.c"
-#include "fileq.c"
-#include "find.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
 #include "util.h"
 #include "log.h"
 #include "find.h"
 #include "task.h"
-#endif
 #include "fpoller.h"
 
 #ifndef debug
@@ -99,7 +88,7 @@ int fpoller_poll (XML *xml, int mapid)
     return (-1);
   }
   strcpy (mpath + mpos, "Folder");
-  pathf (fpath, "%s", xml_get_text (xml, mpath));
+  ppathf (fpath, xml_get_text (xml, mpath), "");
   debug ("Folder is %s\n", fpath);
   /*
    * get a directory listing
@@ -149,7 +138,20 @@ int fpoller_task (void *parm)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#define __FILEQ__
+
+#include "util.c"
+#include "dbuf.c"
+#include "xmln.c"
+#include "xml.c"
+#include "queue.c"
+#include "fileq.c"
+#include "find.c"
+
 int ran = 0;
+
 int phineas_running  ()
 {
   return (ran++ < 3);
@@ -170,7 +172,8 @@ int main (int argc, char **argv)
   fpoller_register ("ebxml", test_processor);
   fpoller_task (xml);
   xml_free (xml);
-  info ("%s unit test completed\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

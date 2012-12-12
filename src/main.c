@@ -27,9 +27,10 @@
 #include "qpoller.h"
 #include "ebxml.h"
 #include "xcrypt.h"
+#include "cfg.h"
 
 #ifndef VERSION
-#define VERSION "0.5c 05/20/2012"
+#define VERSION "0.5e 12/06/2012"
 #endif
 
 #ifdef __SENDER__
@@ -60,89 +61,7 @@ char ClassName[20];
 int Status = PHINEAS_STOPPED;
 
 char LogName[MAX_PATH];
-char ConfigName[MAX_PATH];
-char ConfigPName[MAX_PATH];
-XML *Config;
 TASKQ *Taskq = NULL;
-
-/* used for configuration encryption				*/
-char *ConfigCert =  NULL;
-char *ConfigPass =  NULL;
-int ConfigAlgorithm = TRIPLEDES;
-
-/*
- * load a configuration, decrypting it if credentials found
- */
-XML *phineas_load (char *path)
-{
-  XML *xml;
-  
-  if ((xml = xml_load (path)) == NULL)
-    return (NULL);
-  if (strcmp (xml_root (xml), "Phineas"))
-  {
-    unsigned char *p;
-    xcrypt_decrypt (xml, &p, ConfigCert, NULL, ConfigPass);
-    xml_free (xml);
-    xml = xml_parse (p);
-    free (p);
-  }
-  return (xml);
-}
-
-/*
- * save a configuration, encrypting it if credentials found
- */
-int phineas_save (XML *xml, char *path)
-{
-  int r;
-  XML *x;
-
-  x = xml;
-  if ((ConfigCert != NULL) || (ConfigPass != NULL))
-  {
-    unsigned char *p;
-
-    p = xml_format (xml);
-    x = xcrypt_encrypt (p, strlen (p) + 1, ConfigCert, NULL, 
-      ConfigPass, AES256);
-    free (p);
-  }
-  r = xml_save (x, path);
-  if (x != xml)
-    xml_free (x);
-  return (r);
-}
-
-/*
- * create a censored configuration for display purposes, and return
- * it's name.
- */
-char *phineas_config ()
-{
-  char *buf, *p, *pe;
-
-  if (*ConfigPName == 0)
-    return (NULL);
-  xml_beautify (Config, 2);
-  buf = xml_format (Config);
-  pe = buf;
-  while ((p = strstr (pe, "<Password>")) != NULL)
-  {
-    p += 10;
-    pe = strstr (p, "</Password>");
-    if (pe == NULL)
-      break;
-    if (p != pe)
-    {
-      *p++ = '*';
-      strcpy (p, pe);
-    }
-  }
-  writefile (ConfigPName, buf, strlen (buf));
-  free (buf);
-  return (ConfigPName);
-}
 
 /*
  * return true if server is running or starting
@@ -224,7 +143,7 @@ int phineas_start (int argc, char **argv)
 
   Status = PHINEAS_START;
   loadpath (argv[0]);
-  *ConfigPName = *ConfigName = 0;
+  *ConfigName = 0;
   for (i = 1; i < argc; i++)
   {
     if (argv[i][0] == '-') switch (argv[i][1])
@@ -265,15 +184,11 @@ int phineas_start (int argc, char **argv)
   {
     pathf (ConfigName, "Phineas.xml");
   }
-  if ((Config = phineas_load (ConfigName)) == NULL)
+  if ((Config = cfg_load (ConfigName)) == NULL)
   {
     return (phineas_fatal ("Can't load configuration file %s", 
 	ConfigName));
   }
-  strcpy (ConfigPName, ConfigName);
-  if ((ch = strrchr (ConfigPName, '.')) == NULL)
-    ch = ConfigName + strlen (ConfigPName);
-  strcpy (ch, "Configuration.xml");
   
   /*
    * make sure our OPENSSL dll's are available...
@@ -339,17 +254,14 @@ int phineas_stop ()
   }
   debug ("shutting down queuing...\n");
   queue_shutdown ();
-  debug ("freeing up xml...\n");
-  if (Config != NULL)
-    Config = xml_free (Config);
+  debug ("freeing up configuration...\n");
+  cfg_free ();
   debug ("shutting down networking...\n");
   net_shutdown ();
   debug ("resetting configuration...\n");
   config_reset ();
   info ("%s is stopped\n", Software); 
   LOGFILE = log_close (LOGFILE);
-  if (*ConfigPName)
-    unlink (ConfigPName);
   Status = PHINEAS_STOPPED;
   return (0);
 }
@@ -984,7 +896,7 @@ BOOL w_command (HWND hWnd, WORD wID, HWND hCtl)
   switch (wID) 
   {
     case ID_CONFIG:
-      w_openMessage (phineas_config ());
+      w_openMessage (cfg_format ());
       break;
 
     case ID_STATUS:

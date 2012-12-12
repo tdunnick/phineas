@@ -45,3 +45,5 @@ XML *xcrypt_encrypt (unsigned char *data, int len,
  */
 int xcrypt_decrypt (XML *payload, unsigned char **data,
     char *unc, char *dn, char *passwd);
+
+#endif /* __XCRYPT__ */

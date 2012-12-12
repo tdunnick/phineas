@@ -15,9 +15,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-#define DEBUG
-
 #ifdef UNITTEST
+#include "unittest.h"
 #define __SENDER__
 #endif
 
@@ -28,40 +27,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "log.c"
-#include "xml.c"
-#include "mime.c"
-#include "queue.c"
-#include "task.c"
-#include "fileq.c"
-#include "b64.c"
-#include "basicauth.c"
-#include "crypt.c"
-#include "xcrypt.c"
-#include "find.c"
-#include "fpoller.c"
-#include "qpoller.c"
-#include "net.c"
-#include "payload.c"
-#include "ebxml.c"
-#define UNITTEST
-#define debug _DEBUG_
-#endif
-
-#include <stdio.h>
 #include "util.h"
 #include "log.h"
+#include "cfg.h"
 #include "mime.h"
 #include "basicauth.h"
 #include "crypt.h"
 #include "xcrypt.h"
 #include "payload.h"
 #include "ebxml.h"
+#include "filter.h"
 
 
 #ifndef debug
@@ -70,6 +45,11 @@
 
 
 /*********************** sender functions **************************/
+
+#ifdef __SERVER__
+DBUF *server_receive(NETCON *conn);
+#define ebxml_receive server_receive
+#else
 /*
  * Receive a reply message
  */
@@ -114,6 +94,9 @@ DBUF *ebxml_receive (NETCON *conn)
   }
   n = atol (ch + 16);
   debug ("expecting %d bytes\n", n);
+
+readbytes:
+
   while (n--)
   {
     if ((e = net_read (conn, &c, 1)) != 1)
@@ -127,112 +110,103 @@ DBUF *ebxml_receive (NETCON *conn)
     }
     dbuf_putc (b, c);
   }
+  if (n = net_available (conn))
+  {
+    warn ("Found %d unread bytes...\n", n);
+    goto readbytes;
+  }
   debug ("returning %d bytes\n", dbuf_size (b));
   return (b);
 }
+#endif
 
 /*
- * Get the MESSAGEID from a queue row and use it to set the
- * appropriate xml Map path entry and pid for the message.
+ * Get the MESSAGEID from a queue row and use it to find
+ * the map index and set the PID.
  * The MESSAGEID should be of the form Map.Name-PID.
  *
- * prefix is a buffer big enough to hold the xml path to the matching
- * Map entry AND the pid which is appended.  The pointer to the pid
- * is returned if successful.
+ * return map index or -1 if fails
  */
 
-char *ebxml_pid (XML *xml, QUEUEROW *r, char *prefix)
+int ebxml_pid (XML *xml, QUEUEROW *r, char *pid)
 {
-  int i, n;
-  char *id, *pid, *ch;
+  int n;
+  char *ch;
 
-  id = queue_field_get (r, "MESSAGEID");
-  if ((pid = strchr (id, '-')) == NULL)
-    return (NULL);
-
-  n = xml_count (xml, "Phineas.Sender.MapInfo.Map");
-  for (i = 0; i < n; i++)
-  {
-    sprintf (prefix, "Phineas.Sender.MapInfo.Map[%d].", i);
-    if (strncmp (ebxml_get (xml, prefix, "Name"), id, pid - id) == 0)
-    {
-      id = prefix + strlen (prefix) + 2;
-      strcpy (id, pid);
-      return (id);
-    }
-  }
-  return (NULL);
+  strcpy (pid, queue_field_get (r, "MESSAGEID"));
+  if ((ch = strchr (pid, '-')) == NULL)
+    return (-1);
+  *ch++ = 0;
+  n = cfg_map_index (xml, pid);
+  strcpy (pid, ch);
+  return (n);
 }
 
 /*
- * Get the route index for a name
- */
-int ebxml_route_index (XML *xml, char *name)
-{
-  int i, n;
-
-  n = xml_count (xml, "Phineas.Sender.RouteInfo.Route");
-  for (i = 0; i < n; i++)
-  {
-    if (strcmp (name,
-	  xml_getf (xml, "Phineas.Sender.RouteInfo.Route[%d].Name", i)) == 0)
-      return (i);
-  }
-  error ("No route found for %s\n", name);
-  return (-1);
-}
-
-/*
- * Get route data for index and tag
- */
-char *ebxml_route_info (XML *xml, int index, char *tag)
-{
-  if (index < 0)
-    return ("");
-  return (xml_getf (xml, "Phineas.Sender.RouteInfo.Route[%d].%s", index, tag));
-}
-
-/*
- * Build the mime payload container
+ * Build and return the mime payload container
  */
 MIME *ebxml_getpayload (XML *xml, QUEUEROW *r)
 {
-  int l;
+  int l, mapi;
   XML *exml;
   MIME *msg;
-  char *pid,
-       *b,			/* buffer for payload		*/
+  char *b,			/* buffer for payload		*/
        *type,
        *unc = NULL,		/* encryption info		*/
        *pw = NULL,
        dn[DNSZ],
        *organization,
-       prefix[MAX_PATH],
+       pid[MAX_PATH],
        buf[MAX_PATH],
        fname[MAX_PATH];
 
   debug ("getpayload container...\n");
-  organization = xml_get_text (xml, "Phineas.Organization");
-  pid = ebxml_pid (xml, r, prefix);
-  pathf (fname, "%s%s", ebxml_get (xml, prefix, "Processed"),
-    queue_field_get (r, "PAYLOADFILE"));
-  // TODO invoke filter if specified
-  debug ("reading data from %s\n", fname);
-  if ((b = readfile (fname, &l)) == NULL)
-  {
-    error ("Can't read %s - %s\n", fname, strerror (errno));
+  if ((mapi = ebxml_pid (xml, r, pid)) < 0)
     return (NULL);
+  ppathf (fname, cfg_map (xml, mapi, "Processed"), "%s",
+    queue_field_get (r, "PAYLOADFILE"));
+
+  /* invoke the filter if given					*/
+  b = cfg_map (xml, mapi, "Filter");
+  if (*b)
+  {
+    char *emsg;
+    DBUF *rbuf = dbuf_alloc ();
+
+    debug ("filter read %s with %s\n", fname, b);
+    if (filter_run (b, fname, NULL, NULL, rbuf, &emsg, cfg_timeout (xml)))
+    {
+      error ("Can't filter %s - %s\n", fname, strerror (errno));
+      dbuf_free (rbuf);
+      return (NULL);
+    }
+    if (*emsg)
+      warn ("filter %s returned %s\n", b, emsg);
+    free (emsg);
+    l = dbuf_size (rbuf);
+    b = dbuf_extract (rbuf);
+  }
+  else
+  {
+    debug ("reading data from %s\n", fname);
+    if ((b = readfile (fname, &l)) == NULL)
+    {
+      error ("Can't read %s - %s\n", fname, strerror (errno));
+      return (NULL);
+    }
   }
 
-  organization = xml_get_text (xml, "Phineas.Organization");
-  type = ebxml_get (xml, prefix, "Encryption.Type");
+  organization = cfg_org (xml);
+  type = cfg_map (xml, mapi, "Encryption.Type");
   if ((type != NULL) && *type)	/* encrypted			*/
   {
-    unc = ebxml_get (xml, prefix, "Encryption.Unc");
-    pw = ebxml_get (xml, prefix, "Encryption.Password");
-    strcpy (dn, ebxml_get (xml, prefix, "Encryption.Id"));
+    unc = cfg_map (xml, mapi, "Encryption.Unc");
+    pw = cfg_map (xml, mapi, "Encryption.Password");
+    strcpy (dn, cfg_map (xml, mapi, "Encryption.Id"));
   }
+
   msg = payload_create (b, l, fname, organization, unc, dn, pw);
+
   free (b);
   if (msg == NULL)
     error ("Can't create payload container for %s\n", fname);
@@ -256,7 +230,7 @@ MIME *ebxml_getsoap (XML *xml, QUEUEROW *r)
   int route;
 
   debug ("getting soap container...\n");
-  organization = xml_get_text (xml, "Phineas.Organization");
+  organization = cfg_org (xml);
   pid = queue_field_get (r, "MESSAGEID");
   if (pid != NULL)
     pid = strchr (pid, '-');
@@ -265,48 +239,43 @@ MIME *ebxml_getsoap (XML *xml, QUEUEROW *r)
     error ("Can't get PID from MESSAGEID\n");
     return (NULL);
   }
-  route = ebxml_route_index (xml, queue_field_get (r, "ROUTEINFO"));
-  if (route < 0)
-    return (NULL);
+  if ((route = cfg_route_index (xml,  queue_field_get (r, "ROUTEINFO"))) 
+    < 0) return (NULL);
 
   debug ("getting soap template for pid=%s org=%s...\n", pid, organization);
-  if ((soap = ebxml_template (xml, "Phineas.SoapTemplate")) == NULL)
+  if ((soap = ebxml_template (xml, XSOAP)) == NULL)
   {
     error ("Can't get SOAP template\n");
     return (NULL);
   }
-  ebxml_set (soap, soap_hdr, "eb:From.eb:PartyId",
-    xml_get_text (xml, "Phineas.PartyId"));
+  xml_set_text (soap, SOAPFROMPARTY, cfg_party (xml));
   partyid = "Someone_else";
-  ebxml_set (soap, soap_hdr, "eb:To.eb:PartyId", partyid);
-  cpa = ebxml_route_info (xml, route, "Cpa");
-  ebxml_set (soap, soap_hdr, "eb:CPAId", cpa);
-  ebxml_set (soap, soap_hdr, "eb:ConversationId", pid);
-  ebxml_set (soap, soap_hdr, "eb:Service", queue_field_get (r, "SERVICE"));
-  ebxml_set (soap, soap_hdr, "eb:Action", queue_field_get (r, "ACTION"));
+  xml_set_text (soap, SOAPTOPARTY, partyid);
+  cpa = cfg_route (xml, route, "Cpa");
+  xml_set_text (soap, SOAPCPAID, cpa);
+  xml_set_text (soap, SOAPCONVERSEID, pid);
+  xml_set_text (soap, SOAPSERVICE, queue_field_get (r, "SERVICE"));
+  xml_set_text (soap, SOAPACTION, queue_field_get (r, "ACTION"));
   sprintf (buf, "%ld@%s", pid, organization);
-  ebxml_set (soap, soap_hdr, "eb:MessageData.eb:MessageId", buf);
+  xml_set_text (soap, SOAPMESSAGEID, buf);
   queue_field_set (r, "MESSAGECREATIONTIME", ptime (NULL, buf));
-  ebxml_set (soap, soap_hdr, "eb:MessageData.eb:Timestamp", buf);
+  xml_set_text (soap, SOAPDATATIME, buf);
   if (!strcmp (queue_field_get (r, "ACTION"), "Ping"))
   {
-    xml_delete (soap, soap_bdy);
+    xml_delete (soap, SOAPBODY);
   }
   else
   {
-    sprintf (path, "%s%s", soap_manifest, "eb:Reference");
     sprintf (buf, "cid:%s@%s", queue_field_get (r, "PAYLOADFILE"),
       organization);
-    debug ("set path=%s val=%s\n", path, buf);
-    xml_set_attribute (soap, path, "xlink:href", buf);
+    debug ("set %s xlink:href=\"%s\"\n", SOAPMREF, buf);
+    xml_set_attribute (soap, SOAPMREF, "xlink:href", buf);
     sprintf (buf, "%s.%s", r->queue->name, queue_field_get (r, "RECORDID"));
-    ebxml_set (soap, soap_dbinf, "RecordId", buf);
-    ebxml_set (soap, soap_dbinf, "MessageId",
-      queue_field_get (r, "MESSAGEID"));
-    ebxml_set (soap, soap_dbinf, "Arguments",
-      queue_field_get (r, "ARGUMENTS"));
-    ebxml_set (soap, soap_dbinf, "MessageRecipient",
-      queue_field_get (r, "MESSAGERECIPIENT"));
+    xml_set_text (soap, SOAPDBRECID, buf);
+    xml_set_text (soap, SOAPDBMESSID, queue_field_get (r, "MESSAGEID"));
+    xml_set_text (soap, SOAPDBARGS, queue_field_get (r, "ARGUMENTS"));
+    xml_set_text (soap, SOAPDBRECP, 
+	queue_field_get (r, "MESSAGERECIPIENT"));
   }
   debug ("building soap mime container...\n");
   msg = mime_alloc ();
@@ -315,6 +284,7 @@ MIME *ebxml_getsoap (XML *xml, QUEUEROW *r)
   mime_setHeader (msg, MIME_CONTENTID, buf, 0);
   debug ("formatting soap xml...\n");
   ch = xml_format (soap);
+  debug ("soap envelope:\n%s\n", ch);
   xml_free (soap);
   mime_setBody (msg, ch, strlen (ch));
   free (ch);
@@ -333,10 +303,9 @@ MIME *ebxml_getmessage (XML *xml, QUEUEROW *r)
        buf[MAX_PATH];
   int route;
 
-  route = ebxml_route_index (xml, queue_field_get (r, "ROUTEINFO"));
-  if (route < 0)
-    return (NULL);
-  organization = xml_get_text (xml, "Phineas.Organization");
+  if ((route = cfg_route_index (xml, queue_field_get (r, "ROUTEINFO"))) 
+    < 0) return (NULL);
+  organization = cfg_org (xml);
   pid = queue_field_get (r, "MESSAGEID");
   if (pid != NULL)
     pid = strchr (pid, '-');
@@ -363,16 +332,16 @@ MIME *ebxml_getmessage (XML *xml, QUEUEROW *r)
      organization);
   mime_setBoundary (msg, buf);
   sprintf (buf, "%s:%s",
-    ebxml_route_info (xml, route, "Host"),
-    ebxml_route_info (xml, route, "Port"));
+    cfg_route (xml, route, "Host"),
+    cfg_route (xml, route, "Port"));
   mime_setHeader (msg, "Host", buf, 99);
   mime_setHeader (msg, "Connection", "Close", 99);
   if (strcmp ("basic", 
-    ebxml_route_info (xml, route, "Authentication.Type")) == 0)
+    cfg_route (xml, route, "Authentication.Type")) == 0)
   {
     basicauth_request (buf, 
-      ebxml_route_info (xml, route, "Authentication.Id"),
-      ebxml_route_info (xml, route, "Authentication.Password"));
+      cfg_route (xml, route, "Authentication.Id"),
+      cfg_route (xml, route, "Authentication.Password"));
     pid = strchr (buf, ':');
     *pid++ = 0;
     while (isspace (*pid)) pid++;
@@ -401,7 +370,7 @@ int ebxml_qping (XML *xml, int route)
   /*
    * queue it up
    */
-  ch = ebxml_route_info (xml, route, "Queue");
+  ch = cfg_route (xml, route, "Queue");
   debug ("queuing ping for %s\n", ch);
   if ((q = queue_find (ch)) == NULL)
   {
@@ -411,17 +380,17 @@ int ebxml_qping (XML *xml, int route)
   ppid (pid);
   debug ("prepping new row\n");
   r = queue_row_alloc (q);
-  sprintf (buf, "%s-%s", ebxml_route_info (xml, route, "Name"), pid);
+  sprintf (buf, "%s-%s", cfg_route (xml, route, "Name"), pid);
   queue_field_set (r, "MESSAGEID", buf);
   queue_field_set (r, "PAYLOADFILE", "");
   queue_field_set (r, "DESTINATIONFILENAME", "");
-  queue_field_set (r, "ROUTEINFO", ebxml_route_info (xml, route, "Name"));
+  queue_field_set (r, "ROUTEINFO", cfg_route (xml, route, "Name"));
   queue_field_set (r, "SERVICE", "urn:oasis:names:tc:ebxml-msg:service");
   queue_field_set (r, "ACTION", "Ping");
   queue_field_set (r, "ARGUMENTS", 
-    ebxml_route_info (xml, route, "Arguments"));
+    cfg_route (xml, route, "Arguments"));
   queue_field_set (r, "MESSAGERECIPIENT",
-  ebxml_route_info (xml, route, "Recipient"));
+  cfg_route (xml, route, "Recipient"));
   queue_field_set (r, "ENCRYPTION","no");
   queue_field_set (r, "SIGNATURE", "no");
   queue_field_set (r, "PUBLICKEYLDAPADDRESS", "");
@@ -435,12 +404,12 @@ int ebxml_qping (XML *xml, int route)
   if (pl = queue_push (r) < 1)
   {
     error ("Failed queueing ping for %s\n", 
-	ebxml_route_info (xml, route, "Name"));
+	cfg_route (xml, route, "Name"));
     pl = -1;
   }
   queue_row_free (r);
   info ("ebXML Ping for %s queueing completed\n",
-    ebxml_route_info (xml, route, "Name"));
+    cfg_route (xml, route, "Name"));
   return (0);
 }
 
@@ -489,41 +458,41 @@ int ebxml_fprocessor (XML *xml, char *prefix, char *fname)
   /*
    * move file to processed folder
    */
-  pathf (buf, "%s%s", ebxml_get (xml, prefix, "Processed"), qname);
+  ppathf (buf, xml_getf (xml, "%sProcessed", prefix), "%s", qname);
   if (rename (fname, buf))
   {
-    error ("Couldn't move %s to %s\n", fname, buf);
+    error ("Couldn't move %s to %s - %s\n", fname, buf, strerror (errno));
     return (-1);
   }
 
   /*
    * queue it up
    */
-  ch = ebxml_get (xml, prefix, "Queue");
+  ch = xml_getf (xml, "%sQueue", prefix);
   if ((q = queue_find (ch)) == NULL)
   {
     error ("Can't find queue for %s\n", ch);
     return (-1);
   }
   r = queue_row_alloc (q);
-  sprintf (buf, "%s-%s", ebxml_get (xml, prefix, "Name"), pid);
+  sprintf (buf, "%s-%s", xml_getf (xml, "%sName", prefix), pid);
   queue_field_set (r, "MESSAGEID", buf);
   queue_field_set (r, "PAYLOADFILE", qname);
   queue_field_set (r, "DESTINATIONFILENAME", basename (fname));
-  queue_field_set (r, "ROUTEINFO", ebxml_get (xml, prefix, "Route"));
-  queue_field_set (r, "SERVICE", ebxml_get (xml, prefix, "Service"));
-  queue_field_set (r, "ACTION", ebxml_get (xml, prefix, "Action"));
-  queue_field_set (r, "ARGUMENTS", ebxml_get (xml, prefix, "Arguments"));
+  queue_field_set (r, "ROUTEINFO", xml_getf (xml, "%sRoute", prefix));
+  queue_field_set (r, "SERVICE", xml_getf (xml, "%sService", prefix));
+  queue_field_set (r, "ACTION", xml_getf (xml, "%sAction", prefix));
+  queue_field_set (r, "ARGUMENTS", xml_getf (xml, "%sArguments", prefix));
   queue_field_set (r, "MESSAGERECIPIENT",
-    ebxml_get (xml, prefix, "Recipient"));
+    xml_getf (xml, "%sRecipient", prefix));
   queue_field_set (r, "ENCRYPTION",
-    *ebxml_get (xml, prefix, "Encryption.Type") ? "yes" : "no");
+    *xml_getf (xml, "%sEncryption.Type", prefix) ? "yes" : "no");
   queue_field_set (r, "SIGNATURE", "no");
   queue_field_set (r, "PUBLICKEYLDAPADDRESS", "");
   queue_field_set (r, "PUBLICKEYLDAPBASEDN", "");
   queue_field_set (r, "PUBLICKEYLDAPDN", "");
   queue_field_set (r, "CERTIFICATEURL",
-    ebxml_get (xml, prefix, "Encryption.Unc"));
+    xml_getf (xml, "%sEncryption.Unc", prefix));
   queue_field_set (r, "PROCESSINGSTATUS", "queued");
   queue_field_set (r, "TRANSPORTSTATUS", "");
   queue_field_set (r, "PRIORITY", "0");
@@ -546,17 +515,17 @@ SSL_CTX *ebxml_route_ctx (XML *xml, int route)
        pathbuf[MAX_PATH * 2];
 
   debug ("getting SSL context for route %d\n", route);
-  id = ebxml_route_info (xml, route, "Protocol");
+  id = cfg_route (xml, route, "Protocol");
   if (stricmp (id, "https"))
     return (NULL);
-  id = ebxml_route_info (xml, route, "Authentication.Type");
+  id = cfg_route (xml, route, "Authentication.Type");
   debug ("authentication type %s\n", id);
   if (strcmp ("certificate", id) == 0)
   {
-    id = ebxml_route_info (xml, route, "Authentication.Id");
-    passwd = ebxml_route_info (xml, route, "Authentication.Password");
+    id = cfg_route (xml, route, "Authentication.Id");
+    passwd = cfg_route (xml, route, "Authentication.Password");
     unc = pathf (pathbuf, "%s",
-      ebxml_route_info (xml, route, "Authentication.Unc"));
+      cfg_route (xml, route, "Authentication.Unc"));
     debug ("unc path=%s\n", unc);
   }
   else 
@@ -570,7 +539,7 @@ SSL_CTX *ebxml_route_ctx (XML *xml, int route)
     passwd = NULL;
     unc = NULL;
   }
-  if (*(ca = xml_get_text (xml, "Phineas.Sender.CertificateAuthority")))
+  if (*(ca = cfg_senderca (xml)))
     ca = pathf (pathbuf + MAX_PATH, "%s", ca);
   debug ("ca path=%s\n", ca);
   return (net_ctx (unc, unc, passwd, ca, 0));
@@ -603,8 +572,8 @@ int ebxml_status (char *reply)
 int ebxml_parse_reply (char *reply, QUEUEROW *r)
 {
   MIME *msg, *part;
-  XML *rxml;
-  char buf[PTIMESZ];
+  XML *xml;
+  char *ch, buf[PTIMESZ];
 
   if (ebxml_status (reply))
     return (-1);
@@ -613,18 +582,46 @@ int ebxml_parse_reply (char *reply, QUEUEROW *r)
     error ("Failed parsing reply message\n");
     return (-1);
   }
+  /* check the ebxml envelope for ack or error */
+  if ((part = mime_getMultiPart (msg, 1)) == NULL)
+  {
+    error ("Reply missing ebxml envelope\n");
+    mime_free (msg);
+    return (-1);
+  }
+  if ((xml = xml_parse (mime_getBody (part))) == NULL)
+  {
+    error ("Failed parsing ebxml envelop\n");
+    mime_free (msg);
+    return (-1);
+  }
+  strcpy (buf, xml_get_text (xml, SOAPACTION));
+  if (!strcmp (buf, "MessageError"))
+  {
+    debug ("Error reply received!\n");
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
+    queue_field_set (r, "TRANSPORTSTATUS", "failed");
+    ch = xml_get_attribute (xml, SOAPERROR, "eb:errorCode");
+    debug ("%s eb:errorCode %s\n", SOAPERROR, ch);
+    queue_field_set (r, "TRANSPORTERRORCODE", ch);
+    queue_field_set (r, "APPLICATIONSTATUS", "not-set");
+    queue_field_set (r, "APPLICATIONERRORCODE", "none");
+    ch = xml_get_text (xml, SOAPERROR);
+    debug ("SOAPERROR %s\n", ch);
+    queue_field_set (r, "APPLICATIONRESPONSE", ch);
+    queue_field_set (r, "MESSAGERECEIVEDTIME", ptime (NULL, buf));
+    xml_free (xml);
+    mime_free (msg);
+    return (0);
+  }
+  xml_free (xml);
+
   /* Ping reply */
   if (strcmp (queue_field_get (r, "ACTION"), "Ping") == 0)
   {
-    if ((part = mime_getMultiPart (msg, 1)) == NULL)
+    if (strcmp (buf, "Pong"))
     {
-      error ("Reply missing status part\n");
-      mime_free (msg);
-      return (-1);
-    }
-    if (strstr (mime_getBody (part), "Pong") == NULL)
-    {
-      error ("Expected 'Pong' action\n");
+      error ("Expected 'Pong' action but got '%s'\n", buf);
       mime_free (msg);
       return (-1);
     }
@@ -642,18 +639,18 @@ int ebxml_parse_reply (char *reply, QUEUEROW *r)
       return (-1);
     }
     debug ("Body is...\n%s\n", mime_getBody (part));
-    if ((rxml = xml_parse (mime_getBody (part))) == NULL)
+    if ((xml = xml_parse (mime_getBody (part))) == NULL)
     {
       error ("Miss formatted Reply status\n");
       mime_free (msg);
       return (-1);
     }
     queue_field_set (r, "APPLICATIONSTATUS",
-      xml_get_text (rxml, "response.msh_response.status"));
+      xml_get_text (xml, "response.msh_response.status"));
     queue_field_set (r, "APPLICATIONERRORCODE",
-      xml_get_text (rxml, "response.msh_response.error"));
+      xml_get_text (xml, "response.msh_response.error"));
     queue_field_set (r, "APPLICATIONRESPONSE",
-      xml_get_text (rxml, "response.msh_response.appdata"));
+      xml_get_text (xml, "response.msh_response.appdata"));
     queue_field_set (r, "MESSAGERECEIVEDTIME", ptime (NULL, buf));
   
     /* TODO...
@@ -664,7 +661,7 @@ int ebxml_parse_reply (char *reply, QUEUEROW *r)
     queue_field_set (r, "RESPONSEMESSAGEORIGIN", "");
     queue_field_set (r, "RESPONSEMESSAGESIGNATURE", "");
      */
-    xml_free (rxml);
+    xml_free (xml);
   }
   queue_field_set (r, "PROCESSINGSTATUS", "done");
   queue_field_set (r, "TRANSPORTSTATUS", "success");
@@ -721,17 +718,21 @@ int ebxml_redirect (char *reply, char *host, int *port, char *path)
 
 /*
  * send a message
+ * return non-zero if message not sent successful with completed
+ * queue info for status and transport
  */
 int ebxml_send (XML*xml, QUEUEROW *r, MIME *msg)
 {
   DBUF *b;
   NETCON *conn;
-  char host[MAX_PATH];
+  char host[MAX_PATH];	/* need buffers for redirect		*/
   char path[MAX_PATH];
-  int port, route;
+  int port, route, timeout, delay, retry;
   SSL_CTX *ctx;
   DBUF *b;
-  char *content, buf[MAX_PATH];
+  char *rname, 		/* route name				*/
+       *content, 	/* message content			*/
+       buf[MAX_PATH];
 
   /* format up the message					*/
   if ((content = mime_format (msg)) == NULL)
@@ -739,32 +740,53 @@ int ebxml_send (XML*xml, QUEUEROW *r, MIME *msg)
     queue_field_set (r, "PROCESSINGSTATUS", "done");
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "failed formatting message");
-    return (0);
+    return (-1);
   }
+  debug ("Send content:\n%s\n", content);
 
   /*
    * get connection info from the record route
    */
-  route = ebxml_route_index (xml, queue_field_get (r, "ROUTEINFO"));
+  if ((route = 
+    cfg_route_index (xml, queue_field_get (r, "ROUTEINFO"))) < 0)
+  {
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
+    queue_field_set (r, "TRANSPORTSTATUS", "failed");
+    queue_field_set (r, "TRANSPORTERRORCODE", "bad route");
+    return (-1);
+  }
+  rname = cfg_route (xml, route, "Name");
   ctx = ebxml_route_ctx (xml, route);
-  strcpy (host, ebxml_route_info (xml, route, "Host"));
-  port = atoi (ebxml_route_info (xml, route, "Port"));
-  strcpy (path, ebxml_route_info (xml, route, "Path"));
+  strcpy (host, cfg_route (xml, route, "Host"));
+  port = atoi (cfg_route (xml, route, "Port"));
+  if ((retry = atoi (cfg_route (xml, route, "Retry"))) == 0)
+    retry = cfg_retries (xml);
+  timeout = atoi (cfg_route (xml, route, "Timeout"));
+  delay = cfg_delay (xml);
+  strcpy (path, cfg_route (xml, route, "Path"));
 
 sendmsg:
 
-  debug ("opening connection socket on port %d\n", port);
+  info ("Sending ebXML %s:%d to %s\n", 
+    r->queue->name, r->rowid, rname);
+  debug ("opening connection socket on port=%d retrys=%d timeout=%d\n", 
+    port, retry, timeout);
   if ((conn = net_open (host, port, 0, ctx)) == NULL)
   {
     error ("failed opening connection to %s:%d\n", host, port);
-    if (ctx != NULL)
-      SSL_CTX_free (ctx);
-    free (content);
-    return (-1);
+    goto retrysend;
   }
+  				/* set read timeout if given	*/
+  if (timeout)
+  {
+    net_timeout (conn, timeout * 1000);
+    timeout <<= 1;		/* bump each try		*/
+  }
+  delay = 0;			/* connection OK, don't delay	*/
   queue_field_set (r, "MESSAGESENTTIME", ptime (NULL, buf));
   sprintf (buf, "POST %s HTTP/1.1\r\n", path);
   // ch = ebxml_beautify (ch);
+  				/* all set... send the message	*/
   debug ("sending message...\n");
   net_write (conn, buf, strlen (buf));
   net_write (conn, content, strlen (content));
@@ -772,11 +794,31 @@ sendmsg:
   b = ebxml_receive (conn);
   debug ("closing socket...\n");
   net_close (conn);
+  				/* no reply?			*/
   if (b == NULL)
   {
-    if (ctx != NULL)
+    warn ("Send response timed out or closed for %s\n", rname);
+
+retrysend:			/* retry with a wait, or..	*/	
+			
+    if (retry-- && phineas_running ())
+    {
+      if (delay)
+      {
+	info ("Retrying send to %s in %d seconds\n", rname, delay);
+        sleep (delay * 1000);
+	delay <<= 1;
+      }
+      else			/* reset connection delay	*/
+        delay = cfg_delay (xml);
+      goto sendmsg;
+    }
+    if (ctx != NULL)		/* give up!			*/
       SSL_CTX_free (ctx);
     free (content);
+    queue_field_set (r, "PROCESSINGSTATUS", "done");
+    queue_field_set (r, "TRANSPORTSTATUS", "failed");
+    queue_field_set (r, "TRANSPORTERRORCODE", "retries exhausted");
     return (-1);
   }
   debug ("reply was %d bytes\n%.*s\n", dbuf_size (b),
@@ -800,24 +842,34 @@ sendmsg:
     queue_field_set (r, "TRANSPORTSTATUS", "failed");
     queue_field_set (r, "TRANSPORTERRORCODE", "garbled reply");
   }
+  debug ("send completed\n");
   dbuf_free (b);
   free (content);
   return (0);
 }
 
-int ebxml_record_ack (XML *xml, QUEUEROW *r)
+/*
+ * file the acknowledge for a queue entry
+ */
+int ebxml_file_ack (XML *xml, QUEUEROW *r)
 {
   FILE *fp;
+  int mapi;
   char *ch,
-       prefix[MAX_PATH],
-       fname[MAX_PATH];
+       buf[MAX_PATH];
 
-  ebxml_pid (xml, r, prefix);
-  ch = ebxml_get (xml, prefix, "Acknowledged");
-  if (*ch == 0)
+  /* ping don't have folder maps, so no file ACK recorded	*/
+  if (!strcmp (queue_field_get (r, "ACTION"), "Ping"))
     return (0);
-  pathf (fname, "%s%s", ch, queue_field_get (r, "PAYLOADFILE"));
-  if ((fp = fopen (fname, "w")) == NULL)
+  /* need our folder map ACK folder				*/
+  if ((mapi = ebxml_pid (xml, r, buf)) < 0)
+    return (-1);
+  ch = cfg_map (xml, mapi, "Acknowledged");
+  if (*ch == 0)
+    return (0);		/* no ack recorded			*/
+
+  ppathf (buf, ch, "%s", queue_field_get (r, "PAYLOADFILE"));
+  if ((fp = fopen (buf, "w")) == NULL)
     return (0);
   fprintf (fp,
     "transportStatus=%s\n"
@@ -857,9 +909,7 @@ int ebxml_record_ack (XML *xml, QUEUEROW *r)
 int ebxml_qprocessor (XML *xml, QUEUEROW *r)
 {
   MIME *m;
-  int try, retries, delay;
 
-  info ("Send ebXML queue %s row %d\n", r->queue->name, r->rowid);
   /*
    * build an ebXML MIME message
    */
@@ -879,32 +929,14 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
   debug ("updating queue\n");
   queue_field_set (r, "PROCESSINGSTATUS", "waiting");
   queue_field_set (r, "TRANSPORTSTATUS", "attempted");
+  queue_field_set (r, "TRANSPORTERRORCODE", "");
   queue_push (r);
   /*
    * send it to the destination
    */
   debug ("sending to destination\n");
-  if ((retries = xml_get_int (xml, "Phineas.Sender.MaxRetry")) == 0)
-    retries = 1;
-  if ((delay = xml_get_int (xml, "Phineas.Sender.DelayRetry")) == 0)
-    delay = 5;
-  for (try = 0; try < retries; try++)
-  {
-    debug ("try=%d\n", try);
-    if (ebxml_send (xml, r, m) == 0)
-      break;
-    sleep (delay * 1000);
-    if (delay < 3600)
-      delay <<= 1;
-  }
-  if (try >= retries)
-  {
-    queue_field_set (r, "PROCESSINGSTATUS", "done");
-    queue_field_set (r, "TRANSPORTSTATUS", "failed");
-    queue_field_set (r, "TRANSPORTERRORCODE", "retries exhausted");
-  }
-  debug ("getting ACK\n");
-  ebxml_record_ack (xml, r);
+  if (ebxml_send (xml, r, m) == 0)
+    ebxml_file_ack (xml, r);
   /*
    * update the queue with status from the reply
    */
@@ -914,11 +946,35 @@ int ebxml_qprocessor (XML *xml, QUEUEROW *r)
    * release all memory
    */
   mime_free (m);
-  info ("ebXML queue %s row %d send completed\n", r->queue->name, r->rowid);
+  info ("ebXML %s:%d send completed\n", 
+    r->queue->name, r->rowid);
   return (0);
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "dbuf.c"
+#include "log.c"
+#include "xmln.c"
+#include "xml.c"
+#include "cfg.c"
+#include "mime.c"
+#include "queue.c"
+#include "task.c"
+#include "filter.c"
+#include "fileq.c"
+#include "b64.c"
+#include "basicauth.c"
+#include "crypt.c"
+#include "xcrypt.c"
+#include "find.c"
+#include "fpoller.c"
+#include "qpoller.c"
+#include "net.c"
+#include "payload.c"
+#include "ebxml.c"
 
 int ran = 0;
 int phineas_running  ()
@@ -936,7 +992,7 @@ int main (int argc, char **argv)
   int arg = 1;
 
   xml = xml_parse (PhineasConfig);
-  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
+  loadpath (cfg_installdir (xml));
   queue_init (xml);
 
   /* test folder polling */
@@ -979,8 +1035,8 @@ int main (int argc, char **argv)
   }
   queue_shutdown ();
   xml_free (xml);
-  info ("%s unit test completed\n", argv[0]);
-  exit (0);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

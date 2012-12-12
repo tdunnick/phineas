@@ -81,6 +81,10 @@ int net_localhost (NETCON *conn);
  */
 int net_timeout (NETCON *conn, int timeout);
 /*
+ * read amount of data still available on this socket
+ */
+unsigned long net_available (NETCON *conn);
+/*
  * read from a connection
  */
 int net_read (NETCON *conn, char *buf, int sz);

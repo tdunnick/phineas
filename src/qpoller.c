@@ -16,30 +16,20 @@
  *  limitations under the License.
  */
 #ifdef UNITTEST
+#include "unittest.h"
 #define __SENDER__
 #endif
 
 #ifdef __SENDER__
 
 #include <stdio.h>
+#include <stdlib.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "xml.c"
-#include "task.c"
-#include "queue.c"
-#include "fileq.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
+
 #include "util.h"
 #include "log.h"
 #include "find.h"
 #include "task.h"
-#endif
 #include "qpoller.h"
 
 #ifndef debug
@@ -214,6 +204,19 @@ int qpoller_task (void *parm)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#define __FILEQ__
+#define __ODBCQ__
+
+#include "util.c"
+#include "dbuf.c"
+#include "xmln.c"
+#include "xml.c"
+#include "task.c"
+#include "queue.c"
+#include "fileq.c"
+#include "odbcq.c"
 
 int ran = 0;
 int phineas_running  ()
@@ -233,13 +236,14 @@ int main (int argc, char **argv)
   char *ch;
 
   xml = xml_parse (PhineasConfig);
-  queue_register ("FileQueue", fileq_connect);
+  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
   queue_init (xml);
   debug ("begin registration...\n");
   qpoller_register ("EbXmlSndQ", test_qprocessor);
   qpoller_task (xml);
   xml_free (xml);
-  info ("%s unit test completed\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

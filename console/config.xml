@@ -524,14 +524,15 @@
         <Help>
   	If a send attempt fails (for example, if the host is not
   	responding), the sender will normally retry.  The MaxRetry
-  	determines the number of attempt that will be made.
+	determines the number of attempts that will be made, but
+	may be over ridden by the Map's Retry.
         </Help>
       </Input>
       <Input>
         <Tags>DelayRetry</Tags>
         <Type>number</Type>
         <Help>
-  	Before a sender retries sending a message, it will wait
+  	Before a sender retries connecting to a route host, it will wait
   	for the receiver/network to correct whatever condition may
   	have caused the failure.  The DelayRetry determines the intial
   	wait in seconds.  Each subsequent retry will double the wait
@@ -634,8 +635,19 @@
           <Type>text</Type>
           <Width>80</Width>
           <Help>
-    	The send can pass optional Arguments to the receiver to further
+    	The sender can pass optional Arguments to the receiver to further
     	affect processing of the request.
+          </Help>
+        </Input>
+        <Input>
+          <Tags>Filter</Tags>
+          <Type>text</Type>
+          <Width>80</Width>
+          <Help>
+	    A filter program may be specified to process the payload prior
+	    to transport.  By default it reads from stdin and writes to
+	    stdout, but '$in' and '$out' can be used where file names
+	    are expected by the filter.
           </Help>
         </Input>
         <Input>
@@ -761,15 +773,18 @@
     	After the sender transmits a payload request, it waits for a
     	response.  If it waits longer than the Timeout in seconds, it
     	assumes there is some problem with the receiver or networks and
-    	optionally retries the send.
+	optionally retries the send.  The Timeout will double for each
+	retry.
           </Help>
         </Input>
         <Input>
           <Tags>Retry</Tags>
           <Type>number</Type>
           <Help>
-    	After a Timeout, an attempt may be made to resend the message.
-    	The Retry determines how many times that attempt will be made.
+	    After a Timeout or connection failure, an attempt may be made 
+	    to resend the message.  The Retry determines how many times 
+	    that attempt will be made and may over ride the Route's
+	    default MaxRetry.
           </Help>
         </Input>
         <Input>

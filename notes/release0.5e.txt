@@ -1,0 +1,12 @@
+Add auto-complete for blank CPA using PHIN-MS conventions of toPartyID.fromPartyID.  
+Add support for parsing and reporting ebXML response errors.  
+Modify console to use any file given as a GET paramter for the page body.
+Use this feature to render a new HOW TO page.
+Modify console log to display newest to oldest and limit lines.
+Add cfg.c for managing running configuration.
+"Last minute" fix folder paths that don't end with a slash using ppathf().
+Revamp unit tests adding minimal support for sources.
+Add 'test' argument to build.bat to test SRC.
+Add debug.bat to test with debugging output.
+Improve sender time out, connection delay, and retry.
+Multiple bug fixes to ebxml_sender, b64, and mime encoder.

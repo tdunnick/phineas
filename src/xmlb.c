@@ -16,9 +16,10 @@
  *  limitations under the License.
  */
 #include <stdio.h>
-
+#include "log.h"
 #include "dbuf.c"
 #include "log.c"
+#include "xmln.c"
 #include "xml.c"
 
 void xmlb (FILE *fp, char *fname, int indent)

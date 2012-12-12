@@ -15,6 +15,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#define CMDLINE
+#endif
+
 #include <time.h>
 #include <stdarg.h>
 #include <sys/stat.h>
@@ -154,3 +158,23 @@ void log (LOGGER *logger, int level, char *file, int line, char *fmt, ...)
   else
     exit (1);
 }
+
+#ifdef UNITTEST
+#undef UNITTEST
+int Errors = 0;
+
+#define lerror(fmt...) printf("ERROR %s %d-",__FILE__,__LINE__),printf(fmt),Errors++
+int main (int argc, char **argv)
+{
+  LOGGER *l = log_open (NULL);
+  if (l == NULL) 
+    lerror ("log_open returned NULL\n");
+  LOGFILE = l;
+  if (dflt_logger == NULL)
+    lerror ("dflt_logger not set\n");
+  else
+    info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
+}
+
+#endif

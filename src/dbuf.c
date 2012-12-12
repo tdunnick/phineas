@@ -20,6 +20,10 @@
 #include <string.h>
 #include "dbuf.h"
 
+#ifndef debug
+#define debug(fmt...)
+#endif
+
 /*
  * Dynamic buffers
  *
@@ -298,3 +302,15 @@ unsigned char *dbuf_extract (DBUF *b)
   free (b);
   return (ch);
 }
+
+#ifdef UNITTEST
+
+#include "unittest.h"
+
+int main (int argc, char **argv)
+{
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
+}
+
+#endif /* UNITTEST */

@@ -15,16 +15,19 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-#include <stdlib.h>
+
+/*
+ * Rfc2046 expects line boundaries to consist of CRLF pairs.
+ * Here that is slightly eased during parsing to only require LF. 
+ * That may introduce other bugs for bogus messages.
+ */
 
 #ifdef UNITTEST
-#undef UNITTEST
-#include <sys/stat.h>
 #include "unittest.h"
-#include "dbuf.c"
-#define UNITTEST
-#define debug _DEBUG_
 #endif
+
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #include "log.h"
 #include "mime.h"
@@ -35,12 +38,6 @@
 #endif
 
 int mime_format_part (MIME *mime, DBUF *b);
-
-/*
- * Mime boundarys start with a newline, two dashes, and the boundary string
- * The last boundary is followed by two dashes.
- */
-
 
 /*
  * allocate a mime structure
@@ -77,7 +74,7 @@ int mime_setHeader (MIME *m, char *name, char *value, int pos)
   int c, p, sz;
   char *ch, *nl;
 
-  debug ("old headers...\n%s", m->headers);
+  // debug ("old headers...\n%s", m->headers);
   /* 
    * add colon, space, CR, and NL to needed size
    */
@@ -98,11 +95,11 @@ int mime_setHeader (MIME *m, char *name, char *value, int pos)
   {
     if ((nl = strchr (ch, '\n')) != NULL)
       strcpy (ch, nl + 1);
-    debug ("removed %s resuling header...\n%s", name, m->headers);
+    // debug ("removed %s resuling header...\n%s", name, m->headers);
   }
-  debug ("realloc...\n%s", m->headers);
+  // debug ("realloc...\n%s", m->headers);
   m->headers = (char *) realloc (m->headers, sz + strlen (m->headers) + 1);
-  debug ("after...\n%s", m->headers);
+  // debug ("after...\n%s", m->headers);
   /*
    * find insertion point
    */
@@ -119,7 +116,7 @@ int mime_setHeader (MIME *m, char *name, char *value, int pos)
   c = ch[sz];
   sprintf (ch, "%s: %s\r\n", name, value);
   ch[sz] = c;
-  debug ("new headers...\n%s", m->headers);
+  // debug ("new headers...\n%s", m->headers);
   return (p);
 }
 
@@ -160,7 +157,7 @@ char *mime_getHeader (MIME *m, char *name)
     return (NULL);
   }
   do ch++; while (isspace (*ch) && (*ch != '\n'));
-  debug ("header %s %.10s...\n", name, ch);
+  debug ("header %s:%.*s\n", name, strchr(ch,'\r') - ch, ch);
   return (ch);
 }
 
@@ -241,25 +238,16 @@ int mime_getBoundary (MIME *m, char *buf, int sz)
     return (0);
   }
   p += 10;
-  if (buf == NULL)
+  ch = strchr (p, '"');
+  if (ch == NULL) 
+    return (-1);
+  if (buf != NULL)
   {
-    ch = strchr (p, '"');
-    if (ch == NULL)
-      return (0);
-    debug ("just length for %.*s\n", ch - p, p);
-    return (ch - p + 4);
-  }
-  /*
-   * then set up to parse out multiparts
-   */
-  strcpy (buf, "\n--");
-  for (l = 0; (buf[l + 3] = p[l]) != '\"'; l++)
-  {
-    if ((p[l] == 0) || (l + 4 >= sz))
+    if ((ch - p) + 2 >= sz)
       return (-1);
+    sprintf (buf, "--%.*s", ch - p, p);
   }
-  buf[l +=3] = 0;
-  return (l);				/* boundary length	*/
+  return (ch - p + 2);
 }
 
 /*
@@ -300,7 +288,7 @@ MIME *mime_parse (char *buf)
   m->headers = (char *) malloc (ch - buf + 1);
   strcpy (m->headers, buf);
   *ch = c;
-  debug ("headers:\n%s", m->headers);
+  // debug ("headers:\n%s", m->headers);
   /*
    * next determine the size 
    */
@@ -316,7 +304,8 @@ MIME *mime_parse (char *buf)
    * if not a multipart then it's all body
    * we alloc an extra byte for the EOS
    */
-  if ((l = mime_getBoundary (m, boundary, 100)) < 1)
+  *boundary = '\n';
+  if ((l = mime_getBoundary (m, boundary + 1, 99) + 1) < 2)
   {
     m->body = (unsigned char *) malloc (m->len + 1);
     memmove (m->body, ch, m->len);
@@ -327,10 +316,15 @@ MIME *mime_parse (char *buf)
 
   /*
    * each part goes into the next chain
+   * at this point ch is at the end of the header, so we look for
+   * the first boundary, which may be where we are at.  Note boundry
+   * start with a newline, so backup one for the check in case there
+   * is no body.
+   *
    */
   n = &m->next;
   p = strstr (ch - 1, boundary);
-  if (p > ch -1)
+  if (p > ch - 1)
   {
     m->len = p - ch;
     c = *p;
@@ -340,17 +334,18 @@ MIME *mime_parse (char *buf)
   }
   else
     m->len = 0;
-  ch = p;
-  while (1)
+  ch = p;			/* start at boundry and...	*/
+  while (1)			/* collect next part		*/
   {
     ch += l;			/* bump past boundary marker	*/
     debug ("checking end of boundry\n");
     if ((ch[0] == ch[1]) && (ch[0] == '-'))
-      break;			/* find next one		*/
-    if (*ch++ == '\r') ch++;	/* bump past CR LF		*/
+      break;
+    				/* find next one		*/
+    if (*ch++ == '\r') ch++;	/* bump past CR   		*/
     if ((p = strstr (ch, boundary)) == NULL)
     {
-      debug ("end boundary not found\n");
+      debug ("end boundary not found at...\n%s\n", ch);
       return (mime_free (m));
     }
     c = *p;			/* parse to it			*/
@@ -379,7 +374,6 @@ int mime_size (MIME *m)
   char *b, *ch;
   MIME *part;
 
-  debug ("sizing...\n");
   if ((m == NULL) || (m->headers == NULL))
   {
     debug ("null MIME or headers\n");
@@ -389,18 +383,19 @@ int mime_size (MIME *m)
   if ((l = mime_getBoundary (m, NULL, 0)) > 0)
   {
     debug ("sizing parts...\n");
+    l += 4;		/* each boundry surround by CRLF	*/
     for (part = m->next; part != NULL; part = part->next)
       sz += l + mime_size (part);
-    sz += l + 2;
+    sz += l + 2;	/* last boundry has "--" added		*/
   }
   mime_setLength (m, sz);
-  sz += strlen (m->headers);
-  debug ("estimated mime size=%d\n", sz);
-  return (sz);
+  debug ("mime headers=%d body=%d size=%d\n", 
+      strlen (m->headers), sz, sz + strlen (m->headers));
+  return (sz + strlen (m->headers));
 }
 
 /*
- * format a mime message - this is the recursive on, not intended
+ * format a mime message - this is the recursive one, not intended
  * for external use.
  */
 int mime_format_part (MIME *m, DBUF *b)
@@ -412,8 +407,12 @@ int mime_format_part (MIME *m, DBUF *b)
   mime_size (m);
   dbuf_printf (b, "%s", m->headers);
   dbuf_write (b, m->body, m->len);
-  if ((bl = mime_getBoundary (m, boundary, 100)) < 1)
+  // prefix boundary with CR
+  boundary[0] = '\r';
+  boundary[1] = '\n';
+  if ((bl = mime_getBoundary (m, boundary + 2, 98) + 2) < 3)
     return (dbuf_size (b));
+  boundary[bl++] = '\r';
   boundary[bl++] = '\n';
   for (n = m->next; n != NULL; n = n->next)
   {
@@ -422,8 +421,8 @@ int mime_format_part (MIME *m, DBUF *b)
     mime_format_part (n, b);
   }
   debug ("adding final boundary at %d\n", dbuf_size (b));
-  dbuf_write (b, boundary, bl - 1);
-  dbuf_write (b, "--\n", 4);
+  dbuf_write (b, boundary, bl - 2);
+  dbuf_write (b, "--\r\n", 4);
   debug ("final size is %d\n", dbuf_size (b));
   debug ("actual size is %d (%d/%d)\n",
       strlen (dbuf_getbuf(b)), strlen (m->headers), 
@@ -446,17 +445,77 @@ char *mime_format (MIME *m)
 
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "dbuf.c"
 
-#define MNAME "examples/request.txt"
+#define MNAME "../examples/request.txt"
+char *SimpleTest =
+"Host: slhw0008.ad.slh.wisc.edu:5088\r\n"
+"Connection: Keep-Alive\r\n"
+"Content-Type: \"text/plain\"\r\n"
+"SOAPAction: \"ebXML\"\r\n"
+"Content-Length: 47\r\n"
+"\r\n"
+"the quick brown fox jumped over the lazy dogs\r\n";
+
+int test_size (char *name, char *msg)
+{
+  int len = 0;
+  char *ch = strstr (msg, MIME_LENGTH);
+  if (ch == NULL)
+    return (0);
+  len = atoi (ch + strlen (MIME_LENGTH) + 1);
+  if (len < 1)
+  {
+    error ("%s - Bad length at %.*s\n", name, strchr(ch,'\r')-ch, ch);
+    return (1);
+  }
+  if ((ch = strstr (ch, "\r\n\r\n")) != NULL)
+    ch += 4;
+  else if ((ch = strstr (ch, "\n\n")) != NULL)
+    ch += 2;
+  else 
+  {
+    error ("%s - missing end of header!", name);
+    return (1);
+  }
+  debug ("%s size=%d hdr size=%d length=%d\n",
+      name, strlen (msg), ch - msg, len);
+  if (strlen (msg) != ch - msg + len)
+  {
+    error ("%s- Incorrect size got %d expected %d\n",
+      name, len, strlen (msg) - (ch - msg));
+    return (1);
+  }
+}
+
+void test_buf (char *name, char *buf)
+{
+  MIME *m;
+  char *fbuf;
+  char n[1024];
+
+  debug ("parsing %s sz=%d...\n", name, strlen (buf));
+  // test_size (name, buf);  /* we know it's bad!!		*/
+  if ((m = mime_parse (buf)) == NULL)
+    error ("Failed parsing %s\n", name);
+  fbuf = mime_format (m);
+  debug ("formated...\n%s\n", fbuf);
+  sprintf (n, "%s formated", name);
+  test_size (n, fbuf);
+  free (fbuf);
+  mime_free (m);
+}
 
 void test_multipart ()
 {
-  MIME *m;
   FILE *fp;
   struct stat st;
-  char *buf, *fbuf;
+  char *buf;
   int sz;
 
+  test_buf ("simple", SimpleTest);
   if (stat (MNAME, &st))
   {
     error ("Can't stat %s\n", MNAME);
@@ -467,19 +526,14 @@ void test_multipart ()
   fread (buf, 1, st.st_size, fp);
   fclose (fp);
   buf[st.st_size] = 0;
-  debug ("parsing %s sz=%d...\n", MNAME, st.st_size);
-  if ((m = mime_parse (buf)) == NULL)
-    error ("Failed parsing %s\n", MNAME);
-  fbuf = mime_format (m);
-  info ("Passed multipart mime test\n", fbuf);
-  debug ("formated...\n%s\n", fbuf);
+  test_buf (MNAME, buf);
   free (buf);
-  free (fbuf);
 }
 
 int main (int argc, char **argv)
 {
   test_multipart ();
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
   exit (Errors);
 }
 

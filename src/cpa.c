@@ -15,21 +15,14 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "xml.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
 #include "log.h"
-#endif
-
 #include "util.h"
 #include "xml.h"
 
@@ -112,20 +105,30 @@ int cpa_create (XML *xml, int route)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "dbuf.c"
+#include "xmln.c"
+#include "xml.c"
 
 int main (int argc, char **argv)
 {
   XML *xml;
 
   xml = xml_parse (PhineasConfig);
+  loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
   cpa_create (xml, 0);
   xml_free (xml);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #elif CMDLINE
 #include "util.c"
 #include "log.c"
 #include "dbuf.c"
+#include "xmln.c"
 #include "xml.c"
 
 int main (int argc, char **argv)
@@ -149,6 +152,7 @@ int main (int argc, char **argv)
     else
     {
       xml = xml_load (argv[i]);
+      loadpath (xml_get_text (xml, "Phineas.InstallDirectory"));
       cpa_create (xml, route);
       xml_free (xml);
     }

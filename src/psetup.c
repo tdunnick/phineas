@@ -16,6 +16,12 @@
  *  limitations under the License.
  */
 
+#ifdef UNITTEST
+#include "unittest.h"
+#undef UNITTEST
+#define __TEST__
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,13 +30,10 @@
 #define CMDLINE
 #endif
 
-#ifdef UNITTEST
-#undef UNITTEST
-#define __TEST__
-#endif
 #include "util.c"
 #include "dbuf.c"
 #include "log.c"
+#include "xmln.c"
 #include "xml.c"
 
 #define FATAL(code,msg...) fatal(msg),fexit(code)
@@ -71,14 +74,20 @@ int main (int argc, char **argv)
   char path[MAX_PATH];
   XML *xml;
 
+#ifdef __TEST__
+  chdir ("..");
+#endif
+
   installpath = loadpath (argv[0]);
   if ((org = strstr (installpath, "\\bin\\")) != NULL)
   {
     org[1] = 0;
     org = NULL;
   }
+#ifndef __TEST__
   pathf (path, "logs/psetup.log");
   LOGFILE = log_open (path);
+#endif
   while (--argc)
   {
     if (**++argv == '-')
@@ -123,7 +132,7 @@ int main (int argc, char **argv)
 #ifdef __TEST__
   info ("setting up test environment\n");
   chdir ("..");
-  config = "Test.xml";
+  config = "tmp/Test.xml";
   unlink (config);
   org = "Phineas Health Test";
   partyid = "Test.Party.ID";
@@ -154,8 +163,14 @@ int main (int argc, char **argv)
   pathf (path, config);
   if (xml_save (xml, path))
     FATAL (2, "Couldn't save %s - %s\n", path, sperror ());
+#ifdef __TEST__
+  chkconfig (path, template);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
+#else
   info ("Setup completed\n");
   exit (0);
+#endif
 }
 
 int fexit (int code)
@@ -255,3 +270,34 @@ int setupPorts (XML *xml, int service)
   return (0);
 }
 
+#ifdef __TEST__
+
+int chkconfig (char *config, char *template)
+{
+  long sz;
+  struct stat s;
+  char path[MAX_PATH];
+
+  pathf (path, template);
+  if (stat (path, &s))
+  {
+    error ("Can't access %s\n", template);
+    return (-1);
+  }
+  sz = s.st_size + 48;
+  pathf (path, config);
+  if (stat (path, &s))
+  {
+    error ("Can't access %s\n", config);
+    return (-1);
+  }
+  if (sz != s.st_size)
+  {
+    error ("Expected size %d but got %d\n", sz, s.st_size);
+    return (-1);
+  }
+  unlink (path);
+  return (0);
+}
+
+#endif

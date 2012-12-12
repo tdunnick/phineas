@@ -105,6 +105,9 @@ table.options td {
         <a href="#config">Configuration</a>
       </li>
       <li>
+        <a href="#filters">Filters</a>
+      </li>
+      <li>
         <a href="#function">Functional Description</a>
       </li>
       <li>
@@ -122,6 +125,9 @@ table.options td {
       <li>
         <a href="#chart">PHINMS Comparison Chart</a>
       </li>
+			<li>
+			  <a href="console.html?howto.html">Phineas HOW TO Guide</a>
+			</li>
     </ul>
     <hr>
     <div class="heading">
@@ -263,7 +269,8 @@ table.options td {
           Refresh the console. This has the same effect as your
           browser refresh function.
         </td>
-      </tr><!--
+      </tr>
+<!--
 <tr>
 <td><img src="images/delete.gif" alt="delete record"></td>
 <td>Delete selected item (not yet implemented).</td>
@@ -490,6 +497,43 @@ table.options td {
       <iframe src="chelp.html" width="95%" height="500">Itemized
       list of configuration items</iframe>
     </center><br>
+    <hr>
+    <div class="heading">
+      <a name="filters" class="section" id="filters">Filters</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+    <p>
+		  A <b>filter</b> is a program which is used to act on or modify
+		  data.  The concept of a filter has it's origins in
+			the early history of UNIX.  The filter
+			reads data from the standard input (normally the keyboard), 
+			alters or acts on that data in some way, and then writes the result
+			to the standard output (normally the screen).  Such a program
+			could be thought of as "filtering" the data.  Couple this with the
+			ability to "redirect" standard input and output to either files
+			or other programs and you suddenly have a very powerful set of 
+			tools for manipulating data.
+	  </p>
+		<p>
+		  <b>Phineas</b> applies this concept to its messaging transport.
+			Both senders and receivers may be configured to modify data "on
+			the fly" by plugging in a filter.  The filter can be any program
+			that does not require user interaction (obviously, you don't want
+			to sit and wait for messages to come and go, just to interact with
+			the message filter). 
+		</p>
+		<p>
+		  For example lets consider the scenario, where a laboratory is
+			providing reportable conditions (ELR) in a CSV (comma delimited)
+			format.  One could develop a stand-alone program that would read
+			such data and convert it to HL7 v2.5.1 to meet meaninful use
+			requirements.  This program could be inserted either into the
+			sender or receiver filter to automate this data transformation.			
+		</p>
+		<p>
+		 For details on configuring a filter please
+			see the <a href="console.html?howto.html">Phineas HOW TO Guide</a>.
+		</p>
     <hr>
     <div class="heading">
       <a name="function" class="section" id="function">Phineas -
@@ -1502,7 +1546,7 @@ table.options td {
             Route Not Read
           </td>
           <td>
-            no
+            no*
           </td>
           <td>
             yes
@@ -1524,7 +1568,7 @@ table.options td {
             Transport Filters
           </td>
           <td>
-            no*
+            yes
           </td>
           <td>
             no

@@ -179,8 +179,11 @@ XMLNODE *xmln_parse (char **buf);
  */
 XMLNODE *xmln_parse_doc (char **buf);
 
-/******************* aggregate conversions ********************/
-
+/********************** global manipulations *********************/
+/*
+ * add an XML declaration if needed
+ */
+XMLNODE *xmln_declare (XMLNODE *n);
 /*
  * coellese all the text nodes, removing those that are empty
  */

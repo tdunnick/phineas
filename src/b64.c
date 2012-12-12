@@ -23,10 +23,18 @@
  * 64 printable characters. 
  */
 
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include "log.h"
 #include "b64.h"
+
+#ifndef debug
+#define debug(fmt...)
+#endif
 
 /*
  * Note for some encoding variants the last two characters are different.
@@ -45,10 +53,12 @@ const char b64_tab[] =
  */
 int b64_encode (char *dst, unsigned char *src, int len, int lb)
 {
-  int v;
+  int padding, v;
   char *d = dst;
   int bit6 = 0;
 
+  if (padding = len % 3)
+    padding = 3 - padding;
   while (len--)
   {
     switch (bit6++)
@@ -77,8 +87,8 @@ int b64_encode (char *dst, unsigned char *src, int len, int lb)
       *d++ = '\n';
     }
   }
-  while ((d - dst) % 4)
-    *d++ = '=';
+  while (padding--)
+    *d++ = B64_PAD;
   *d = 0;
   return (d - dst);
 }
@@ -91,7 +101,9 @@ int b64_encode (char *dst, unsigned char *src, int len, int lb)
  * 
  * Decoding is not optimized, but not used all that much so just
  * a simple implementation suffices.  Optimization would have to 
- * assume character set and codings (e.g. lookup table).
+ * assume character set and codings (e.g. lookup table). We also don't
+ * bother to check the padding...
+ *
  * Note dst and src can be the same buffer.
  */
 int b64_decode (unsigned char *dst, char *src)
@@ -133,7 +145,6 @@ int b64_decode (unsigned char *dst, char *src)
 }
 
 #ifdef UNITTEST
-
 #include "unittest.h"
 
 char Plain[] =
@@ -164,7 +175,8 @@ int main (int argc, char **argv)
     error ("decoded size doesn't match\n");
   if (strcmp (buf2, Plain))
     error ("decoding didn't match\n");
-  info ("%s unit test completed\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif

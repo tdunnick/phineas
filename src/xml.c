@@ -22,16 +22,11 @@
 #include <sys/stat.h>
 
 #ifdef UNITTEST
-#undef UNITTEST
-#include "dbuf.c"
-#include "xmln.c"
-#define UNITTEST
-#define debug(fmt...) printf("%s %d-",__FILE__,__LINE__),printf(fmt)
-#else
-#include "dbuf.h"
-#include "xmln.c"
+#include "unittest.h"
 #endif
 
+#include "dbuf.h"
+#include "xmln.h"
 #include "xml.h"
 
 #ifndef debug
@@ -211,7 +206,7 @@ XMLNODE *xml_force (XML *xml, char *path, XMLNODE **parent)
 
 /*
  * Retrieve first text value from a node.  
- * Returns empty strinig if path not found.
+ * Returns empty string if path not found.
  */
 char *xml_get_text (XML *xml, char *path)
 {
@@ -772,46 +767,18 @@ XML *xml_load (char *filename)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#define __XMLTEST__
+#include "dbuf.c"
+#include "xmln.c"
 
-dump_nodes (XMLNODE *node, char *b, int maxsz, int level)
+void xmldisplay (XML *xml, DBUF *b, char *msg)
 {
-  int sz = 0, n;
-
-  while (node != NULL)
-  {
-    if ((node->type == XML_TEXT) || (node->type == XML_ATTRIB))
-      n = snprintf (b, maxsz - sz, "%*s%c%s '%s'\n", level, "", 
-	  node->type, node->key, node->value);
-    else
-    {
-      n = snprintf (b, maxsz - sz, "%*s%c%s\n%*s%s\n", 
-	level, "", node->type, node->key,
-	level + 2, "", "attributes");
-      sz += n;
-      n = dump_nodes (node->attributes, b, maxsz - sz, level + 2);
-      sz += n;
-      n = snprintf (b, maxsz - sz, "%*s%s\n", level + 2, "", "children");
-      sz += n;
-      n = dump_nodes (node->value, b, maxsz - sz, level + 2);
-    }
-    sz += n;
-    node = node->next;
-  }
-  if (level == 0)
-  {
-    printf ("\n----- dump --------\n%s\n", b);
-  }
-  return (sz);
+  xmlndisplay (xml->doc, b, msg);
 }
 
-void display (XML *x, DBUF *b, char *msg)
-{
-  dbuf_clear (b);
-  xmln_format (x->doc, b);
-  printf ("\n----- %s -----\n%s\n", msg, dbuf_getbuf(b));
-}
-
-void dive (XML *xml, char *path, int level)
+void dive (XML *xml, DBUF *b, char *path, int level)
 {
   char p[MAX_PATH], c[MAX_PATH];
 
@@ -819,14 +786,14 @@ void dive (XML *xml, char *path, int level)
   strcpy (p, path);
   do
   {
-    printf ("%*s%s\n", level * 2, "", p);
+    dbuf_printf (b, "%*s%s\n", level * 2, "", p);
     strcpy (c, p);
     if (xml_first (xml, c) > 0)
-      dive (xml, c, level + 1);
+      dive (xml, b, c, level + 1);
   } while (xml_next (xml, p) > 0);
  }
 
-void rdive (XML *xml, char *path, int level)
+void rdive (XML *xml, DBUF *b, char *path, int level)
 {
   char p[MAX_PATH], c[MAX_PATH];
   strcpy (p, path);
@@ -834,23 +801,57 @@ void rdive (XML *xml, char *path, int level)
   {
     strcpy (c, p);
     if (xml_last (xml, c) > 0)
-      rdive (xml, c, level + 1);
-    printf ("%*s%s\n", level * 2, "", p);
+      rdive (xml, b, c, level + 1);
+    dbuf_printf (b, "%*s%s\n", level * 2, "", p);
   } while (xml_prev (xml, p) > 0);
 }
 
-char *TestXML =
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-"<EncryptedData Id=\"ed1\" Type=\"http://www.w3.org/2001/04/xmlenc#Element\" "
-"xmlns=\"http://www.w3.org/2001/04/xmlenc#\">"
-"<EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#tripledes-cbc\"/>"
-"<KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
-"<EncryptedKey xmlns=\"http://www.w3.org/2001/04/xmlenc#\">"
-"<EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#rsa-1_5\"/>"
-"<KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
-"<KeyName>key</KeyName>"
-"</KeyInfo><CipherData><CipherValue/></CipherData></EncryptedKey></KeyInfo>"
-"<CipherData><CipherValue/></CipherData></EncryptedData>";
+char *ConstructedXML =
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+"<foo>\n"
+"  <goofy>really goofy</goofy>\n"
+"  <bar>\n"
+"    <stuff/>\n"
+"    <stuff crud=\"junk\"/>\n"
+"    <stuff>third stuff</stuff>\n"
+"  </bar>\n"
+"  <phue>\n"
+"    <goof>phuey</goof>\n"
+"  </phue>\n"
+"  <bar some:attr=\"a different value\">\n"
+"    <junk>this is junk</junk>\n"
+"    <crap/>\n"
+"    <junk>second junk</junk>\n"
+"  </bar>\n"
+"</foo>";
+
+char *DiveXML =
+"foo\n"
+"  foo.goofy\n"
+"  foo.bar\n"
+"    foo.bar.stuff\n"
+"    foo.bar.stuff[1\n"
+"    foo.bar.stuff[2\n"
+"  foo.phue\n"
+"    foo.phue.goof\n"
+"  foo.bar[1\n"
+"    foo.bar[1.junk\n"
+"    foo.bar[1.crap\n"
+"    foo.bar[1.junk[1\n";
+
+char *RDiveXML =
+"    foo.bar[1.junk[1\n"
+"    foo.bar[1.crap\n"
+"    foo.bar[1.junk\n"
+"  foo.bar[1\n"
+"    foo.phue.goof\n"
+"  foo.phue\n"
+"    foo.bar.stuff[2\n"
+"    foo.bar.stuff[1\n"
+"    foo.bar.stuff\n"
+"  foo.bar\n"
+"  foo.goofy\n"
+"foo\n";
 
 int main (int argc, char **argv)
 {
@@ -865,15 +866,18 @@ int main (int argc, char **argv)
   // goto scratch;
   /* load test */
   x = xml_parse (TestXML);
-  display (x, b, "load test");
-
+  xmldisplay (x, b, "load test");
+  xmldiff ("load test doesn't match", b, NormalizedXML);  
+  
   /* normalization test */
   x->doc = xmln_normalize (x->doc);
-  display (x, b, "normalized");
+  xmldisplay (x, b, "normalized");
+  xmldiff ("normalized test doesn't match", b, NormalizedXML);
 
   /* beautify test */
   x->doc = xmln_beautify (x->doc, 2, 0);
-  display (x, b, "beautified");
+  xmldisplay (x, b, "beautified");
+  xmldiff ("beautified test doesn't match", b, BeautifiedXML);
 
 scratch:
 
@@ -914,12 +918,20 @@ scratch:
   debug ("setting declaration...\n");
   xml_declare (x);
   debug ("displaying...\n");
-  display (x, b, "constructed");
+  xmldisplay (x, b, "constructed");
+  xmldiff ("constructed test doesn't match", b, ConstructedXML);
   debug ("diving...\n");
-  dive (x, xml_root (x), 0);
+  dbuf_clear (b);
+  dive (x, b, xml_root (x), 0);
+  xmldiff ("dive test doesn't match", b, DiveXML);
   debug ("reverse diving...\n");
-  rdive (x, xml_root (x), 0);
+  dbuf_clear (b);
+  rdive (x, b, xml_root (x), 0);
+  xmldiff ("reverse dive test doesn't match", b, RDiveXML);
+  dbuf_free (b);
   xml_free (x);
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

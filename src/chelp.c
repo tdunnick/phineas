@@ -15,24 +15,30 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#include "unittest.h"
+#undef UNITTEST
+#undef debug
+#define __TESTCHELP__
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#define INAME "../console/config.xml"
-#define ONAME "../console/chelp.html"
-#else
-#define INAME "console/config.xml"
-#define ONAME "console/chelp.html"
-#endif
 #include "util.c"
 #include "log.c"
 #include "dbuf.c"
+#include "xmln.c"
 #include "xml.c"
+
+/*
+ * default names for configuration
+ */
+#define INAME "console/config.xml"
+#define ONAME "console/chelp.html"
+
 /*
  * configuration tag types
  */
@@ -304,6 +310,7 @@ int chelp (XML *xml, char *path, char *prefix, DBUF *b)
   return (0);
 }
 
+
 int main (int argc, char **argv)
 {
   FILE *fp;
@@ -369,15 +376,32 @@ int main (int argc, char **argv)
     iname = INAME;
   if (oname == NULL)
     oname = ONAME;
+#ifdef __TESTCHELP__
+  {
+    extern char *TestConfig;
+    if ((xml = xml_parse (TestConfig)) == NULL)
+      fatal ("Couldn't parse test configuration\n");
+  }
+#else
   if ((xml = xml_load (iname)) == NULL)
   {
     fprintf (stderr, "Can't load %s\n", iname);
     exit (1);
   }
+#endif
   b = dbuf_alloc ();
   r = xml_root (xml);
   chelp_path (xml, prefix, r, "");
   chelp (xml, r, prefix, b);
+#ifdef __TESTCHELP__
+  {
+    extern char *TestHTML;
+    strdiff (__FILE__,__LINE__, "help mismatch", dbuf_getbuf(b), TestHTML);
+    // printf ("%s", dbuf_getbuf (b));
+    info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+    exit (Errors);
+  }
+#endif
   fp = fopen (oname, "w");
   fprintf (fp, "<html>%s<body>%s%s</body></html>\n", 
     style, legend, dbuf_getbuf (b));
@@ -387,3 +411,151 @@ int main (int argc, char **argv)
   exit (0);
 }
 
+#ifdef __TESTCHELP__
+char *TestConfig =
+"<Config>\n"
+"  <Tab>\n"
+"    <Name>General Settings</Name>\n"
+"    <Tags>Phineas</Tags>\n"
+"    <Help>\n"
+"      Here are the general configuration items that affect\n"
+"      the over all function of Phineas.  Note that most of the\n"
+"      paths here may be specified relative to the InstallDirectory.\n"
+"    </Help>\n"
+"    <Input>\n"
+"      <Tags>InstallDirectory</Tags>\n"
+"      <Type>dir</Type>\n"
+"      <Help>\n"
+"	The InstallDirectory is a full path to where you installed\n"
+"	Phineas.  It is used to resolve any relative path in the\n"
+"	configuration (e.g. a path that doesn't start with a drive\n"
+"	letter or leading directory slash).\n"
+"      </Help>\n"
+"    </Input>\n"
+"    <Tab>\n"
+"      <Name>Identification</Name>\n"
+"      <Help>\n"
+"        Identifies Phineas to external PHINMS compatible services.\n"
+"      </Help>\n"
+"      <Input>\n"
+"        <Tags>PartyId</Tags>\n"
+"        <Type>text</Type>\n"
+"        <Width>24</Width>\n"
+"        <Help>\n"
+"  	Each end point of an ebXML connection is identified by a PartyID.\n"
+"  	CDC issues these for PHINMS installation.  However, it can be\n"
+"  	any unique identifier you choose, as long as it is acceptible\n"
+"  	to your communicating endpoint(s).  A good alternative is to use\n"
+"  	the full domain name of the server hosting Phineas (e.g.\n"
+"  	\"my.server.name.and.domain\").\n"
+"        </Help>\n"
+"      </Input>\n"
+"      <Input>\n"
+"        <Tags>Organization</Tags>\n"
+"        <Type>text</Type>\n"
+"        <Width>44</Width>\n"
+"        <Help>\n"
+"  	Set the Organization to something that readily identifys who\n"
+"  	is hosting Phineas.\n"
+"        </Help>\n"
+"      </Input>\n"
+"    </Tab>\n"
+"    <Tab>\n"
+"      <Name>Templates</Name>\n"
+"      <Help>\n"
+"	Phineas uses template files to build and parse\n"
+"	various parts of the ebXML payloads.\n"
+"      </Help>\n"
+"      <Input>\n"
+"        <Tags>SoapTemplate</Tags>\n"
+"        <Type>file</Type>\n"
+"        <Help>\n"
+"  	The SoapTemplate is the location of the ebXML SOAP template\n"
+"  	used for composing messages.  You should normally not need\n"
+"  	to change this from the default \"templates/soap.xml\".\n"
+"        </Help>\n"
+"      </Input>\n"
+"    </Tab>\n"
+"  </Tab>\n"
+"  <Tab>\n"
+"    <Name>Load/Save/Update</Name>\n"
+"    <Help>\n"
+"      The Phineas configuration is loaded from a disk file when the\n"
+"      program starts.  That is the RUNNING configuration.  The\n"
+"      configuration being editted (here) may be loaded or saved from\n"
+"      that RUNNING configuration, or elsewhere.  Similarly changes made\n"
+"      in the web configuration GUI may be updated (in memory), or\n"
+"      discarded by simply navigating away in the console.\n"
+"    </Help>\n"
+"    <Input>\n"
+"      <Name>Configuration File Name</Name>\n"
+"      <Type>file</Type>\n"
+"      <Help>\n"
+"	The configuration for Phineas is read or written to the\n"
+"	Configuration File Name.\n"
+"      </Help>\n"
+"    </Input>\n"
+"    <Input>\n"
+"      <Name>Save Configuration</Name>\n"
+"      <Type>submit</Type>\n"
+"      <Help>\n"
+"	Click Save Configuration to save the current configuration in\n"
+"	edit to disk.\n"
+"      </Help>\n"
+"    </Input>\n"
+"  </Tab>\n"
+"</Config>\n";
+
+char *TestHTML =
+"<div class='gtabs'><span class='gtab'>General Settings</span> - \n"
+"      Here are the general configuration items that affect\n"
+"      the over all function of Phineas.  Note that most of the\n"
+"      paths here may be specified relative to the InstallDirectory.\n"
+"    </div>\n"
+"<div style=\"padding-left: 20px;\"><b class='gtag'>&lt;Phineas&gt;</b><div style=\"padding-left: 20px;\"><b class='gtag'>&lt;InstallDirectory&gt;</b><div style=\"padding-left: 20px\"><b>InstallDirectory</b> - a folder or directory<div style=\"padding-left: 20px\">\n"
+"	The InstallDirectory is a full path to where you installed\n"
+"	Phineas.  It is used to resolve any relative path in the\n"
+"	configuration (e.g. a path that doesn't start with a drive\n"
+"	letter or leading directory slash).\n"
+"      </div></div>\n"
+"<b class='gtag'>&lt;/InstallDirectory&gt;</b></div><div class='gtabs'><span class='gtab'>Identification</span> - \n"
+"        Identifies Phineas to external PHINMS compatible services.\n"
+"      </div>\n"
+"<div style=\"padding-left: 20px;\"><b class='gtag'>&lt;PartyId&gt;</b><div style=\"padding-left: 20px\"><b>PartyId</b> - text<div style=\"padding-left: 20px\">\n"
+"  	Each end point of an ebXML connection is identified by a PartyID.\n"
+"  	CDC issues these for PHINMS installation.  However, it can be\n"
+"  	any unique identifier you choose, as long as it is acceptible\n"
+"  	to your communicating endpoint(s).  A good alternative is to use\n"
+"  	the full domain name of the server hosting Phineas (e.g.\n"
+"  	\"my.server.name.and.domain\").\n"
+"        </div></div>\n"
+"<b class='gtag'>&lt;/PartyId&gt;</b></div><div style=\"padding-left: 20px;\"><b class='gtag'>&lt;Organization&gt;</b><div style=\"padding-left: 20px\"><b>Organization</b> - text<div style=\"padding-left: 20px\">\n"
+"  	Set the Organization to something that readily identifys who\n"
+"  	is hosting Phineas.\n"
+"        </div></div>\n"
+"<b class='gtag'>&lt;/Organization&gt;</b></div><div class='gtabs'><span class='gtab'>Templates</span> - \n"
+"	Phineas uses template files to build and parse\n"
+"	various parts of the ebXML payloads.\n"
+"      </div>\n"
+"<div style=\"padding-left: 20px;\"><b class='gtag'>&lt;SoapTemplate&gt;</b><div style=\"padding-left: 20px\"><b>SoapTemplate</b> - a file<div style=\"padding-left: 20px\">\n"
+"  	The SoapTemplate is the location of the ebXML SOAP template\n"
+"  	used for composing messages.  You should normally not need\n"
+"  	to change this from the default \"templates/soap.xml\".\n"
+"        </div></div>\n"
+"<b class='gtag'>&lt;/SoapTemplate&gt;</b></div><b class='gtag'>&lt;/Phineas&gt;</b></div><div class='gtabs'><span class='gtab'>Load/Save/Update</span> - \n"
+"      The Phineas configuration is loaded from a disk file when the\n"
+"      program starts.  That is the RUNNING configuration.  The\n"
+"      configuration being editted (here) may be loaded or saved from\n"
+"      that RUNNING configuration, or elsewhere.  Similarly changes made\n"
+"      in the web configuration GUI may be updated (in memory), or\n"
+"      discarded by simply navigating away in the console.\n"
+"    </div>\n"
+"<div style=\"padding-left: 20px\"><b>Configuration File Name</b> - a file<div style=\"padding-left: 20px\">\n"
+"	The configuration for Phineas is read or written to the\n"
+"	Configuration File Name.\n"
+"      </div></div>\n"
+"<div style=\"padding-left: 20px\"><b>Save Configuration</b> - a submit button<div style=\"padding-left: 20px\">\n"
+"	Click Save Configuration to save the current configuration in\n"
+"	edit to disk.\n"
+"      </div></div>\n";
+#endif /* UNITTEST */

@@ -16,18 +16,15 @@
  *  limitations under the License.
  */
 
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include "log.h"
 #include "net.h"
 #include "openssl/err.h"
 #include "crypt.h"
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "crypt.c"
-#define UNITTEST
-#define debug _DEBUG_
-#endif
 
 #ifndef debug
 #define debug(fmt...)
@@ -368,6 +365,18 @@ int net_timeout (NETCON *conn, int timeout)
 }
 
 /*
+ * read amount of data still available on this socket
+ */
+unsigned long net_available (NETCON *conn)
+{
+  unsigned long n;
+
+  if (ioctlsocket (conn->sock, FIONREAD, &n))
+    return (0);
+  return n;
+}
+
+/*
  * read from a socket
  *
  * note that the other end may have closed the connection or we
@@ -478,11 +487,17 @@ char *net_gethostname ()
 #endif
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "b64.c"
+#include "crypt.c"
 
 int main (int argc, char **argv)
 {
-  info ("%s has no current unittests\n", argv[0]);
-  exit (0);
+  warn ("No unit tests defined\n");
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif

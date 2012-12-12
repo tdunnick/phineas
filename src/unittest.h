@@ -18,7 +18,14 @@
 #ifndef __UNITTEST__
 #define __UNITTEST__
 
-#define __LOG_C__
+/*
+ * some shared globals usually in main.c
+ */
+char Software[] = "Phineas UNIT TEST";
+char LogName[] = "tmp/phineas.log";
+
+#define __LOG_C__		/* suppress log.h		*/
+				/* and replace with...		*/
 int Errors = 0;
 
 #define _DEBUG_(fmt...) printf("DEBUG %s %d-",__FILE__,__LINE__),printf(fmt)
@@ -34,6 +41,28 @@ int Errors = 0;
 #ifndef fatal
 #define fatal(fmt...) printf("FATAL %s %d-",__FILE__,__LINE__),printf(fmt),exit(++Errors)
 #endif
+
+void strdiff (char *file, int line, char *msg, char *p, char *expected)
+{
+  int n = 0;
+
+retry:
+  while (*p == *expected)
+  {
+    if (*p == 0) return;
+    n++;
+    p++;
+    expected++;
+  }
+  if ((*p == '\r') && (*expected == '\n'))
+  {
+    p++;
+    goto retry;
+  }
+  printf ("ERROR: %s %d-%s at %d expected:%d %.10s.. found:%d %.10s...\n", 
+    file, line, msg, n, *expected, expected, *p, p);
+  Errors++;
+}
 
 /*
  * configurations used for testing purposes
@@ -56,7 +85,7 @@ char PhineasConfig[] =
 "  <!-- EbXML template for encrypted payload component of a message -->\n"
 "  <EncryptionTemplate>templates/encryption.xml</EncryptionTemplate>\n"
 "  <!-- CPA template -->\n"
-"  <CPATemplate>templates/cpa.xml</CPATemplate>\n"
+"  <CpaTemplate>templates/cpa.xml</CpaTemplate>\n"
 "  <!-- CPA folder -->\n"
 "  <CpaDirectory>cpa/</CpaDirectory>\n"
 "  <!--a directory to temporarily stash files -->\n"

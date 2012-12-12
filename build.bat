@@ -27,9 +27,9 @@ REM our basic build options
 SET DEFS=-D__SERVER__ -D__CONSOLE__ -D__FILEQ__ -D__ODBCQ__
 
 REM sources
-SET SRC=util.c dbuf.c b64.c xml.c mime.c task.c net.c ^
-  crypt.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
-  xcrypt.c payload.c cpa.c console.c config.c server.c ^
+SET SRC=dbuf.c util.c b64.c xmln.c xml.c mime.c task.c ^
+  crypt.c net.c log.c queue.c fileq.c odbcq.c filter.c ebxml.c ^
+  xcrypt.c payload.c cpa.c console.c cfg.c config.c server.c ^
   basicauth.c find.c fpoller.c qpoller.c ebxml_sender.c ^
   ebxml_receiver.c applink.c
 
@@ -59,6 +59,7 @@ IF "%1" == "xcrypt" GOTO :xcrypt
 IF "%1" == "isapi" GOTO :isapi
 IF "%1" == "run" GOTO :run
 IF "%1" == "clean" GOTO :clean
+IF "%1" == "test" GOTO :test
 REM our default build
 IF "%1" == "all" GOTO :all
 IF "%TARGET%." == "." ECHO Unknown target %1
@@ -145,6 +146,22 @@ REM clean out bin
 :clean
 DEL bin\*.def > nul 2>&1
 FOR %%f IN (bin\*.xml.*) DO IF NOT %%f==bin\Phineas.xml DEL %%f
+GOTO :eof
+
+REM test all sources
+:test
+SET ok=true
+SET USRC=chelp.c psetup.c
+FOR %%f IN (%SRC%) DO CALL :testone %%f
+FOR %%f IN (%USRC%) DO CALL :testone %%f
+GOTO :eof
+
+:testone
+IF %ok% == false GOTO :eof
+call test.bat %1
+IF %ERRORLEVEL%==0 GOTO :eof
+ECHO %1 failed unit test!
+SET ok=false
 GOTO :eof
 
 REM build all artifacts

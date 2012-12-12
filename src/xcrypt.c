@@ -21,20 +21,12 @@
  */
 
 #ifdef UNITTEST
+#include "unittest.h"
 #undef UNITTEST
 #define CMDLINE
 #define __TEST__
 #endif
 
-#ifdef CMDLINE
-#include "applink.c"
-#include "util.c"
-#include "dbuf.c"
-#include "log.c"
-#include "b64.c"
-#include "xml.c"
-#include "crypt.c"
-#else
 #include <stdio.h>
 #include "util.h"
 #include "dbuf.h"
@@ -42,12 +34,9 @@
 #include "b64.h"
 #include "xml.h"
 #include "crypt.h"
-#endif
 
-#ifdef __TEST__
-#undef debug
-#define debug(fmt...) \
-  log(LOGFILE, LOG_DEBUG, __FILE__, __LINE__, fmt)
+#ifndef debug
+#define debug(fmt...)
 #endif
 
 /*
@@ -330,9 +319,17 @@ int xcrypt_decrypt (XML *payload, unsigned char **data,
 }
 
 #ifdef CMDLINE
+#undef debug
+#include "applink.c"
+#include "util.c"
+#include "dbuf.c"
+#include "log.c"
+#include "b64.c"
+#include "xmln.c"
+#include "xml.c"
+#include "crypt.c"
 
 #ifdef __TEST__
-
 int dbuftest ()
 {
   int n;
@@ -352,7 +349,6 @@ int dbuftest ()
     fatal ("string mis-match: %s", dbuf_getbuf (b));
 }
 
-
 int runtest (char *keyfile, char *password, int how)
 {
   XML *xml;
@@ -365,7 +361,7 @@ int runtest (char *keyfile, char *password, int how)
     *p = "The quick brown fox jumped over the lazy dogs!\n";
 
 
-  info ("testing %s\n", xcrypt_Algorithm[how]);
+  debug ("testing %s\n", xcrypt_Algorithm[how]);
   while (1)
   {
     len = strlen (p) + 1;
@@ -380,7 +376,7 @@ int runtest (char *keyfile, char *password, int how)
       fatal ("length %d doesn't match expected %d\n", len, strlen (p) + 1);
     if (strcmp (payload, p))
       fatal ("payload differs: %s", payload);
-    info ("passed testing using %s\n", method);
+    debug ("passed testing using %s\n", method);
     free (payload);
     xml = xml_free (xml);
     if (strcmp (method, "certificate") == 0)
@@ -410,7 +406,7 @@ int runtest (char *keyfile, char *password, int how)
   return (0);
 }
 
-#endif __TEST__
+#endif /* __TEST__ */
 
 usagerr (char *msg)
 {
@@ -455,14 +451,14 @@ int main (int argc, char **argv)
       how = TRIPLEDES;
   char *ch, *p;
 
-  LOGFILE = log_open (NULL);
 
 #ifdef __TEST__
-  log_setlevel (LOGFILE, LOG_DEBUG);
   debug ("setting up test environment\n");
   dbuftest ();
   keyfile = "../security/phineas.pfx";
   password = "changeit";
+#else
+  LOGFILE = log_open (NULL);
 #endif
 
 
@@ -488,6 +484,7 @@ nextarg:
 	  encrypt = 1; 
 	  if (ch[1]) goto nextarg;
 	  break;
+#ifndef __TEST__
 	case 'l' : 
 	  NEEDARG (p);
 	  LOGFILE = log_open (p);
@@ -496,6 +493,7 @@ nextarg:
 	  NEEDARG (p);
 	  log_level (LOGFILE, p);
 	  break;
+#endif
 	case 'd' : 
 	  if (!strcmp (ch, "des3"))
 	  {
@@ -583,7 +581,13 @@ nextarg:
     fclose (ofp);
   if (ifp != stdin)
     fclose (ifp);
+
+#ifdef __TEST__
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
+#else
   return (0);
+#endif
 }
 
 #endif

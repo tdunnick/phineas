@@ -92,3 +92,15 @@ OPENSSL_Applink(void)
 }
 #endif
 #endif
+
+#ifdef UNITTEST
+#include "unittest.h"
+
+int main (int argc, char **argv)
+{
+  warn ("OpenSSL version bridge - no unit test performed\n");
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
+}
+
+#endif UNITTEST

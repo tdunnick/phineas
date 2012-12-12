@@ -15,6 +15,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include "task.h"
 
 #ifndef debug
@@ -222,3 +226,14 @@ void task_run (TASKQ *q)
   debug ("exiting\n");
   t_exit ();
 }
+
+#ifdef UNITTEST
+#undef UNITTEST
+
+int main (int argc, char **argv)
+{
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
+}
+
+#endif

@@ -19,8 +19,11 @@
  */
 
 #ifdef UNITTEST
+#include "unittest.h"
+#define phineas_restart() 0
+#define phineas_running() 0
 #define __SERVER__
-#define phineas_fatal(msg...) fprintf(stderr,msg),exit(1)
+#define phineas_fatal fatal
 #endif
 
 #ifdef __SERVER__
@@ -34,6 +37,10 @@
 #include "task.h"
 #include "net.h"
 #include "ebxml.h"
+
+#ifndef debug
+#define debug(fmt...)
+#endif
 
 /*
  * a TASK parameter
@@ -124,14 +131,26 @@ DBUF *server_receive (NETCON *conn)
       n = atol (ch + 16);
   }
   debug ("expecting %d bytes\n", n);
-  if (n > 0)
+
+readbytes:
+
+  while (n--)
   {
-    sz = dbuf_size (b);
-    dbuf_setsize (b, sz + n + 1);
-    ch = dbuf_getp (b, sz);
-    if ((sz = net_read (conn, ch, n)) != n)
-      warn ("expected %d bytes but read %d\n", n, sz);
-    dbuf_setsize (b, sz + n);
+    if ((sz = net_read (conn, &c, 1)) != 1)
+    {
+      if (sz  == 0)
+        error ("Read failed or connection closed\n");
+      else
+        error ("Read timed out\n");
+      // note we'll take what we get and hope it's enough...
+      break;
+    }
+    dbuf_putc (b, c);
+  }
+  if (n = net_available (conn))
+  {
+    warn ("Found %d unread bytes...\n", n);
+    goto readbytes;
   }
   debug ("returning %d bytes\n", dbuf_size (b));
   return (b);
@@ -266,7 +285,7 @@ void server_logrequest (NETCON *conn, int sz, char *req)
 
   for (i = 0; i < sz; i++)
   {
-    if (req[i] == '\n')
+    if (req[i] < ' ')
       break;
   }
   info ("%s: %.*s\n", net_remotehost (conn, buf), i, req);
@@ -432,4 +451,21 @@ server_task (XML *xml)
   return (0);
 }
 
+#ifdef UNITTEST
+#undef UNITTEST
+#include "dbuf.c"
+#include "util.c"
+#include "b64.c"
+#include "xmln.c"
+#include "xml.c"
+#include "crypt.c"
+#include "net.c"
+#include "task.c"
+
+int main (int argc, char **argv)
+{
+  warn ("No unit test performed\n");
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
+}
 #endif

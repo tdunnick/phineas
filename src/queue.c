@@ -21,22 +21,14 @@
 
 
 #ifdef UNITTEST
-#undef UNITTEST
 #include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "xml.c"
-#include "fileq.c"
-#define UNITTEST
-#define debug _DEBUG_
-#else
-#include "log.h"
 #endif
 
 #include <stdlib.h>
 #include <string.h>
 #include "util.h"
 #include "dbuf.h"
+#include "log.h"
 #include "queue.h"
 
 #ifndef debug(fmt...)
@@ -543,7 +535,7 @@ int queue_field_set (QUEUEROW *r, char *name, char *value)
 {
   int i;
 
-  if (r == NULL)
+  if ((r == NULL) || (name == NULL) || (value == NULL))
     return (-1);
   if ((i = queue_field_find (r->queue, name)) < 0)
     return (-1);
@@ -555,6 +547,13 @@ int queue_field_set (QUEUEROW *r, char *name, char *value)
 
 #ifdef UNITTEST
 #undef UNITTEST
+#undef debug
+#include "util.c"
+#include "dbuf.c"
+#include "xmln.c"
+#include "xml.c"
+#include "fileq.c"
+
 
 int main (int argc, char **argv)
 {
@@ -568,7 +567,7 @@ int main (int argc, char **argv)
   debug ("attempting shutdown\n");
   if (queue_shutdown ())
     fatal ("Failed shutdown\n");
-  info ("Queue unit test completed\n");
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
   exit (Errors);
 }
 

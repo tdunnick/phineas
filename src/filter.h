@@ -26,22 +26,18 @@
 #include "dbuf.h"
 
 /*
- * Read file fname using filter cmd to buffer in
+ * Run a filter.
+ * cmd - command string where $in=input filie and $out=output file
+ * fin - input file name
+ * in - input buffer
+ * fout - output file name
+ * out - output buffer
+ * err - malloc'ed stderr output
+ * timeout - milliseconds to wait for filter
+ *
+ * return filter exit code
  */
-int filter_read (char *cmd, char *fname, DBUF *in);
-
-/*
- * write file fname using filter cmd from buffer out
- */
-int filter_write (char *cmd, char *fname, DBUF *out);
-
-/*
- * filter read/write fully buffered
- */
-int filter_buf (char *cmd, DBUF *in, DBUF *out);
-/*
- * filter using file system
- */
-int filter_file (char *cmd, char *iname, char *oname)
+int filter_run (char *cmd, char *fin, DBUF *in, char *fout, DBUF *out, 
+    char **err, int timeout);
 
 #endif /* __FILTER__ */

@@ -1,0 +1,748 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <title>
+      Phineas HOW TO Guide
+    </title>
+<style type="text/css">
+<!-- 
+
+hr {
+  clear: both;
+}
+
+img.left {
+  float: left;
+	margin-right: 15px;
+	margin-bottom: 15px;
+}
+
+img.right {
+  float: right;
+	margin-left: 15px;
+	margin-bottom: 15px;
+}
+
+div.indent {
+  padding-left: 20px;
+  font-weight: bold;
+  color: brown;
+}
+
+.section {
+font-weight: bold;
+font-size: 18px;
+}
+
+.heading {
+text-align: center;
+padding-bottom: 20px;
+}
+
+.major {
+text-align: center;
+background-color: #eeeeff;
+padding-bottom: 20px;
+}
+
+th {
+  vertical-align: top;
+}
+
+table.utilities {
+  background-color: #e5e5f5;
+  border-style: solid;
+  margin-left: 20px;
+}
+
+table.utilities td {
+  vertical-align: top;
+  border-style: solid;
+  border-color: black;
+  border-width: 1px;
+  padding-left: 10px;
+}
+
+table.options {
+  border-style: none;
+  margin-left: 20px;
+  margin-top: 20px;
+}
+
+table.options caption {
+  font-weight: bold;
+  text-align: left;
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+}
+
+table.options td {
+  border-style: none;
+  padding-right: 20px;
+}
+  
+-->
+</style>
+  </head>
+  <body>
+    <center>
+      <h1>
+        <a name="contents" id="contents">Phineas HOW TO Guide</a>
+	      </h1>
+				(just add "How To Set/Change/Etc" to the following contents)		
+    </center>
+    <h3>
+      Contents
+    </h3>
+    <ul class="section">
+      <li>
+        <a href="#intro">General Information</a>
+    			<ul>
+            <li>
+              <a href="#readme">Read Me First!</a>
+            </li>
+						<li>
+						  <a href="#console">The Configuration Console</a>
+						</li>
+						<li>
+						  <a href="#info">Information You Will Need</a>
+						</li>
+            <li>
+              <a href="#certs">Certificates</a>
+            </li>
+            <li>
+              <a href="#certmisc">Certificate Formats and Authority Files</a>
+            </li>
+            <li>
+              <a href="#filters">Configuring Filters</a>
+            </li>
+    			</ul>
+      </li>
+      <li>
+        <a href="#server">Server</a>
+        <ul>
+          <li>
+            <a href="#https">Server HTTPS</a>
+          </li>
+          <li>
+            <a href="#clientauth">Client Authentication</a>
+          </li>
+          <li>
+            <a href="#console">Securing the Console</a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="#receiver">Receiver</a>
+        <ul>
+          <li>
+            <a href="#senderauth">Authenticating Sender with SSL</a>
+          </li>
+          <li>
+            <a href="#basicauth">Authenticating Sender with Basic
+            Authentication</a>
+          </li>
+          <li>
+            <a href="#rcvurl">Receiver URL Path</a>
+          </li>
+          <li>
+            <a href="#rcvmap">Receiver Service Map</a>
+          </li>
+          <li>
+            <a href="#decrypt">Decrypting Payloads</a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="#sender">Sender</a>
+        <ul>
+          <li>
+            <a href="#route">Sender Routes</a>
+          </li>
+          <li>
+            <a href="#senderauth">Authenticating to the Receiver
+            with SSL</a>
+          </li>
+          <li>
+            <a href="#senderpw">Authenticating to the Receiver
+            with Basic Authentication</a>
+          </li>
+          <li>
+            <a href="#rcvauth">Authenticating the Receiver</a>
+         </li>
+				 <li>
+				   <a href="#foldermap">Folder Maps</a>
+				 </li>
+         <li>
+            <a href="#encrypt">Encrypting Payloads</a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <div class="major">
+      <a name="intro" class="section" id=
+      "intro">General Information</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+    <div class="heading">
+      <a name="readme" class="section" id=
+      "readme">Read Me First!</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+    <p>
+      This guide is written to be a hands on step by step
+      description for configuring <b>Phineas</b>. It assumes you
+      have a basic understanding of concepts like digital
+      certificates, HTTP/HTTPS protocols, XML, and PHIN-MS
+      terminology. The keyword here is <b>HOW</b>. To successfully
+			configure <b>Phineas</b> (or most software) you generally need to know
+			<b>WHAT</b> you want to configure and <b>WHY</b> you need to configure it.
+			A careful read through the 
+      <b>Phineas</b> <a href="console.html?help.html">HELP</a> documentation 
+			will provide some of this information.  And please take the time to
+			read through the rest of this <b>General Information</b>
+			as HOW TO's common to all procedures will be found here.
+    </p>
+		<p>
+		  I'll try to stick to the terms "Sender" and "Receiver" to identify
+			to two primary functions of Phineas (e.g. sending files and 
+			receiving files).  However, you should consider these to be
+			synonymous with the more commonly used "Client" (a.k.a. "Sender")
+			and "Server" (a.k.a. "Receiver")	terminology.  This is especially
+			helpful to remember when studying external documentation
+			(openSSL for example).
+		</p>
+		<p>
+		  Finally, this is not intended to be an exhaustive guide.  Configuration
+			items that are used for "tuning" or changing behavior that is not
+			specific to establishing transport are not covered here.
+		</p>
+		<hr/>
+    <div class="heading">
+      <a name="console" class="section" id=
+      "console">The Configuration Console</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The following also assumes you are using a more or less stock
+			console configuration.  Since the console is user configurable,
+			you may see different naming or positions for these settings.
+			Some may even be missing if <b>Phineas</b> configuration
+			has been "locked down".  Again, refer to the 
+			<a href="console.html?help.html">HELP</a>
+			documentation for a complete description of the various 
+			values within the XML configuration.
+		</p>
+		<p>
+		  To access the console from the GUI, right click the Phineas Icon
+			<img src="images/favicon.ico" alt="Phineas Icon" />
+			in the bottom right hand corner service tray. From that menu
+			pick "console" and your default browser will open. If you are not
+			running the GUI, or want to access the console directly from
+			a browser, the default (case sensitive) URL looks something like...
+			<pre>
+			  https://localhost:4443/Phineas/console/console.html
+			</pre>
+			Replace the host, protocol, port, and console path based on how
+			you have modified the Phineas configuration.  If you have secured
+			the console your browser will	prompt you for the console 
+			user/password (default "admin" and "changeit"). 
+			<br>
+			Click on the configuration icon 
+			<img src="images/build.gif" alt="Configuration Icon" />
+			and you'll see...
+		</p>
+		<center>
+			<img src="screens/config.jpg" alt="The Configuration Console" />
+		</center>
+		<p>
+		  You are now ready to inspect and update the <b>Phineas</b> configuration.
+			Some common navigation and operation you should know are:
+			<ul>
+			  <li>Use the tabs to get to different parts of the configuration</li>
+				<li>Folder or File (Unc) Paths
+				  <ul>
+					  <li>File system paths may use either forward or backward
+						slashes.  However, URL paths may only use forward slashes.</li>
+					  <li>Input folder paths may include standard wild cards to select
+						files of interest.</li>
+						<li>Output folder paths may include a common file prefix.  If you
+						don't want common prefixes added be sure the path ends with a slash!
+						</li>
+						<li>A "Unc" is a file path that identify files not physically
+						on the Phineas server (file system).  In the future this will
+						include LDAP support.</li>
+					</ul>
+				</li>
+				<li>Use the <b>NEW</b> tab to add configurations for things like 
+				<b>Routes</b>	or <b>Maps</b></li>
+				<li>Clear the first <b>Name</b> field for a tab item to delete it 
+				(again for things like <b>Routes</b> or <b>Maps</b>)</li>
+				<li>After adding a <b>NEW</b> item, changing it's <b>Name</b>, 
+				or deleting an item (tab), <b>Update</b>
+				the configuration from the <b>Load/Save/Update</b> tab in order 
+				to expose	the change in the various drop downs</li>
+				<li>Use <b>Load</b> and <b>Save</b> to use or preserve disk
+				copies.  Note that <b>Save</b> will create date stamped backups.</li>
+		  </ul>
+		</p>			
+		<hr/>
+    <div class="heading">
+      <a name="info" class="section" id=
+      "info">Information You Will Need</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  As mentioned above, you need to know <b>WHAT</b> to
+			configure if you have any hope of getting things to work.  Here is a list
+			and <b>HOW</b> to get it.
+		</p>
+		<p>
+		  All installations minimally need the following.  Depending on the
+			endpoints you intend to communicate with, they may be self determined
+			or provided. All are set to default values in a fresh install:
+			<ul>
+			  <li><b>PartyId</b> - often provided by the CDC, but may be user defined
+				for non-CDC purposes (server domain name is a good choice).
+				</li>
+				<li><b>Organization</b> - that's all yours.</li>
+				<li>Server <b>Port</b> and <b>SSL Port</b> - pick something that doesn't conflict
+				with other HTTP services (IIS, Apache, etc) on your server.</li>
+				<li>Server <b>SSL CertFile/KeyFile</b> - this is often a CDC issued 
+				certificate, but may be issued by anyone agreed upon between you
+				and your endpoints (e.g. self signed, or vendor signed).
+				</li>
+			</ul>
+		</p>
+		<p>
+		  If you are setting up a sender, the receiver's organization 
+			(for example the CDC) should provide or suggest how to obtain the 
+			following:
+			<ul>
+				<li>Route <b>PartyId</b></li>
+				<li>Route <b>Host</b></li>
+				<li>Route <b>Path</b></li>
+				<li>Route <b>Port</b></li>
+				<li>Route <b>Protocol</b> (http or https)</li>
+				<li>optional Route <b>Authentication Unc</b> (certificate) or 
+				<b>Authentication Id</b> (basic) and <b>Password</b></li>
+				<li>Map <b>Service</b> and <b>Action</b></li>
+				<li>optional Map <b>Arguments</b></li>
+				<li>optional Map <b>Encryption Unc</b> (certificate)</li>
+				<li>optional PEM encoded receiver certificate (signer chain) for 
+				authenticating to be added to
+				the <b>Phineas</b> sender's <b>Certificate Authority</b> file.</li>
+			</ul>
+		</p>
+		<p>
+		  If you are setting up a receiver, you need to define and provide the
+			values above to your senders. Note
+			any certificates provided should NOT contain private keys.  And please
+			<font color="red">don't email Passwords</font>.  Use the phone!  
+			The sender should subsequently
+			provide you with a CPA and optional PEM encoded authentication 
+			certificate which you would install in your server's <b>SSL AuthFile</b>.
+		</p>
+    <hr/>
+    <div class="heading">
+      <a name="certs" class="section" id=
+      "certs">Certificates</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Certificates are used for SSL (HTTPS) negotiations,
+			authentication, payload encryption, and digital 
+			signitures.  As such they are an important part of the <b>Phineas</b>
+			security model.
+    <p>
+      There are six possible certficate (files) involved. Three
+      used by the sender and three used by the receiver. The have
+      mostly analogous functions, but complement each other. For
+      example, the sender normally has the receiver's certificate
+      in it's certificate authority and vice versa. As
+      programmers we are taught to never exceed 7 variables in a
+      function, since that's about what the human mind is
+      normally capable of dealing with simultaneously. This is
+      pushing that limit (:-).
+    </p>
+    <p>
+      For a receiver these are the important certificates...
+    </p>
+    <ol>
+      <li>The server (receiver) SSL certficate - <b>General Settings
+      =&gt; Server =&gt; SSLCertFile</b>, this identifies and authenticates a
+      receiver to the sender during standard SSL negotiations
+      (see 5).
+      </li>
+      <li>The server (receiver) Certificate Authority - <b>General
+      Settings =&gt; Server =&gt; SSL AuthFile</b>, this is used by the
+      receiver to authenticate a sender during SSL negotiations
+      when client authentication is used (see 4). It is a list of
+      "approved" sender certificates in PEM format.
+      </li>
+      <li>The server (receiver) decryption certificate (key) -
+      <b>Receiver =&gt; Service Maps =&gt; Encryption Unc</b>, this can be just
+      a bare private key, or a certificate holding a private key
+      for decrypting the payload from a sender (see 6). Often
+      this is the same as #1 above, but can be anything available
+      to the sender below.
+      </li>
+    </ol>
+    <p>
+      For a sender these are the important certficates...
+    </p>
+    <ol>
+      <li>The sender's authentication certificate - <b>Sender
+      Configuration =&gt; Routes =&gt; Authentication Unc</b>, this
+      identifies and authenticates a sender to the receiver
+      during standard SSL negotiations (see receiver's #2 above).
+      </li>
+      <li>The sender's Certificate Authority - <b>Sender
+      Configuration =&gt; Service Settings =&gt; Certificate Authority</b>,
+      this is used by the sender to authenticate the receiver
+      during SSL negotiations. It is a list of "approved"
+      receiver certificates in PEM format (see receiver's #1 above).
+      </li>
+      <li>The receivers's public encryption certificate - <b>Sender
+      Configuration =&gt; Maps =&gt; Encryption Unc</b>, this is a
+      certificate holding a public key for encrypting the payload
+      by a sender (see receiver's #3 above). Often this is the same as the
+      receiver's #1 above, but can be anything provided by the
+      receiver to the sender.
+      </li>
+    </ol>
+		<hr/>
+    <div class="heading">
+      <a name="certmisc" class="section" id=
+      "certmisc">Certificate Formats and Authority Files</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Be sure you have first read and understand the
+			<a href="console.html?help.html#certificates">certificate HELP</a> 
+			documentation. The following examples use openSSL and standard MS 
+			commands.  Most of what follows may also be done using browser tools.
+			Consult with your browser documentation for those procedures. Operations
+			done with PKCS12 files will prompt you for a password. I'll
+			use the stock Phineas certficates as examples.
+		</p>
+		<p>
+		  <ul>
+			  <li><b>openssl x509 -in phineas.pem -noout -text </b>
+				lists the contents of a PEM encoded certificate.  Use this
+				to inspect things like the DN (distinguished name), validity
+				dates, signers, etc.</li>
+				<li><b>openssl x509 -outform DER -in phineas.pem -out phineas.der</b>
+				converts a PEM certificate to DER (binary) format.</li>
+				<li><b>openssl x509 -inform DER -in phineas.der -noout -text </b>
+				lists the contents of a DER encoded certificate.</li>			
+				<li><b>openssl pkcs12 -nodes -info -in phineas.pfx</b>
+				lists the contents of a PKCS12 (.pfx) certificate store.</li>
+				<li><b>openssl pkcs12 -export -in phineas.pem -inkey phineaskey.pem 
+				-out phineas.pfx</b> creates a PKCS12 certficate from PEM
+				certificate and private key files.</li>
+				<li><b>openssl pkcs12 -in phineas.pfx -out phineas.pem -nokeys -clcerts</b>
+				extracts a PEM certficate having only the public key 
+				from a PKCS12 file for use in a 
+				authority file or for sender encryption.</li>
+				<li><b>type phineas.pem >> phineas.ca</b> adds a certficate
+			  to a certificate authority file (here named "phineas.ca").  
+				You may later edit this authority file using any text editor.  
+				Note that order	may be important.  Generally you want "root" 
+				authorities at the end of the file.</li>
+			</ul>
+		</p>
+    <hr/>
+    <div class="heading">
+      <a name="filters" class="section" id="filters">Configuring Filters</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Both the sender (Folder Map) and receiver (Service Map) may be
+			configured to use a data filter.  The filter can be any non-interactive
+			program you find useful for manipulating data as it comes or goes
+			in <b>Phineas</b>.
+		</p>
+		<p>
+		  Enter a command in the <b>Filter</b> box just as you would enter
+			it into a <b>Command</b> window prompt, with the following differences:
+			<ul>
+			  <li>The default command structure places input data on
+				the "standard input" and get output data from the "standard output".</li>
+				<li>Error or diagnostic messages are read from the "standard error"
+				and noted in the <b>Phineas</b> log.</li>
+			  <li>You must use a <b>Command</b> shell in order to get
+				redirection or intrinsic MS commands (like 'DIR').</li>
+				<li>No attempt is made to resolve relative paths in file names.
+				Use complete paths to insure correct operation.</li>
+				<li>If the command takes the input file name as an argument
+				use '$in' as a placeholder for the input data.</li>
+				<li>If the command takes the output file name as an argument
+				use '$out' as a placeholder for the output data.</li>
+			</ul>
+		</p>
+		<p>
+		  Since filters are simply stand-alone programs, you can test your
+			filters independent of <b>Phineas</b> from a <b>Command</b> window.
+			Use redirection for testing actual payload files before 
+			installing them into the configuration. Some examples of filters follow:
+			<ul>
+			  <li><b>SORT /R</b> - sort the data in reverse order.</li>
+				<li><b>COPY c:/data/header.txt $in</b> - prefix the data with the contents of
+				the file 'C:\data\header.txt'.</li>
+				<li><b>FIND /V "NK1|"</b> - remove all the NK1 segments from an
+				HL7 message.</li>
+				<li><b>CMD /C/Q c:/bin/myfilter.bat $in $out</b> - runs the batch file
+				'C:\bin\myfilter.bat' which expects an input and output file name as arguments.
+				This batch file could in turn execute multiple programs to modify
+				the data.</li>
+			</ul>
+		</p>
+    <div class="major">
+      <a name="server" class="section" id="server">Server</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The <b>Phineas</b> "server" is required for using either a
+			receiver, or the console.  As a result some of it's functions
+			overlap.  In particular, the receiver and console share the
+			same "listen" ports and SSL security settings.
+		</p>
+    <hr/>
+		<img src="screens/server.jpg" alt="Server Configuration" class="right" />
+    <div class="heading">
+      <a name="https" class="section" id="https">Server
+      HTTPS</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The server secures general sessions using HTTPS (SSL) and is
+			in fact a stand-alone (albeit limited functoning) web server.
+			Set up the server SSL connection under the 
+			<b>General Settings =&gt; Server</b> tab.
+		</p>
+		<p>
+		  Fill in the <b>SSL Port</b> (443 is the standard HTTPS port).  Make sure
+			it doesn't conflict with other services (like IIS or Apache!).  Set
+			the <b>SSL CertFile</b> to your server certificate.  This can be one issued
+			by the CDC, one obtained from a certficate authority (like AddTrust or
+			Thawte), or self signed. It can be in PKCS12, DER, or PEM format.
+			Set the <b>SSL KeyFile</b> to your private key.  This is often the same file
+			as the certficate.  Enter the <b>SSL Password</b> used to encrypt the certificate
+			and/or keyfile (they must both use the same password).
+		</p>
+    <div class="heading">
+      <a name="clientauth" class="section" id="clientauth">
+			Client Authentication</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  <b>Phineas</b> uses files that have one or more PEM encoded certficates
+			for authenticating SSL connections.  This authentication is performed
+			by either side of the connection (sender or receiver) based on
+			whether an authorization file has been specified.  The server 
+			(receiver) authenticates browsers and/or sender clients by setting
+		  <b>SSL Auth File</b> in the <b>General Settings =&gt; Server</b> tab
+			(see above)
+		</p>
+    <hr/>
+		<img src="screens/login.jpg" alt="Login Window" class="left" />
+    <div class="heading">
+      <a name="console" class="section" id="console">Securing the
+      Console</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The console is secured in a standard installation with user 
+			"admin" and password "changeit".  It uses HTTP <b>basic</b> authentication
+			where a web browser pops open a login window.  As such it should
+			normally be used with HTTPS (SSL), since the password and user ID are
+			otherwise passed in clear text over the internet.
+		</p>
+		<img src="screens/console.jpg" alt="Console Users" class="right"/>
+		<p>
+		  Access the console user configuation using the 
+			<b>Server Settings =&gt; Console</b> tab and modify tabs under
+			<b>Console Users</b>.
+		  To delete a console user simple remove the User ID.  To add one use
+			the NEW tab.  To modify one change either the User ID or Password
+			of the selected entry.
+		</p>
+    <hr/>
+    <div class="major">
+      <a name="receiver" class="section" id="receiver">Receiver</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  As mentioned above, general security associated with the HTTPS/SSL
+			connection to a receiver are shared with and managed by the server.
+			However, additional settings may be managed within the 
+			<b>Receiver Services</b> tab.
+		</p>
+		<hr/>
+    <div class="heading">
+      <a name="senderauth" class="section" id=
+      "senderauth">Authenticating Sender with SSL</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Also known as "client authentication", this function is configured
+			and performed by the server (see <a href="#clientauth">
+			Client Authentication</a> above).
+		</p>
+		<hr/>
+		<img src="screens/receiver_settings.jpg" alt="" class="right"/>
+    <div class="heading">
+      <a name="basicauth" class="section" id=
+      "basicauth">Authenticating Sender with Basic
+      Authentication</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The receiver can has it's own list of user/passwords for HTTP
+			basic authentication with senders.  When using this you would
+			provide each sender with the <b>User ID</b> and <b>Password</b> you set under
+			the <b>Service Users</b> section of the 
+			<b>Receiver Services =&gt; Receiver Settings</b> tab.
+    <div class="heading">
+      <a name="rcvurl" class="section" id=
+      "rcvurl">Receiver URL Path</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The <b>Url</b> path you provide to a sender is set under
+			the <b>Service Users</b> section of the 
+			<b>Receiver Services =&gt; Receiver Settings</b> tab.
+		</p>
+		</p>
+    <hr/>
+		<img src="screens/receiver_map.jpg" alt="" class="left"/>
+    <div class="heading">
+      <a name="rcvmap" class="section" id="rcvmap">Receiver Service Map</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  <b>Service Maps</b> are used by the receiver to determine how or if
+			incoming messages should be received.  They must include a 
+			<b>Directory</b> (folder) path where the messages get stored, the 
+			<b>Queue</b> used to log incoming message information, and 
+			a <b>Service</b> and <b>Action</b> provided
+			to senders and used to route the incoming message.
+		</p>
+    <div class="heading">
+      <a name="decrypt" class="section" id="decrypt">Decrypting Payloads</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Sender's may encrypt payloads using the public key from a receiver's
+			certificate.  Typically the receiver simply uses it's server
+			certificate, but may optionally provide different 
+			(possibly privately distributed) certificates for payload encryption.
+			Select "certificate" for
+			the <b>Encryption Type</b> and fill in the <b>Encryption Password</b> and
+			<b>Encryption Unc</b> with the file name of the certificate 
+			(private key).
+		</p>
+    <hr/>
+    <div class="major">
+      <a name="sender" class="section" id="sender">Sender</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+    <hr/>
+		<img src="screens/sender_route.jpg" alt="Sender Route Map" class="right"/>
+    <div class="heading">
+      <a name="route" class="section" id="route">Sender
+      Routes</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  As noted above, the receiver must provide you with information
+			needed to configure <b>Routes</b> (connections).
+		  Set the <b>PartyId</b>, <b>Host</b>, <b>Path</b>, <b>Port</b> and 
+			<b>Protocol</b> as provided by the receiver.  You should generally
+		  leave the	<b>Cpa</b> blank; it will be auto-filled using PHIN-MS naming conventions
+			when you <b>Update</b> the configuration.  Otherwise, the <b>Cpa</b> will be named
+			with whatever you fill in.
+		</p>
+		<p>
+		  If you <b>Export CPA</b> a file will be created that you can provide to
+			the receiver.   The	<b>Cpa</b> will be created in the folder indicated by 
+			<b>General Settings =&gt;	Templates =&gt; CpaDirectory</b>. 
+			This will also <b>Update</b> the configuration. 
+		</p>
+    <div class="heading">
+      <a name="senderauth" class="section" id=
+      "senderauth">Authenticating to the Receiver with
+      SSL</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+  		Set the <b>Authentication Type</b> to "certificate", enter the 
+  		<b>Authentication Password</b> used to encrypt the certificate
+  		and set the <b>Authentication Unc</b> to the certificate 
+  		file in <b>Sender Configuration =&gt; Routes</b> tab.  This is
+			typically the certificate issued to you by the CDC, but may be
+			any certficate that the receiver will authenticate.
+		</p>
+    <div class="heading">
+      <a name="senderpw" class="section" id=
+      "senderpw">Authenticating to the Receiver with Basic
+      Authentication</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+  		Set the <b>Authentication Type</b> to "basic", enter the 
+  		<b>Authentication Id</b> and <b>Authentication Password</b>
+			provide by the receiver in <b>Sender Configuration =&gt; Routes</b>
+			tab.
+		</p>
+    <hr/>
+		<img src="screens/sender_service.jpg" alt="Sender Service Settings" class="left"/>
+    <div class="heading">
+      <a name="rcvauth" class="section" id=
+      "rcvauth">Authenticating the Receiver</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  Add the desired receiver's PEM encoded certificates to the sender's
+			certificate authority file.
+  		Set the <b>Certificate Authority</b> to the PEM authority file
+			in <b>Sender Configuration =&gt; Service Settings</b>.  Note that
+			all sender Routes share the same server authentication authority (just
+			as all receiver share the same sender authentication authority).
+		</p>
+    <hr/>
+		<img src="screens/sender_map.jpg" alt="Sender Route Map" class="right"/>
+    <div class="heading">
+      <a name="foldermap" class="section" id=
+      "foldermap">Folder Maps</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+		  The <b>Sender Configuration =&gt; Maps</b> tab provides a set of
+			folder maps.  A folder map is used to select files for transmission.
+			You may generally leave the <b>Queue</b> and <b>Processor</b> to defaults.
+			Set <b>Folder</b> to the location of files you intend to send.  It may include
+			wild cards to select files.  Set <b>Processed</b> to the folder
+			where sent files get moved and <b>Acknowledged</b> to the folder 
+			where receiver acknowlegments are stored.
+		</p>
+		<p>
+		  Set the <b>Route</b> to the one created for your receiver (see above) and
+			set the <b>Service</b>, <b>Action</b>, and (optionally) <b>Arguments</b> 
+			to those provided	by the receiver.
+    <div class="heading">
+      <a name="encrypt" class="section" id=
+      "encrypt">Encrypting Payloads</a><br>
+      <a href="#contents">(return to contents)</a>
+    </div>
+		<p>
+  		If payload encryption is desired, set the <b>Encryption Type</b> 
+			to "certificate", enter the <b>Encryption Password</b> 
+			used to encrypt the certificate
+  		and set the <b>Encryption Unc</b> to the certificate file
+			provide by the receiver.
+		</p>
+  </body>
+</html>

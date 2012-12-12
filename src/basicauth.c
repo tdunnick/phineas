@@ -16,24 +16,16 @@
  *  limitations under the License.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-
 #ifdef UNITTEST
-#undef UNITTEST
+#include "unittest.h"
 #define __SERVER__
 #define __SENDER__
 #define __RECEIVER__
-#include "unittest.h"
-#include "dbuf.c"
-#include "util.c"
-#include "b64.c"
-#include "xml.c"
-#include "cpa.c"
-#define debug _DEBUG_
-#define UNITTEST
 #endif
+
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include "log.h"
 #include "b64.h"
@@ -117,3 +109,21 @@ char *basicauth_request (char *b, char *uid, char *passwd)
   return (b);
 }
 
+#ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "dbuf.c"
+#include "util.c"
+#include "b64.c"
+#include "xmln.c"
+#include "xml.c"
+#include "cpa.c"
+
+int main (int argc, char **argv)
+{
+  warn ("No unit test performed\n");
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
+}
+
+#endif

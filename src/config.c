@@ -17,7 +17,14 @@
  */
 
 #ifdef UNITTEST
+#include "unittest.h"
 #define __CONSOLE__
+#define __SERVER__
+#define __SENDER__
+#define __RECEIVER__
+char ConfigName[512];
+#else
+extern char ConfigName[];
 #endif
 
 #ifdef __CONSOLE__
@@ -26,27 +33,12 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#define __SERVER__
-#define __SENDER__
-#define __RECEIVER__
-#include "unittest.h"
-#include "dbuf.c"
-#include "util.c"
-#include "xml.c"
-#include "cpa.c"
-#define debug _DEBUG_
-#define UNITTEST
-char ConfigName[MAX_PATH];
-#else
-extern char ConfigName[];
-#endif
-
 #include "dbuf.h"
 #include "log.h"
 #include "util.h"
 #include "xml.h"
+#include "cfg.h"
+
 
 #ifndef debug
 #define debug(fmt,...)
@@ -179,6 +171,9 @@ int config_tag (char *path)
   return (0);
 }
 
+/*
+ * change spaces to path separators to an xpath
+ */
 char *config_fixpath (XML *xml, char *path)
 {
   char *ch;
@@ -728,6 +723,34 @@ int config_remove (XML *xml, char *path, char *prefix, char *match)
   return (0);
 }
 
+/*
+ * complete any empty CPA names with toPartyID.fromPartyID
+ */
+int config_fixcpa (XML *xml)
+{
+  int i, n;
+  char *ch, 
+       *r, 
+       buf[1024];
+  
+  n = xml_count (xml, r = "Phineas.Sender.RouteInfo.Route");
+  for (i = 0; i < n; i++)
+  {
+    ch = xml_getf (xml, "%s[%d].Cpa", r, i);
+    if (*ch == 0)
+    {
+      ch = xml_getf (xml, "%s[%d].PartyId", r, i);
+      if (*ch)
+      {
+	sprintf (buf, "%s.%s\n", 
+	    ch, xml_get_text (xml, "Phineas.PartyId"));
+	xml_setf (xml, buf, "%s[%d].Cpa", r, i);
+      }
+    }
+  }
+  return (0);
+}
+
 /******************* removal of empty data *********************/
 /*
  * Remove empty repeated fields from data xml
@@ -868,7 +891,6 @@ int config_setup ()
 {
   int i, n;
   char *ch, path[MAX_PATH];
-  XML *phineas_load (char *path);
 
   if (*EditConfig == 0)
     strcpy (EditConfig, ConfigName);
@@ -877,7 +899,7 @@ int config_setup ()
     return (0);
   ConfigXml = xml_free (ConfigXml);
   EditXml = xml_free (EditXml);
-  if ((EditXml = phineas_load (EditConfig)) == NULL)
+  if ((EditXml = cfg_load (EditConfig)) == NULL)
   {
     error ("Can't load %s\n", EditConfig);
     return (-1);
@@ -894,6 +916,8 @@ int config_setup ()
   config_path (EditXml, path, ch, "", 0);
 #ifndef __SENDER__
   config_remove (EditXml, ch, path, "Phineas.Sender");
+#else
+  config_fixcpa (EditXml);
 #endif
 #ifndef __RECEIVER__
   config_remove (EditXml, ch, path, "Phineas.Receiver");
@@ -1116,6 +1140,7 @@ DBUF *config_setConfig (XML *xml, char *req)
       }
     }
   }
+  config_fixcpa (EditXml);
   r = xml_root (ConfigXml);
   config_path (EditXml, value, r, "", 0);
   config_clean (EditXml, r, value);
@@ -1126,7 +1151,7 @@ DBUF *config_setConfig (XML *xml, char *req)
     if (backup (EditConfig))
       error ("Can't backup %s - %s\n", EditConfig, strerror (errno));
     else
-      phineas_save (EditXml, EditConfig);
+      cfg_save (EditXml, EditConfig);
   }
   else if (action == 2) 		/* export Cpa		*/
   {
@@ -1141,6 +1166,50 @@ DBUF *config_setConfig (XML *xml, char *req)
 /******************** testing crud ******************************/
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "dbuf.c"
+#include "b64.c"
+#include "util.c"
+#include "xmln.c"
+#include "xml.c"
+#include "cpa.c"
+#include "crypt.c"
+#include "xcrypt.c"
+#include "cfg.c"
+
+/*
+ * note we'll only check the last bit - the screen is huge!
+ */
+char *Front =
+"<html><head><title>Test Configuration</title>\n"
+"<link rel='stylesheet' type='text/css' href='console.css' />\n"
+"<SCRIPT src='yetii.js' type=text/javascript></SCRIPT>\n"
+"<SCRIPT src='config.js' type=text/javascript></SCRIPT>\n"
+"</head><body><h2>Configuration Edit Test</h2>\n"
+"<div id='console'>\n"
+"<form method='POST' action='#' >\n"
+"<input type='hidden' name='ConfigurationRequest' id='ConfigurationRequest' /><div id='Config_Tab' class='configlayout' >\n"
+"<ul id='Config_Tab-nav' class='configlayout' >\n"
+"<li OnMouseOver=\"showHelp (this, 'Here are the general configuration items that affect the over all function of Phineas. Note that most of the paths here may be specified relative to the InstallDirectory. ')\" onMouseOut=\"hideHelp()\" ><a href='#Config_Tab_1'>General Settings</a></li>\n"
+"<li OnMouseOver=\"showHelp (this, 'When a message is received by Phineas, the service requested determines how (or if) that message will be processed. Services define this processing. ')\" onMouseOut=\"hideHelp()\" ><a href='#Config_Tab_2'>Receiver Services</a></li>\n"
+"<li OnMouseOver=\"showHelp (this, 'These settings are needed for Phineas to send files and include things like destination, file selections, transport, encryption, and so forth. ')\" onMouseOut=\"hideHelp()\" ><a href='#Config_Tab_3'>Sender Configuration</a></li>\n";
+
+char *End =
+"<table summary=\"\">\n"
+"<tr><td valign='top'>Configuration File Name</td><td OnMouseOver=\"showHelp (this, 'The configuration for Phineas is read or written to the Configuration File Name. ')\" onMouseOut=\"hideHelp()\" ><input type='text' name='Configuration File Name' value='c:\\usr\\src\\phineas\\bin\\Phineas.xml' size='50'/></td></tr>\n"
+"<tr><td colspan='2' OnMouseOver=\"showHelp (this, 'Click Save Configuration to save the current configuration in edit to disk. ')\" onMouseOut=\"hideHelp()\" ><button type='button' name='Save Configuration' value='Save Configuration'onClick='setRequest (this, \"Save Configuration\")'>Save Configuration</button></td></tr>\n"
+"<tr><td colspan='2' OnMouseOver=\"showHelp (this, 'Click Load Configuration to Load the current configuration in edit from disk. ')\" onMouseOut=\"hideHelp()\" ><button type='button' name='Load Configuration' value='Load Configuration'onClick='setRequest (this, \"Load Configuration\")'>Load Configuration</button></td></tr>\n"
+"<tr><td colspan='2' OnMouseOver=\"showHelp (this, 'Click Update Configuration to keep changes to the current configuration in edit. Otherwise changes may be discarded after you navigate away from the configuration screen. ')\" onMouseOut=\"hideHelp()\" ><button type='button' name='Update Configuration' value='Update Configuration'onClick='setRequest (this, \"Update Configuration\")'>Update Configuration</button></td></tr>\n"
+"</table>\n"
+"</div>\n"
+"</div></div>\n"
+"<script type='text/javascript'>\n"
+"addTabber(new Yetii ({id:'Config_Tab',tabclass:'t_Config_Tab',persists:true}));\n"
+"</script>\n"
+"</form><div style=\"height: 100px\"></div>\n"
+"</div></body></html>";
+
 
 DBUF *console_doGet (XML *xml, char *req)
 {
@@ -1151,6 +1220,8 @@ DBUF *console_doGet (XML *xml, char *req)
 
 int main (int argc, char **argv)
 {
+  char *p, c;
+  int l;
   DBUF *b;
   XML *xml;
 
@@ -1160,10 +1231,20 @@ int main (int argc, char **argv)
   xml_free (xml);
   pathf (ConfigName, "bin/Phineas.xml");
   b = config_getConfig ();
-  writefile ("../console/test.html", dbuf_getbuf (b), dbuf_size (b));
+  // printf ("%s", dbuf_getbuf (b));
+  p = dbuf_getbuf (b);
+  l = strlen (Front);
+  c = p[l];
+  p[l] = 0;
+  strdiff (__FILE__,__LINE__, "config front differs", p, Front);
+  p[l] = c;
+  l = strlen (End);
+  p += strlen (p) - l;
+  strdiff (__FILE__,__LINE__, "config end differs", p, End);
+  // writefile ("../console/test.html", dbuf_getbuf (b), dbuf_size (b));
   // debug ("%.*s\n", dbuf_size (b), dbuf_getbuf (b));
-  dbuf_free (b);
-  info ("%s unit test completed\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

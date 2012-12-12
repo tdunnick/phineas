@@ -20,6 +20,7 @@
  */
 
 #ifdef UNITTEST
+#include "unittest.h"
 #define __SENDER__
 #endif
 
@@ -30,11 +31,6 @@
 #include <io.h>
 #include <sys/stat.h>
 #include "find.h"
-
-#ifdef UNITTEST
-#include "unittest.h"
-#define debug _DEBUG_
-#endif
 
 #ifndef debug
 #define debug(fmt...)
@@ -215,14 +211,21 @@ int main (int argc, char **argv)
 {
   FINDNAME *f;
   char fname[MAX_PATH];
+  int n = 0;
 
   if (argc > 1)
     f = find (argv[1], 1);
   else
     f = find ("", 1);
   while (find_next (&f, fname) != NULL)
-    printf ("%s\n", fname);
-  info ("%s unit test completed\n", *argv);
+  {
+    debug ("%s\n", fname);
+    n++;
+  }
+  if (n == 0)
+    error ("No files found!\n");
+  info ("%s %s\n", *argv, Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif

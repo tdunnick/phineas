@@ -128,4 +128,7 @@ char *queue_field_get (QUEUEROW *r, char *name);
 /* set a field value by name */
 int queue_field_set (QUEUEROW *r, char *name, char *value);
 
+/* check for a transport Queue					*/
+#define istransportQ(q) (queue_field_find(q,"MESSAGESENTTIME")>0)
+
 #endif /* __QUEUE__ */

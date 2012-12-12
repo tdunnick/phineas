@@ -15,6 +15,10 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+#ifdef UNITTEST
+#include "unittest.h"
+#endif
+
 #include <stdio.h>
 #include "util.h"
 #include "dbuf.h"
@@ -28,43 +32,16 @@
 #endif
 
 /*
- * Common soap envelope prefixes
- */
-char
   *soap_ack = "soap-env:Envelope.soap-env:Header.eb:Acknowledgment.",
   *soap_hdr = "soap-env:Envelope.soap-env:Header.eb:MessageHeader.",
+  *soap_err = "soap-env:Envelope.soap-env:Header.eb:ErrorList.",
   *soap_bdy = "soap-env:Envelope.soap-env:Body.",
   *soap_manifest = "soap-env:Envelope.soap-env:Body.eb:Manifest.",
   *soap_dbinf = "soap-env:Envelope.soap-env:Body."
     "eb:Manifest.MetaData.DatabaseInfo.";
+*/
 
 /************************ Shared Functions *************************/
-/*
- * Get a field from configuration with prefix
- */
-char *ebxml_get (XML *xml, char *prefix, char *name)
-{
-  char *ch, buf[MAX_PATH];
-
-  strcpy (buf, prefix);
-  strcat (buf, name);
-  if ((ch = xml_get_text (xml, buf)) == NULL)
-    ch = "";
-  return (ch);
-}
-
-/*
- * Set a field from a configuration with prefix
- */
-int ebxml_set (XML *xml, char *prefix, char *suffix, char *value)
-{
-  char buf[MAX_PATH];
-
-  strcpy (buf, prefix);
-  strcat (buf, suffix);
-  return (xml_set_text (xml, buf, value));
-}
-
 /*
  * Beautify and format an ebXML message.  Returns an allocated
  * message which the caller should free.
@@ -116,3 +93,18 @@ XML *ebxml_template (XML *xml, char *tag)
   return (xml_load (path));
 }
 
+#ifdef UNITTEST
+#undef debug
+#include "util.c"
+#include "xmln.c"
+#include "xml.c"
+#include "mime.c"
+
+int main (int argc, char **argv)
+{
+  warn ("No unit tests defined\n");
+  info ("%s %s\n", argv[0], Errors ? "failed": "passed");
+  exit (Errors);
+}
+
+#endif

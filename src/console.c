@@ -16,31 +16,23 @@
  *  limitations under the License.
  */
 #ifdef UNITTEST
+#include "unittest.h"
+#define phineas_restart() 0
+#define phineas_running() 0
 #define __CONSOLE__
 #endif
 
 #ifdef __CONSOLE__
 
 #include <stdio.h>
-
-#ifdef UNITTEST
-#undef UNITTEST
-#include "unittest.h"
-#include "dbuf.c"
-#include "util.c"
-#include "queue.c"
-#include "fileq.c"
-#include "xml.c"
-#define debug _DEBUG_
-#define UNITTEST
-#endif
-
+#include <stdlib.h>
 #include "dbuf.h"
 #include "log.h"
 #include "util.h"
 #include "xml.h"
 #include "queue.h"
 #include "basicauth.h"
+#include "cfg.h"
 
 #ifndef debug
 #define debug(fmt,...)
@@ -302,10 +294,9 @@ DBUF *console_getHTML (DBUF *page, char *root, char *fname)
   DBUF *b;
   char *st, *en, *data, path[MAX_PATH];
 
-  pathf (path, "%s/%s", root, fname);
+  ppathf (path, root, "%s", fname);
   if ((data = readfile (path, &l)) == NULL)
   {
-    error ("Couldn't read %s\n", path);
     return (NULL);
   }
   debug ("checking for body\n");
@@ -329,6 +320,18 @@ DBUF *console_getHTML (DBUF *page, char *root, char *fname)
   return (b);
 }
 
+void console_putbuf (DBUF *b, int c)
+{
+  switch (c)
+  {
+    case '>' : dbuf_printf (b, "&gt;"); break;
+    case '<' : dbuf_printf (b, "&lt;"); break;
+    case '&' : dbuf_printf (b, "&amp;"); break;
+    case '"' : dbuf_printf (b, "&quot;"); break;
+    default : dbuf_putc (b, c); break;
+  }
+}
+
 /*
  * Return the contents of a text file for the console div
  */
@@ -343,19 +346,86 @@ DBUF *console_textfile (char *fname)
   b = dbuf_alloc ();
   dbuf_printf (b, "<pre>");
   while ((c = fgetc (fp)) > 0)
-  {
-    switch (c)
-    {
-      case '>' : dbuf_printf (b, "&gt;"); break;
-      case '<' : dbuf_printf (b, "&lt;"); break;
-      case '&' : dbuf_printf (b, "&amp;"); break;
-      case '"' : dbuf_printf (b, "&quot;"); break;
-      default : dbuf_putc (b, c); break;
-    }
-  }
+    console_putbuf (b, c);
   fclose (fp);
   dbuf_printf (b, "</pre>");
   debug ("read %d bytes from %s\n", dbuf_size (b), fname);
+  return (b);
+}
+
+/*
+ * Return the contents of a log file for the console div
+ * The content order is reversed and limited to the most recent
+ * MAXLOG lines. Preserve the order of non-logging lines.
+ *
+ */
+#define MAXLOG 500
+
+DBUF *console_logfile (char *fname)
+{
+  DBUF *b;
+  FILE *fp;
+  long p, line[MAXLOG];
+  int i, c, n, lno;
+
+  if ((fp = fopen (fname, "r")) == NULL)
+    return (NULL);
+  fseek (fp, 0L, SEEK_END);
+  lno = i = 0;
+  p = ftell (fp);
+  line[lno++] = p;
+  b = dbuf_alloc ();
+  while (p-- > 0)
+  {
+    fseek (fp, p, SEEK_SET);
+    if ((c = fgetc (fp)) == '\n')
+    {
+      if (i == 8)		/* was this a logging line?	*/
+        line[lno++] = p + 1;
+      i = 0;
+    }
+    else switch (i)		/* detect log lines by state	*/
+    {
+      case 0 : 
+      case 4 :
+	if (c == ' ') i++; else i = 0; break;
+      case 1 :
+      case 2 :
+      case 5 :
+      case 6:
+	if (islower (c)) i++; else i = 0; break;
+      case 3 :
+      case 7 :
+	if (isupper (c)) i++; else i = 0; break;
+      default : 
+	i = 0; break;
+    }
+    if (lno == MAXLOG)
+      break;
+  }
+  if (lno < MAXLOG)
+    line[lno++] = 0L;
+  dbuf_printf (b, "<pre>");
+  for (n = 1; n < lno; n++) 
+  {
+    fseek (fp, line[n], SEEK_SET);
+    p = line[n - 1] - line[n];
+    i = 0;
+    while (--p > 0)
+    {
+      console_putbuf (b, c = fgetc (fp));
+      if (c == '\n')
+	i = 1;
+      else if ((i++ > 100) && !isalnum (c))
+      {
+	dbuf_printf (b, "\n  ");
+	i = 2;
+      }
+    }
+    dbuf_printf (b, "</span>");
+  }
+  fclose (fp);
+  dbuf_printf (b, "</table>");
   return (b);
 }
 
@@ -377,8 +447,10 @@ DBUF *console_file (XML *xml, char *uri)
     uri = "/images/favicon.ico";
   if ((ch = strchr (uri, '?')) == NULL)
     ch = uri + strlen (uri);
-  pathf (path, "%s%.*s", xml_get_text (xml, "Phineas.Console.Root"),
-    ch - uri, uri);
+  if (*uri == '/')
+    uri++;
+  ppathf (path, xml_get_text (xml, "Phineas.Console.Root"), 
+    "%.*s", ch - uri, uri);
   if ((fp = fopen (path, "rb")) == NULL)
   {
     error ("Can't open page %s\n", path);
@@ -870,7 +942,6 @@ DBUF *console_doGet (XML *xml, char *req)
        *rowdetail = NULL;
   extern char LogName[];
   DBUF *config_getConfig ();
-  char *phineas_config ();
 
   if ((parm = console_geturi (uri, req)) == NULL)
     return (NULL);
@@ -885,18 +956,18 @@ DBUF *console_doGet (XML *xml, char *req)
   console_version (page);
   *queue = 0;
   rowid = top = 0;
-  if (console_hasParm (parm, "help"))
+  if ((rowdetail = console_getHTML (page,
+      xml_get_text (xml, "Phineas.Console.Root"), parm)) != NULL)
   {
-    rowdetail = console_getHTML (page,
-      xml_get_text (xml, "Phineas.Console.Root"), "help.html");
+    // use this page for our body!
   }
   else if (console_hasParm (parm, "log"))
   {
-    rowdetail = console_textfile (LogName);
+    rowdetail = console_logfile (LogName);
   }
   else if (console_hasParm (parm, "config"))
   {
-    rowdetail = console_textfile (phineas_config ());
+    rowdetail = console_textfile (cfg_format ());
   }
   else if (console_hasParm (parm, "configure"))
   {
@@ -981,6 +1052,140 @@ DBUF *console_response (XML *xml, char *req)
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#define __FILEQ__
+#include "dbuf.c"
+#include "b64.c"
+#include "util.c"
+#include "queue.c"
+#include "fileq.c"
+#include "xmln.c"
+#include "xml.c"
+#include "cfg.c"
+#include "config.c"
+#include "crypt.c"
+#include "xcrypt.c"
+#include "basicauth.c"
+#include "cpa.c"
+char *Expected =
+"Content-Type: text/html\n"
+"Connection: Close\n"
+"Content-Length: 12521\n"
+"\n"
+"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n"
+"<html>\n"
+"  <head>\n"
+"  <script src='yetii.js' type=\"text/javascript\"></script>\n"
+"  <script src='config.js' type=\"text/javascript\"></script>\n"
+"   <link rel='stylesheet' type='text/css' href='console.css'>\n"
+"    <title>\n"
+"      PHINEAS Console\n"
+"    </title>\n"
+"  </head>\n"
+"  <body>\n"
+"    <table summary=\"Heading\" id='nav'>\n"
+"      <tr>\n"
+"        <td>\n"
+"          <img src=\"images/phineas.gif\" height=\"96\" alt=\"Phineas logo\">\n"
+"        </td>\n"
+"        <td>\n"
+"          <big><big><b>Phineas UNIT TEST</b></big></big><span id='version'></span><br><small>&copy;2011-2012 Thomas L Dunnick</small><br>\n"
+"          <table summary=\"Navigation Bar\" width=\"100%\">\n"
+"            <tr>\n"
+"             <td>\n"
+"                <a href=\"?queue\">\n"
+"								<img alt=\"show queues\" src=\"images/queue.gif\"></a>\n"
+"              </td>\n"
+"              <td>\n"
+"                <a href=\"?ping\">\n"
+"								<img alt=\"ping route\" src=\"images/ping.gif\"></a>\n"
+"              </td>\n"
+"             <td>\n"
+"                <a href=\"?log\"><img src=\"images/log.gif\" alt=\"show log\"></a>\n"
+"              </td>\n"
+"              <td>\n"
+"                <a href=\"?config\">\n"
+"								<img alt=\"show configuration\" src=\"images/loop.gif\"></a>\n"
+"              </td>\n"
+"             <td>\n"
+"                <a href=\"?configure\">\n"
+"								<img alt=\"configure\" src=\"images/build.gif\"></a>\n"
+"              </td>\n"
+"              <td>\n"
+"                <a href=\"javascript:window.print();\">\n"
+"								<img alt=\"print\" src=\"images/print.gif\"></a>\n"
+"              </td>\n"
+"              <td>\n"
+"                <a href=\"javascript:window.location.reload(true);\">\n"
+"								<img alt=\"refresh\" src=\"images/refresh.gif\"></a>\n"
+"              </td>\n"
+"							<!--\n"
+"              <td>\n"
+"                <a href=\"?delete\"><img alt=\"delete\" src=\n"
+"                \"images/delete.gif\"></a>\n"
+"              </td>\n"
+"							-->\n"
+"              <td>\n"
+"                <a href=\"javascript:askRestart();\">\n"
+"								<img alt=\"restart\" src=\"images/start.gif\" id=\"restart\"></a>\n"
+"              </td>\n"
+"               <td>\n"
+"                <a href=\"?help.html\"><img alt=\"help\" src=\"images/help.gif\"></a>\n"
+"              </td>\n"
+"            </tr>\n"
+"          </table>\n"
+"        </td>\n"
+"      </tr>\n"
+"    </table>\n"
+"    <div id='console'><table id='qpage'><tr><td id='qpagel'><h2>MemSendQ</h2><div id='queue' ><table><thead><tr>\n"
+"<td>RECORDID</td><td>MESSAGEID</td><td>PAYLOADFILE</td><td>DESTINATIONFILENAME</td><td>ROUTEINFO</td><td>SERVICE</td><td>ACTION</td><td>ARGUMENTS</td><td>MESSAGERECIPIENT</td><td>MESSAGECREATIONTIME</td><td>ENCRYPTION</td><td>SIGNATURE</td><td>PUBLICKEYLDAPADDRESS</td><td>PUBLICKEYLDAPBASEDN</td><td>PUBLICKEYLDAPDN</td><td>CERTIFICATEURL</td><td>PROCESSINGSTATUS</td><td>TRANSPORTSTATUS</td><td>TRANSPORTERRORCODE</td><td>APPLICATIONSTATUS</td><td>APPLICATIONERRORCODE</td><td>APPLICATIONRESPONSE</td><td>MESSAGESENTTIME</td><td>MESSAGERECEIVEDTIME</td><td>RESPONSEMESSAGEID</td><td>RESPONSEARGUMENTS</td><td>RESPONSELOCALFILE</td><td>RESPONSEFILENAME</td><td>RESPONSEMESSAGEORIGIN</td><td>RESPONSEMESSAGESIGNATURE</td><td>PRIORITY</td></tr></thead>"
+"<tr bgcolor='#ffff99'  class='selected' ><td><a href='?queue=MemSendQ&top=0&row=100'>100</a></td><td>message_15433</td><td>out</td><td>local_out</td><td>route_32255</td><td>hiv</td><td>forward</td><td>don't=that</td><td>joes.biz</td><td>2012-11-24T10:05:58</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>done</td><td>ok</td><td>0</td><td>done</td><td>0</td><td>none</td><td>2012-11-24T09:03:20</td><td>2012-11-24T10:05:58</td><td>response_12759</td><td>don't=that</td><td>rlocal_out</td><td>out</td><td>joes.biz</td><td>&nbsp;</td><td>0</td></tr>"
+"<tr bgcolor='#99ff99'  ><td><a href='?queue=MemSendQ&top=0&row=99'>99</a></td><td>message_18493</td><td>file</td><td>local_file</td><td>route_28596</td><td>elr</td><td>forward</td><td>config=none</td><td>joes.biz</td><td>2012-11-24T10:21:45</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>failed</td><td>failed</td><td>1</td><td>failed</td><td>1</td><td>failed</td><td>2012-11-24T07:42:18</td><td>2012-11-24T10:21:45</td><td>response_20538</td><td>do=this</td><td>rlocal_file</td><td>file</td><td>joes.biz</td><td>&nbsp;</td><td>3</td></tr>"
+"<tr bgcolor='#f0f0f0'  ><td><a href='?queue=MemSendQ&top=0&row=98'>98</a></td><td>message_2461</td><td>dump</td><td>local_dump</td><td>route_12118</td><td>hiv</td><td>save</td><td>do=this</td><td>joes.biz</td><td>2012-11-24T07:49:42</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>queued</td><td>waiting</td><td>2</td><td>queued</td><td>2</td><td>&nbsp;</td><td>2012-11-24T07:40:52</td><td>2012-11-24T07:49:42</td><td>response_11622</td><td>config=none</td><td>rlocal_dump</td><td>dump</td><td>joes.biz</td><td>&nbsp;</td><td>0</td></tr>"
+"<tr bgcolor='#99ff99'  ><td><a href='?queue=MemSendQ&top=0&row=97'>97</a></td><td>message_29250</td><td>report</td><td>local_report</td><td>route_18058</td><td>elr</td><td>notify</td><td>don't=that</td><td>foo.com</td><td>2012-11-24T12:15:38</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>foo.com</td><td>DN=</td><td>URL=foo.com</td><td>failed</td><td>failed</td><td>1</td><td>failed</td><td>1</td><td>failed</td><td>2012-11-24T10:14:15</td><td>2012-11-24T12:15:38</td><td>response_3271</td><td>&nbsp;</td><td>rlocal_report</td><td>report</td><td>foo.com</td><td>&nbsp;</td><td>3</td></tr>"
+"<tr bgcolor='#f0f0f0'  ><td><a href='?queue=MemSendQ&top=0&row=96'>96</a></td><td>message_28703</td><td>report</td><td>local_report</td><td>route_5566</td><td>influenza</td><td>update</td><td>&nbsp;</td><td>joes.biz</td><td>2012-11-24T07:51:15</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>queued</td><td>waiting</td><td>2</td><td>queued</td><td>2</td><td>&nbsp;</td><td>2012-11-24T06:00:35</td><td>2012-11-24T07:51:15</td><td>response_20386</td><td>&nbsp;</td><td>rlocal_report</td><td>report</td><td>joes.biz</td><td>&nbsp;</td><td>1</td></tr>"
+"<tr bgcolor='#99ff99'  ><td><a href='?queue=MemSendQ&top=0&row=95'>95</a></td><td>message_20274</td><td>data</td><td>local_data</td><td>route_12993</td><td>elr</td><td>notify</td><td>don't=that</td><td>bar.state.edu</td><td>2012-11-24T10:18:09</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>bar.state.edu</td><td>DN=</td><td>URL=bar.state.edu</td><td>failed</td><td>failed</td><td>1</td><td>failed</td><td>1</td><td>failed</td><td>2012-11-24T09:34:19</td><td>2012-11-24T10:18:09</td><td>response_19662</td><td>&nbsp;</td><td>rlocal_data</td><td>data</td><td>bar.state.edu</td><td>&nbsp;</td><td>1</td></tr>"
+"<tr bgcolor='#ffff99'  ><td><a href='?queue=MemSendQ&top=0&row=94'>94</a></td><td>message_25428</td><td>data</td><td>local_data</td><td>route_29681</td><td>hiv</td><td>forward</td><td>don't=that</td><td>foo.com</td><td>2012-11-24T09:30:40</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>foo.com</td><td>DN=</td><td>URL=foo.com</td><td>done</td><td>ok</td><td>0</td><td>done</td><td>0</td><td>none</td><td>2012-11-24T08:52:25</td><td>2012-11-24T09:30:40</td><td>response_25236</td><td>&nbsp;</td><td>rlocal_data</td><td>data</td><td>foo.com</td><td>&nbsp;</td><td>3</td></tr>"
+"<tr bgcolor='#99ff99'  ><td><a href='?queue=MemSendQ&top=0&row=93'>93</a></td><td>message_6932</td><td>file</td><td>local_file</td><td>route_25619</td><td>hiv</td><td>notify</td><td>config=none</td><td>joes.biz</td><td>2012-11-24T10:44:36</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>failed</td><td>failed</td><td>1</td><td>failed</td><td>1</td><td>failed</td><td>2012-11-24T10:38:07</td><td>2012-11-24T10:44:36</td><td>response_18631</td><td>don't=that</td><td>rlocal_file</td><td>file</td><td>joes.biz</td><td>&nbsp;</td><td>0</td></tr>"
+"<tr bgcolor='#f0f0f0'  ><td><a href='?queue=MemSendQ&top=0&row=92'>92</a></td><td>message_19770</td><td>file</td><td>local_file</td><td>route_19022</td><td>elr</td><td>update</td><td>config=none</td><td>some.lab.net</td><td>2012-11-24T10:58:30</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>some.lab.net</td><td>DN=</td><td>URL=some.lab.net</td><td>queued</td><td>waiting</td><td>2</td><td>queued</td><td>2</td><td>&nbsp;</td><td>2012-11-24T08:21:30</td><td>2012-11-24T10:58:30</td><td>response_3917</td><td>don't=that</td><td>rlocal_file</td><td>file</td><td>some.lab.net</td><td>&nbsp;</td><td>0</td></tr>"
+"<tr bgcolor='#ffff99'  ><td><a href='?queue=MemSendQ&top=0&row=91'>91</a></td><td>message_29876</td><td>out</td><td>local_out</td><td>route_19178</td><td>elr</td><td>notify</td><td>do=this</td><td>joes.biz</td><td>2012-11-24T08:28:11</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>done</td><td>ok</td><td>0</td><td>done</td><td>0</td><td>none</td><td>2012-11-24T06:21:15</td><td>2012-11-24T08:28:11</td><td>response_32179</td><td>&nbsp;</td><td>rlocal_out</td><td>out</td><td>joes.biz</td><td>&nbsp;</td><td>1</td></tr>"
+"<tr bgcolor='#ffff99'  ><td><a href='?queue=MemSendQ&top=0&row=90'>90</a></td><td>message_13043</td><td>file</td><td>local_file</td><td>route_14522</td><td>influenza</td><td>notify</td><td>config=none</td><td>joes.biz</td><td>2012-11-24T11:18:46</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>joes.biz</td><td>DN=</td><td>URL=joes.biz</td><td>done</td><td>ok</td><td>0</td><td>done</td><td>0</td><td>none</td><td>2012-11-24T09:04:33</td><td>2012-11-24T11:18:46</td><td>response_17022</td><td>do=this</td><td>rlocal_file</td><td>file</td><td>joes.biz</td><td>&nbsp;</td><td>3</td></tr>"
+"<tr bgcolor='#99ff99'  ><td><a href='?queue=MemSendQ&top=0&row=89'>89</a></td><td>message_26363</td><td>dump</td><td>local_dump</td><td>route_19552</td><td>elr</td><td>forward</td><td>&nbsp;</td><td>foo.com</td><td>2012-11-24T07:51:39</td><td>no</td><td>&nbsp;</td><td>&nbsp;</td><td>foo.com</td><td>DN=</td><td>URL=foo.com</td><td>failed</td><td>failed</td><td>1</td><td>failed</td><td>1</td><td>failed</td><td>2012-11-24T06:43:54</td><td>2012-11-24T07:51:39</td><td>response_7511</td><td>don't=that</td><td>rlocal_dump</td><td>dump</td><td>foo.com</td><td>&nbsp;</td><td>2</td></tr></table></div><a href='?queue=MemSendQ&top=89'>Previous Rows</a>&nbsp;&nbsp;<br><table id='qrow' cellpadding=0>"
+"<tr><td id='rowid'>RECORDID 100</td><td><a href='?queue=MemSendQ&top=0&row=100&delete'><img src=\"images/delete.gif\">Delete</a><a href='?queue=MemSendQ&top=0&row=100&resend'><img src=\"images/resend.gif\">ReSend</a></td></tr>"
+"<tr><td colspan=2><hr/></td></tr>"
+"<tr><td><b>MESSAGEID</b></td><td>message_15433</td></tr>"
+"<tr><td><b>PAYLOADFILE</b></td><td>out</td></tr>"
+"<tr><td><b>DESTINATIONFILENAME</b></td><td>local_out</td></tr>"
+"<tr><td><b>ROUTEINFO</b></td><td>route_32255</td></tr>"
+"<tr><td><b>SERVICE</b></td><td>hiv</td></tr>"
+"<tr><td><b>ACTION</b></td><td>forward</td></tr>"
+"<tr><td><b>ARGUMENTS</b></td><td>don't=that</td></tr>"
+"<tr><td><b>MESSAGERECIPIENT</b></td><td>joes.biz</td></tr>"
+"<tr><td><b>MESSAGECREATIONTIME</b></td><td>2012-11-24T10:05:58</td></tr>"
+"<tr><td><b>ENCRYPTION</b></td><td>no</td></tr>"
+"<tr><td><b>SIGNATURE</b></td><td></td></tr>"
+"<tr><td><b>PUBLICKEYLDAPADDRESS</b></td><td></td></tr>"
+"<tr><td><b>PUBLICKEYLDAPBASEDN</b></td><td>joes.biz</td></tr>"
+"<tr><td><b>PUBLICKEYLDAPDN</b></td><td>DN=</td></tr>"
+"<tr><td><b>CERTIFICATEURL</b></td><td>URL=joes.biz</td></tr>"
+"<tr><td><b>PROCESSINGSTATUS</b></td><td>done</td></tr>"
+"<tr><td><b>TRANSPORTSTATUS</b></td><td>ok</td></tr>"
+"<tr><td><b>TRANSPORTERRORCODE</b></td><td>0</td></tr>"
+"<tr><td><b>APPLICATIONSTATUS</b></td><td>done</td></tr>"
+"<tr><td><b>APPLICATIONERRORCODE</b></td><td>0</td></tr>"
+"<tr><td><b>APPLICATIONRESPONSE</b></td><td>none</td></tr>"
+"<tr><td><b>MESSAGESENTTIME</b></td><td>2012-11-24T09:03:20</td></tr>"
+"<tr><td><b>MESSAGERECEIVEDTIME</b></td><td>2012-11-24T10:05:58</td></tr>"
+"<tr><td><b>RESPONSEMESSAGEID</b></td><td>response_12759</td></tr>"
+"<tr><td><b>RESPONSEARGUMENTS</b></td><td>don't=that</td></tr>"
+"<tr><td><b>RESPONSELOCALFILE</b></td><td>rlocal_out</td></tr>"
+"<tr><td><b>RESPONSEFILENAME</b></td><td>out</td></tr>"
+"<tr><td><b>RESPONSEMESSAGEORIGIN</b></td><td>joes.biz</td></tr>"
+"<tr><td><b>RESPONSEMESSAGESIGNATURE</b></td><td></td></tr>"
+"<tr><td><b>PRIORITY</b></td><td>0</td></tr></table></td><td id='qpager'><h3>Queues</h3><br><a href='?queue=MemSendQ'>MemSendQ</a><br><a href='?queue=MemReceiveQ'>MemReceiveQ</a><br><a href='?queue=AccessSendQ'>AccessSendQ</a><br><a href='?queue=AccessReceiveQ'>AccessReceiveQ</a><br></td></tr></table></div>\n"
+"  </body>\n"
+"</html>\n";
 
 int main (int argc, char **argv)
 {
@@ -993,15 +1198,17 @@ int main (int argc, char **argv)
   xml_set_text (xml, "Phineas.QueueInfo.Queue[0].Table", "TransportQ.test");
   xml_set_text (xml, "Phineas.QueueInfo.Queue[1].Table", "ReceiveQ.test");
   queue_init (xml);
-  b = console_doGet (xml, "/Phineas/console/console.html?", "");
+  b = console_doGet (xml, "GET /phineas/console/console.html?");
   if (b == NULL)
     fatal ("Couldn't get console page\n");
+  strdiff (__FILE__,__LINE__, "console differs", dbuf_getbuf(b), Expected);
   debug ("page saved to console/test.htm\n");
-  writefile ("../console/test.htm", dbuf_getbuf (b), dbuf_size (b));
+  // writefile ("../console/test.htm", dbuf_getbuf (b), dbuf_size (b));
   dbuf_free (b);
   debug ("freeing xml\n");
-   xml_free (xml);
-   info ("%s unit test completed\n", argv[0]);
+  xml_free (xml);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */

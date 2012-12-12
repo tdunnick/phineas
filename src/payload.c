@@ -17,19 +17,7 @@
  */
 
 #ifdef UNITTEST
-#undef UNITTEST
 #include "unittest.h"
-#include "util.c"
-#include "dbuf.c"
-#include "log.c"
-#include "xml.c"
-#include "mime.c"
-#include "b64.c"
-#include "crypt.c"
-#include "xcrypt.c"
-#define debug _DEBUG_
-#define UNITTEST
-#else
 #endif
 
 #include <stdio.h>
@@ -40,6 +28,10 @@
 #include "crypt.h"
 #include "xcrypt.h"
 #include "payload.h"
+
+#ifndef debug
+#define debug(fmt...)
+#endif
 
 /*
  * Process a payload envelope
@@ -202,6 +194,17 @@ MIME *payload_create (unsigned char *data, int len,
 }
 
 #ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "util.c"
+#include "dbuf.c"
+#include "log.c"
+#include "xmln.c"
+#include "xml.c"
+#include "mime.c"
+#include "b64.c"
+#include "crypt.c"
+#include "xcrypt.c"
 
 int main (int argc, char **argv)
 {
@@ -238,8 +241,8 @@ int main (int argc, char **argv)
     fatal ("message decrypted wrong:%.*s\n", len, data);
   free (data);
   mime_free (env);
-  info ("succeeded dn=%s filename=%s\n", dn, fname);
-  exit (0);
+  info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
+  exit (Errors);
 }
 
-#endif
+#endif /* UNITTEST */

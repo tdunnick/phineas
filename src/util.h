@@ -18,6 +18,7 @@
 #ifndef __UTIL__
 #define __UTIL__
 
+#include <stdio.h>
 #include <time.h>
 
 #define PTIMESZ 22
@@ -32,10 +33,12 @@ char *basename (char *path);
 unsigned char *readfp (FILE *fp, int *len);
 unsigned char *readfile (char *path, int *len);
 int writefile (char *path, unsigned char *buf, int len);
+int isdirpath (char *path);
 char *loadpath (char *path);
 int fixpath (char *p);
 int pathcopy (char *dst, char *src);
 char *pathf (char *dst, char *fmt, ...);
+char *ppathf (char *dst, char *prefix, char *fmt, ...);
 /*
  * URL and html encoding...
  */

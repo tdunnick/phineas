@@ -15,18 +15,18 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
+
+#ifdef UNITTEST
+#include "unittest.h"
+#define __XMLTEST__
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/stat.h>
 
-#ifdef UNITTEST
-#undef UNITTEST
-#include "dbuf.c"
-#define UNITTEST
-#define debug(fmt...) printf("%s %d-",__FILE__,__LINE__),printf(fmt)
-#endif
 
 #include "dbuf.h"
 #include "xmln.h"
@@ -943,9 +943,9 @@ int xmln_save (XMLNODE *x, char *filename)
   return (sz < 1);
 }
 
-#ifdef UNITTEST
+#ifdef __XMLTEST__
 
-dump_nodes (XMLNODE *node, char *b, int maxsz, int level)
+xmldump_nodes (XMLNODE *node, char *b, int maxsz, int level)
 {
   int sz = 0, n;
 
@@ -960,33 +960,35 @@ dump_nodes (XMLNODE *node, char *b, int maxsz, int level)
 	level, "", node->type, node->key,
 	level + 2, "", "attributes");
       sz += n;
-      n = dump_nodes (node->attributes, b, maxsz - sz, level + 2);
+      n = xmldump_nodes (node->attributes, b, maxsz - sz, level + 2);
       sz += n;
       n = snprintf (b, maxsz - sz, "%*s%s\n", level + 2, "", "children");
       sz += n;
-      n = dump_nodes (node->value, b, maxsz - sz, level + 2);
+      n = xmldump_nodes (node->value, b, maxsz - sz, level + 2);
     }
     sz += n;
     node = node->next;
   }
   if (level == 0)
   {
-    printf ("\n----- dump --------\n%s\n", b);
+    debug ("\n----- dump --------\n%s\n", b);
   }
   return (sz);
 }
 
-void display (XMLNODE *n, DBUF *b, char *msg)
+void xmlndisplay (XMLNODE *n, DBUF *b, char *msg)
 {
   if (n == NULL)
   {
-    printf ("%s - NULL XMLNODE!\n", msg);
+    debug ("%s - NULL XMLNODE!\n", msg);
     return;
   }
   dbuf_clear (b);
   xmln_format (n, b);
-  printf ("\n----- %s -----\n%s\n", msg, dbuf_getbuf(b));
+  debug ("\n----- %s -----\n%s\n", msg, dbuf_getbuf(b));
 }
+
+#define xmldiff(m,b,e) strdiff(__FILE__,__LINE__,m,dbuf_getbuf(b),e)
 
 char *TestXML =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -1001,6 +1003,40 @@ char *TestXML =
 "</KeyInfo><CipherData><CipherValue/></CipherData></EncryptedKey></KeyInfo>"
 "<CipherData><CipherValue/></CipherData> </EncryptedData>";
 
+char *NormalizedXML =
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?><EncryptedData Id=\"ed1\" Type=\"http://www.w3.org/2001/04/xmlenc#Element\" xmlns=\"http://www.w3.o"
+"rg/2001/04/xmlenc#\"><EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#tripledes-cbc\"/><KeyInfo xmlns=\"http://www.w3.org/"
+"2000/09/xmldsig#\"><EncryptedKey xmlns=\"http://www.w3.org/2001/04/xmlenc#\"><EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xml"
+"enc#rsa-1_5\"/><KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><KeyName>key</KeyName></KeyInfo><CipherData><CipherValue/></Cipher"
+"Data></EncryptedKey></KeyInfo><CipherData><CipherValue/></CipherData> </EncryptedData>";
+
+char *BeautifiedXML =
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+"<EncryptedData Id=\"ed1\" Type=\"http://www.w3.org/2001/04/xmlenc#Element\" xmlns=\"http://www.w3.org/2001/04/xmlenc#\">\n"
+"  <EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#tripledes-cbc\"/>\n"
+"  <KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n"
+"    <EncryptedKey xmlns=\"http://www.w3.org/2001/04/xmlenc#\">\n"
+"      <EncryptionMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#rsa-1_5\"/>\n"
+"      <KeyInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n"
+"        <KeyName>key</KeyName>\n"
+"      </KeyInfo>\n"
+"      <CipherData>\n"
+"        <CipherValue/>\n"
+"      </CipherData>\n"
+"    </EncryptedKey>\n"
+"  </KeyInfo>\n"
+"  <CipherData>\n"
+"    <CipherValue/>\n"
+"  </CipherData>\n"
+"</EncryptedData>";
+
+#endif /* __XMLTEST__ */
+
+#ifdef UNITTEST
+#undef UNITTEST
+#undef debug
+#include "dbuf.c"
+
 int main (int argc, char **argv)
 {
   XMLNODE *n;
@@ -1014,24 +1050,29 @@ int main (int argc, char **argv)
   /* load test */
   ch = TestXML;
   n = xmln_parse_doc (&ch);
-  display (n, b, "load test");
+  xmlndisplay (n, b, "load test");
+  xmldiff ("load test doesn't match", b, NormalizedXML);
 
   /* normalization test */
   n = xmln_normalize (n);
-  display (n, b, "normalized");
+  xmlndisplay (n, b, "normalized");
+  xmldiff ("normalized test doesn't match", b, NormalizedXML);
 
   /* beautify test */
   n = xmln_beautify (n, 2, 0);
-  display (n, b, "beautified");
+  xmlndisplay (n, b, "beautified");
+  xmldiff ("beautified test doesn't match", b, BeautifiedXML);
 
   xmln_save (n, tfile);
   xmln_free (n);
   n = xmln_load (tfile, 1);
-  display (n, b, "loaded");
+  xmlndisplay (n, b, "loaded");
+  xmldiff ("(re)loaded test doesn't match", b, BeautifiedXML);
   xmln_free (n);
   dbuf_free (b);
   unlink (tfile);
-  debug ("%s test complete\n", argv[0]);
+  info ("%s %s\n", argv[0], Errors?"failed":"passed");
+  exit (Errors);
 }
 
 #endif /* UNITTEST */
