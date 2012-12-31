@@ -1,0 +1,5 @@
+@ECHO OFF
+SETLOCAL
+PATH=C:\MINGW\BIN;%PATH%
+mingw32-make -C src %*
+

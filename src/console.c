@@ -263,7 +263,7 @@ int console_headtag (DBUF *page, char *tag, char *head, int l)
     error ("<head> tag not found\n");
     return (0);
   }
-  p = st - dbuf_getbuf (page) + 6;
+  p = st - (char *) dbuf_getbuf (page) + 6;
   st = head;
   buf[0] = buf[1] = '<';
   strcpy (buf + 2, tag);
@@ -802,7 +802,7 @@ int console_qpage (DBUF *page, DBUF *queues, DBUF *rows, DBUF *detail)
     warn ("Body %s not found in page\n", CONSOLEBODY);
     return (-1);
   }
-  offset = qp + strlen (CONSOLEBODY) - dbuf_getbuf (page);
+  offset = qp + strlen (CONSOLEBODY) - (char *) dbuf_getbuf (page);
   qp = rp = dp = "&nbsp;";
   if (queues == NULL)
   {
@@ -842,7 +842,7 @@ int console_version (DBUF *b)
     return (-1);
   }
   l = sprintf (vbuf, "<big><big><b>%s</b></big></big>", Software);
-  dbuf_insert (b, ch - dbuf_getbuf (b), vbuf, l);
+  dbuf_insert (b, ch - (char *) dbuf_getbuf (b), vbuf, l);
   return (0);
 }
 

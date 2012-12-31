@@ -1,0 +1,5 @@
+First release with compile support for MinGW GCC.
+Fix various minor issues with pre-processor directives.
+Fix call Macro for ISAPI procedures.
+Fix other minor warnings/errors caught by GCC for clean compile.
+Create Makefile and gbuild.bat for GCC compiles.

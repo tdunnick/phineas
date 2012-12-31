@@ -48,20 +48,20 @@ LOGGER *log_open (char *name);
 LOGGER *log_close (LOGGER *logger);
 int log_setlevel (LOGGER *logger, int level);
 int log_level (LOGGER *logger, char *level);
-void log (LOGGER *logger, int level, char *file, int line, char *fmt, ...);
+void log_msg (LOGGER *logger, int level, char *file, int line, char *fmt, ...);
 
 #ifndef __LOG_C__
 extern LOGGER *dflt_logger;
 #ifndef LOGFILE
 #define LOGFILE dflt_logger
 #endif
-#define fatal(fmt...) log(LOGFILE, LOG_FATAL, __FILE__, __LINE__, fmt)
-#define error(fmt...) log(LOGFILE, LOG_ERROR, __FILE__, __LINE__, fmt)
-#define warn(fmt...) log(LOGFILE, LOG_WARN, __FILE__, __LINE__, fmt)
-#define info(fmt...) log(LOGFILE, LOG_INFO, __FILE__, __LINE__, fmt)
+#define fatal(fmt...) log_msg(LOGFILE, LOG_FATAL, __FILE__, __LINE__, fmt)
+#define error(fmt...) log_msg(LOGFILE, LOG_ERROR, __FILE__, __LINE__, fmt)
+#define warn(fmt...) log_msg(LOGFILE, LOG_WARN, __FILE__, __LINE__, fmt)
+#define info(fmt...) log_msg(LOGFILE, LOG_INFO, __FILE__, __LINE__, fmt)
 #ifdef DEBUG
 #define debug(fmt...) \
-  log(LOGFILE, LOG_DEBUG, __FILE__, __LINE__, fmt)
+  log_msg(LOGFILE, LOG_DEBUG, __FILE__, __LINE__, fmt)
 #else
 #define debug(fmt...)
 #endif /* DEBUG */

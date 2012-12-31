@@ -571,7 +571,7 @@ nextarg:
     debug ("wrote %d bytes\n", len);
   }
 
-#endif __TEST__
+#endif /* __TEST__ */
 
   if (payload != NULL)
     free (payload);

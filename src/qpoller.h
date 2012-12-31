@@ -24,7 +24,7 @@
 /*
  * register a processor for a queue type
  */
-qpoller_register (char *type, int (*proc) (XML *, QUEUEROW *));
+void poller_register (char *type, int (*proc) (XML *, QUEUEROW *));
 
 /*
  * Poll all queues...

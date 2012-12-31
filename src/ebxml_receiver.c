@@ -130,6 +130,7 @@ char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
        pid[PTIMESZ],
        buf[DBUFSZ];
   time_t t;
+  extern char Software[];
 
   time (&t);
   strcpy (today, ctime (&t));
@@ -208,7 +209,7 @@ char *ebxml_reply (XML *xml, XML *soap, QUEUEROW *r,
   mime_setHeader (msg, "SOAPAction", "\"ebXML\"", 99);
   mime_setHeader (msg, "Date", today, 99);
   mime_setHeader (msg, "Connection", "close", 99);
-  mime_setHeader (msg, "Server", "PHINEAS 0.1", 99);
+  mime_setHeader (msg, "Server", Software, 99);
   mime_setMultiPart (msg, smsg);
   if (rmsg != NULL)
     mime_setMultiPart (msg, rmsg);

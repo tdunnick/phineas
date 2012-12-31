@@ -729,7 +729,6 @@ int ebxml_send (XML*xml, QUEUEROW *r, MIME *msg)
   char path[MAX_PATH];
   int port, route, timeout, delay, retry;
   SSL_CTX *ctx;
-  DBUF *b;
   char *rname, 		/* route name				*/
        *content, 	/* message content			*/
        buf[MAX_PATH];

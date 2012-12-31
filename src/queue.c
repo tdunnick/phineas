@@ -31,7 +31,7 @@
 #include "log.h"
 #include "queue.h"
 
-#ifndef debug(fmt...)
+#ifndef debug
 #define debug(fmt...)
 #endif
 
@@ -109,7 +109,7 @@ QUEUECONN *queue_conn_alloc (XML *xml, int index)
    */
   sz = sizeof (QUEUECONN) + strlen (name) + strlen (type) + 
     strlen (unc) + strlen (user) + strlen (pass) + strlen (driver) + 6;
-  QUEUECONN *conn = (QUEUECONN *) malloc (sz);
+  conn = (QUEUECONN *) malloc (sz);
   memset (conn, 0, sz);
   /*
    * copy in strings

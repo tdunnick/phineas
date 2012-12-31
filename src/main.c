@@ -30,7 +30,7 @@
 #include "cfg.h"
 
 #ifndef VERSION
-#define VERSION "0.5e 12/06/2012"
+#define VERSION "0.5f 12/31/2012"
 #endif
 
 #ifdef __SENDER__
@@ -282,14 +282,14 @@ SERVICE_STATUS_HANDLE hStatus;
 int Write2Log (char* str, ...)
 {
   va_list ap;
-  FILE* log;
+  FILE* fd;
 
-  log = fopen (LOGNAME, "a+");
-  if (log == NULL)
+  fd = fopen (LOGNAME, "a+");
+  if (fd == NULL)
     return -1;
   va_start (ap, str);
-  vfprintf(log, str, ap);
-  fclose(log);
+  vfprintf(fd, str, ap);
+  fclose(fd);
   va_end (ap);
   return 0;
 }
@@ -439,7 +439,7 @@ void main_service (int argc, char** argv)
   return; 
 }
 
-void main ()
+int main ()
 {
   SERVICE_TABLE_ENTRY ServiceTable[2];
 
@@ -455,6 +455,7 @@ void main ()
   // Start the control dispatcher thread for our service
   StartServiceCtrlDispatcher (ServiceTable);  
   WriteToLog ("Exiting main\n");
+  return (0);
 }
 
 #endif /* SERVICE */

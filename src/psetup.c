@@ -36,6 +36,8 @@
 #include "xmln.c"
 #include "xml.c"
 
+void fexit(int);
+
 #define FATAL(code,msg...) fatal(msg),fexit(code)
 
 #define NEXTARG (--argc ? *++argv : usagerr (*argv))
@@ -173,12 +175,12 @@ int main (int argc, char **argv)
 #endif
 }
 
-int fexit (int code)
+void fexit (int code)
 {
   fprintf (stderr, "Press ENTER to continue... ");
   fflush (stderr);
   fgetc (stdin);
-  return (exit (code));
+  exit (code);
 }
 
 int setupService (XML *xml, int service)

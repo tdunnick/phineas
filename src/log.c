@@ -110,7 +110,7 @@ int log_level (LOGGER *logger, char *level)
   return (log_setlevel (logger, l));
 }
 
-void log (LOGGER *logger, int level, char *file, int line, char *fmt, ...)
+void log_msg (LOGGER *logger, int level, char *file, int line, char *fmt, ...)
 {
   int e;
   time_t t;
@@ -124,7 +124,7 @@ void log (LOGGER *logger, int level, char *file, int line, char *fmt, ...)
    * only report to current set level
    */
   if ((logger == NULL) || (logger->level < level))
-    return 0;
+    return;
 
   /*
    * critical unless FATAL!

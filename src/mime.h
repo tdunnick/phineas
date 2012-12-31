@@ -110,4 +110,4 @@ int mime_size (MIME *m);
  */
 char *mime_format (MIME *mime);
 
-#endif __MIME__
+#endif /* __MIME__ */

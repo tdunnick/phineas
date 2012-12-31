@@ -451,6 +451,8 @@ server_task (XML *xml)
   return (0);
 }
 
+#endif /* __SERVER__ */
+
 #ifdef UNITTEST
 #undef UNITTEST
 #include "dbuf.c"
@@ -468,4 +470,4 @@ int main (int argc, char **argv)
   info ("%s %s\n", argv[0], Errors ? "failed" : "passed");
   exit (Errors);
 }
-#endif
+#endif /* UNITTEST */

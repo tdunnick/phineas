@@ -27,8 +27,40 @@
 #define EBXMLSENDQ "EbXmlSndQ"
 #define EBXMLRCVQ "EbXmlRcvQ"
 
-typedef struct queue QUEUE;
-typedef struct queuerow QUEUEROW;
+/*
+ * Describes the basic fields and data structure.  Each implemtation
+ * needs
+ */
+typedef struct queuetype
+{
+  struct queuetype *next;
+  int numfields;			/* number of fields		*/
+  char *name;				/* needed by implementation API	*/
+  char *field[];			/* the field names		*/
+} QUEUETYPE;
+
+/*
+ * the shared queues
+ */
+typedef struct queue
+{
+  struct queue *next;			/* next known queue		*/
+  MUTEX mutex;				/* for thread safety		*/
+  char *name;				/* name of this queue		*/
+  QUEUETYPE *type;			/* type of queue		*/
+  struct queueconn *conn;		/* the queue connection 	*/
+  char *table;				/* "table" name			*/
+} QUEUE;
+
+/*
+ * one data row of a queue
+ */
+typedef struct queuerow
+{
+  QUEUE *queue;				/* queue for this row		*/
+  int rowid;				/* 0 if not set			*/
+  char *field[];			/* fields for this row		*/
+} QUEUEROW;
 
 /*
  * A connection must have an API implementation.  It includes
@@ -61,40 +93,6 @@ typedef struct queueconn
   QUEUEROW *(*prevrow) (QUEUE *q, int rowid);
 } QUEUECONN;
 
-/*
- * Describes the basic fields and data structure.  Each implemtation
- * needs
- */
-typedef struct queuetype
-{
-  struct queuetype *next;
-  int numfields;			/* number of fields		*/
-  char *name;				/* needed by implementation API	*/
-  char *field[];			/* the field names		*/
-} QUEUETYPE;
-
-/*
- * the shared queues
- */
-typedef struct queue
-{
-  struct queue *next;			/* next known queue		*/
-  MUTEX mutex;				/* for thread safety		*/
-  char *name;				/* name of this queue		*/
-  QUEUETYPE *type;			/* type of queue		*/
-  QUEUECONN *conn;			/* the queue connection 	*/
-  char *table;				/* "table" name			*/
-} QUEUE;
-
-/*
- * one data row of a queue
- */
-typedef struct queuerow
-{
-  QUEUE *queue;				/* queue for this row		*/
-  int rowid;				/* 0 if not set			*/
-  char *field[];			/* fields for this row		*/
-} QUEUEROW;
 
 /********************** general queue functions ************************/
 /* initialize queuing from a common configuration file */

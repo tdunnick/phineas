@@ -19,6 +19,8 @@
 #define __TASK__
 #include <windows.h>
 
+#define sleep Sleep
+
 /*
  * threadin tasks
  */

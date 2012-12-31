@@ -664,7 +664,7 @@ XMLNODE *xmln_normalize (XMLNODE *node)
 	t->next = NULL;
         xmln_free (t);
       }
-      if (n->value[0] == 0)	/* remove empty text node	*/
+      if (*(char *) (n->value) == 0)	/* remove empty text node	*/
       {
 	t = n;
 	n = n->next;

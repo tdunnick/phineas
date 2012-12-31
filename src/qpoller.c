@@ -100,7 +100,7 @@ int qpoller_start (QPOLLER *poller, XML *xml, QUEUEROW *row, TASKQ *q)
 /*
  * register a processor for a queue type
  */
-qpoller_register (char *type, int (*proc) (XML *, QUEUEROW *))
+void qpoller_register (char *type, int (*proc) (XML *, QUEUEROW *))
 {
   QPOLLER *n, **p;
 
