@@ -242,13 +242,14 @@ NETCON *net_open (char *hostname, int port, int listeners, SSL_CTX *ctx)
  */
 NETCON *net_accept (NETCON *conn, SSL_CTX *ctx)
 {
-  int e;
+  int addrlen;
   NETCON *c;
 
   c = (NETCON *) malloc (sizeof (NETCON));
   memset (c, 0, sizeof (NETCON));
 
-  c->sock = accept (conn->sock, (struct sockaddr *) &c->sin, &e);
+  addrlen = sizeof (struct sockaddr_in);
+  c->sock = accept (conn->sock, (struct sockaddr *) &(c->sin), &addrlen);
   if (c->sock == INVALID_SOCKET)
   {
     if (h_errno)

@@ -24,7 +24,7 @@ WINDIR=	C:\WINDOWS\system32
 SSLDIR=	C:\usr\prog\openssl\include
 INCDIR=	-I$(GCCDIR)\include -I. -I$(SSLDIR)
 LIB=	-LC:\PHP -lgdi32 -lws2_32 -lodbc32 -llibeay32 -lssleay32 
-FLAGS=	-O3 -s 
+FLAGS=	-Os -s
 
 CC=	gcc $(FLAGS) $(DEFS) $(INCDIR)
 

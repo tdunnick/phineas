@@ -1,5 +1,5 @@
 First release with compile support for MinGW GCC.
+GCC compile needed to avoid false positives from virus checkers.
 Fix various minor issues with pre-processor directives.
-Fix call Macro for ISAPI procedures.
 Fix other minor warnings/errors caught by GCC for clean compile.
 Create Makefile and gbuild.bat for GCC compiles.
